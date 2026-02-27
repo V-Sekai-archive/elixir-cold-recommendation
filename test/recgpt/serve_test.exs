@@ -77,6 +77,20 @@ defmodule RecGPT.ServeTest do
                Serve.load_state("/nonexistent/fixture.json", "data/recgpt_ckpt_export", nil)
     end
 
+    test "returns error when checkpoint dir has no manifest" do
+      dir = Path.join(System.tmp_dir!(), "recgpt_no_manifest_#{:erlang.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      fixture = Path.join(System.tmp_dir!(), "recgpt_fixture_#{:erlang.unique_integer([:positive])}.json")
+      File.write!(fixture, Jason.encode!(%{"token_id_list" => [[1, 2, 3, 4]], "num_items" => 1}))
+
+      try do
+        assert {:error, _} = Serve.load_state(fixture, dir, nil)
+      after
+        File.rm_rf(dir)
+        File.rm(fixture)
+      end
+    end
+
     @tag :integration
     test "loads state when fixture and checkpoint exist" do
       fixture = Path.expand("../data/serve_e2e_fixture.json", File.cwd!())
@@ -146,6 +160,24 @@ defmodule RecGPT.ServeTest do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
       conn = conn(:get, "/unknown") |> Plug.call([])
       assert conn.status == 404
+    end
+  end
+
+  describe "safe_str/1" do
+    test "returns empty string for nil" do
+      assert Serve.safe_str(nil) == ""
+    end
+
+    test "returns binary as-is" do
+      assert Serve.safe_str("hello") == "hello"
+    end
+
+    test "returns inspect for map" do
+      assert Serve.safe_str(%{a: 1}) =~ "%{"
+    end
+
+    test "returns to_string for number" do
+      assert Serve.safe_str(42) == "42"
     end
   end
 
