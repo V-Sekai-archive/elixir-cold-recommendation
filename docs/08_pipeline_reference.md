@@ -22,13 +22,13 @@ See also: [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) 
 
 **Outputs (under the data dir):**
 
-| File | Description |
-|------|-------------|
-| `items.json` | Catalog: `{"items": [{"id", "title"}], "num_items"}`. |
-| `train_sequences.json` | `{"sequences": [[id, ...], ...], "num_items"}` — 80% of sessions. |
-| `test_sequences.json` | `{"test_cases": [{"context", "next_item"}], "num_items"}` — 20% last-item-out. |
-| `cold_test_sequences.json` | Same shape as test; only cases where `next_item` is cold (≤ K sessions in train). |
-| `cold_train_sequences.json` | Train sequences that contain at least one cold item. |
+| File                        | Description                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `items.json`                | Catalog: `{"items": [{"id", "title"}], "num_items"}`.                             |
+| `train_sequences.json`      | `{"sequences": [[id, ...], ...], "num_items"}` — 80% of sessions.                 |
+| `test_sequences.json`       | `{"test_cases": [{"context", "next_item"}], "num_items"}` — 20% last-item-out.    |
+| `cold_test_sequences.json`  | Same shape as test; only cases where `next_item` is cold (≤ K sessions in train). |
+| `cold_train_sequences.json` | Train sequences that contain at least one cold item.                              |
 
 Cold threshold K defaults to 2; override with `:max_train_sessions_for_cold` in `run/2` opts.
 
@@ -90,7 +90,7 @@ After pretrain (and optionally eval):
 mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain --port 8000
 ```
 
-Endpoints: **GET /v1/catalog/items**, **POST /v1/catalog:recommend**, **GET /v1/health**. See [09 REST API](09_rest_api.md).
+Endpoints: **GET /v1/catalog/items**, **POST /v1/catalog:recommend**, **GET /v1/health**. See [09 REST API](09_rest_api.md). Design and schema: [13](13_grpc_rest_api.md), [14](14_api_schemas.md).
 
 ---
 
@@ -131,9 +131,9 @@ data/
 
 ## Environment variables
 
-| Variable | Used by | Purpose |
-|----------|---------|---------|
-| `RECGPT_FIXTURE` | eval, serve | Override fixture path. |
+| Variable             | Used by     | Purpose                         |
+| -------------------- | ----------- | ------------------------------- |
+| `RECGPT_FIXTURE`     | eval, serve | Override fixture path.          |
 | `RECGPT_CKPT_EXPORT` | eval, serve | Override checkpoint export dir. |
 
 Command-line options override these.
@@ -146,4 +146,5 @@ Command-line options override these.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Eval metrics and null hypothesis.
 - [06 Eval data shapes](06_eval_data_shapes.md) — JSON shapes.
 - [09 REST API](09_rest_api.md) — Serve endpoints and options.
+- [13 gRPC REST API](13_grpc_rest_api.md), [14 API schemas](14_api_schemas.md) — Unified API design and full contract.
 - [00 RecGPT library](00_recgpt_library.md) — Module reference.

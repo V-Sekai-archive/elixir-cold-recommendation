@@ -30,14 +30,14 @@ defmodule RecGPT.MixProject do
 
   defp deps do
     [
-      {:nx, "~> 0.6", override: true},
+      {:nx, "~> 0.11", override: true},
+      {:torchx, "~> 0.11"},
       {:axon, "~> 0.7"},
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},
       {:npy, "~> 0.1.2"},
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
-      {:torchx, "~> 0.11"},
       {:plug_cowboy, "~> 2.6"},
       {:ecto_sqlite3, "~> 0.14"},
       {:req, "~> 0.5"},

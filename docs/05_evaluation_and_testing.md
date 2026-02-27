@@ -8,10 +8,10 @@ For best quality, pretrain on the train split then evaluate (see [07 Steam split
 
 ## Zero-shot vs trained
 
-| Mode | Checkpoint | Fixture | Training on catalog? |
-|------|------------|---------|----------------------|
-| **Zero-shot** | Pretrained (e.g. hkuds/RecGPT_model export) | Built from item text only (Embedding → FSQ → token_id_list) | No. |
-| **Trained** | Fine-tuned on this catalog (e.g. `mix recgpt.pretrain` or Python `pre_train.py`) | Same fixture, same catalog | Yes; only checkpoint path differs. |
+| Mode          | Checkpoint                                                                       | Fixture                                                     | Training on catalog?               |
+| ------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| **Zero-shot** | Pretrained (e.g. hkuds/RecGPT_model export)                                      | Built from item text only (Embedding → FSQ → token_id_list) | No.                                |
+| **Trained**   | Fine-tuned on this catalog (e.g. `mix recgpt.pretrain` or Python `pre_train.py`) | Same fixture, same catalog                                  | Yes; only checkpoint path differs. |
 
 Run `mix recgpt.eval` twice: once with the pretrained checkpoint (zero-shot), once with the fine-tuned checkpoint (trained). Compare Hit@1, Hit@5, Hit@10, and MRR.
 

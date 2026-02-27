@@ -6,10 +6,10 @@ Catalog and event schema used for FOSS datasets (e.g. UCI Clickstream). Metadata
 
 ## Schema (this repo)
 
-| Relation | Role | Key |
-|----------|------|-----|
-| **catalog_item** | One row per item | `(item_id, source_dataset)`. Columns: `dc_title`, `dc_description`, `dc_type`, `dcterms_source`, timestamps. |
-| **event** | One row per click | `(session_id, ord)`. Columns: `item_id`, `source_dataset`, timestamps. |
+| Relation         | Role              | Key                                                                                                          |
+| ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| **catalog_item** | One row per item  | `(item_id, source_dataset)`. Columns: `dc_title`, `dc_description`, `dc_type`, `dcterms_source`, timestamps. |
+| **event**        | One row per click | `(session_id, ord)`. Columns: `item_id`, `source_dataset`, timestamps.                                       |
 
 ---
 
@@ -17,13 +17,13 @@ Catalog and event schema used for FOSS datasets (e.g. UCI Clickstream). Metadata
 
 We use the Dublin Core Metadata Element Set and DCMI terms:
 
-| Element | Use |
-|---------|-----|
-| **title** | Short description (e.g. first line or first 200 characters). |
-| **description** | Full item text; use for RecGPT/MPNet and full content. |
-| **identifier** | Same as `item_id` (e.g. `uci_clickstream:42`). |
-| **source** | Provenance: `source_dataset`. |
-| **type**, **language**, **format**, **rights** | Optional when the dataset provides them. |
+| Element                                        | Use                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| **title**                                      | Short description (e.g. first line or first 200 characters). |
+| **description**                                | Full item text; use for RecGPT/MPNet and full content.       |
+| **identifier**                                 | Same as `item_id` (e.g. `uci_clickstream:42`).               |
+| **source**                                     | Provenance: `source_dataset`.                                |
+| **type**, **language**, **format**, **rights** | Optional when the dataset provides them.                     |
 
 Namespaces: Dublin Core 1.1 `http://purl.org/dc/elements/1.1/`; DCMI terms `http://purl.org/dc/terms/`.
 

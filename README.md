@@ -115,7 +115,7 @@ See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [
 
 ## REST API (serve)
 
-RESTful API following [Google API Design Guide](https://cloud.google.com/apis/design). Only `/v1/` endpoints are served.
+RESTful API following [Google API Design Guide](https://cloud.google.com/apis/design). Unified gRPC+REST: [docs/13](docs/13_grpc_rest_api.md), [docs/14](docs/14_api_schemas.md). REST: [docs/09](docs/09_rest_api.md). Only `/v1/` endpoints are served.
 
 - **GET /v1/catalog/items?q=...&pageSize=20** — List (search) catalog items; response: `{"items": [{"item_id", "display_name"}]}`.
 - **POST /v1/catalog:recommend** — Body: `{"context_item_ids": [0,1,2], "max_results": 5}` → `{"item_ids": [...], "items": [...]}`.

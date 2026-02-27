@@ -1,6 +1,6 @@
 # REST API (Google API Design Guide)
 
-The RecGPT recommendation service is exposed as a **RESTful API** that follows [Google's API Design Guide](https://cloud.google.com/apis/design): resource-oriented URLs, versioned base path, custom methods, and a standard error format.
+The RecGPT recommendation service is exposed as a **RESTful API** that follows [Google's API Design Guide](https://cloud.google.com/apis/design): resource-oriented URLs, versioned base path, custom methods, and a standard error format. Subset of the unified API; full contract and transcoding: [13](13_grpc_rest_api.md), [14](14_api_schemas.md).
 
 ---
 
@@ -16,18 +16,16 @@ All endpoints are under **`/v1/`**. Only these routes are served; any other path
 
 List (search) catalog items by string query.
 
-| Query parameter | Type | Default | Description |
-|-----------------|------|---------|-------------|
-| `q` | string | `""` | Search string (case-insensitive substring match on item text). |
-| `pageSize` | int | 20 | Maximum number of items to return (capped at 100). |
+| Query parameter | Type   | Default | Description                                                    |
+| --------------- | ------ | ------- | -------------------------------------------------------------- |
+| `q`             | string | `""`    | Search string (case-insensitive substring match on item text). |
+| `pageSize`      | int    | 20      | Maximum number of items to return (capped at 100).             |
 
 **Response (200):**
 
 ```json
 {
-  "items": [
-    { "item_id": 0, "display_name": "Product title" }
-  ]
+  "items": [{ "item_id": 0, "display_name": "Product title" }]
 }
 ```
 
@@ -46,10 +44,10 @@ Custom method: get next-item recommendations given a context sequence of item ID
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `context_item_ids` | array of int | Yes | Ordered list of catalog item IDs (context). Must be non-empty. |
-| `max_results` | int | No | Maximum number of recommendations to return (default 5, max 20). |
+| Field              | Type         | Required | Description                                                      |
+| ------------------ | ------------ | -------- | ---------------------------------------------------------------- |
+| `context_item_ids` | array of int | Yes      | Ordered list of catalog item IDs (context). Must be non-empty.   |
+| `max_results`      | int          | No       | Maximum number of recommendations to return (default 5, max 20). |
 
 Snake_case and camelCase (`contextItemIds`, `maxResults`) are both accepted.
 
@@ -87,16 +85,21 @@ Errors use a Google-style JSON body (see [AIP-193](https://google.aip.dev/193)):
     "code": 400,
     "message": "context_item_ids must not be empty.",
     "status": "INVALID_ARGUMENT",
-    "details": [{ "@type": "type.googleapis.com/recgpt.v1.ErrorInfo", "domain": "recgpt.googleapis.com" }]
+    "details": [
+      {
+        "@type": "type.googleapis.com/recgpt.v1.ErrorInfo",
+        "domain": "recgpt.googleapis.com"
+      }
+    ]
   }
 }
 ```
 
-| HTTP code | status | When |
-|-----------|--------|------|
-| 400 | INVALID_ARGUMENT | Missing or invalid request body or parameters. |
-| 404 | NOT_FOUND | Path not supported. |
-| 503 | UNAVAILABLE | Service not ready (fixture/checkpoint not loaded). |
+| HTTP code | status           | When                                               |
+| --------- | ---------------- | -------------------------------------------------- |
+| 400       | INVALID_ARGUMENT | Missing or invalid request body or parameters.     |
+| 404       | NOT_FOUND        | Path not supported.                                |
+| 503       | UNAVAILABLE      | Service not ready (fixture/checkpoint not loaded). |
 
 ---
 
@@ -118,10 +121,10 @@ The same API can serve **different domains** (Polymarket outcomes, Booth catalog
 
 When embedding RecGPT in another app (e.g. reflex-logic-market / Polymarket Scout), you can set:
 
-| Config key | Default | Description |
-|------------|---------|-------------|
-| `:api_prefix` | `"v1"` | Path prefix before endpoint segments. Use `"recgpt/v1"` to mount at `/recgpt/v1/catalog/items`, etc. |
-| `:rest_error_domain` | `"recgpt.googleapis.com"` | Error `details[].domain` in JSON errors. Set to your service domain for consistent error handling. |
+| Config key           | Default                   | Description                                                                                          |
+| -------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `:api_prefix`        | `"v1"`                    | Path prefix before endpoint segments. Use `"recgpt/v1"` to mount at `/recgpt/v1/catalog/items`, etc. |
+| `:rest_error_domain` | `"recgpt.googleapis.com"` | Error `details[].domain` in JSON errors. Set to your service domain for consistent error handling.   |
 
 Example (e.g. in reflex-logic-market or polymarket app):
 
