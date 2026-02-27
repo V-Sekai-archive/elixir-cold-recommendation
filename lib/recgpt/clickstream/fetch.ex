@@ -1,17 +1,17 @@
 defmodule RecGPT.Clickstream.Fetch do
   @moduledoc """
   Download UCI Clickstream Data for Online Shopping and load into SQLite via Ecto.
-  Test-only: used to build data/clickstream/ for eval. Smallest Booth FOSS option:
-  165,474 rows, 217 products, CC BY 4.0. Session→ordered clicks; item text = category + product code + colour for RecGPT/MPNet.
+  Builds data/clickstream/ for eval. 165,474 rows, 217 products, CC BY 4.0.
   """
   import Ecto.Query
 
   @uci_zip_url "https://archive.ics.uci.edu/static/public/553/clickstream+data+for+online+shopping.zip"
   @csv_name "e-shop clothing 2008.csv"
   @batch_size 10_000
+  @source_dataset "uci_clickstream"
 
   @doc """
-  Download zip, extract, run migrations, load items + events into Repo.
+  Download zip, extract, run migrations, load into Repo.
   Writes data/clickstream/items.json and test_sequences.json for eval.
   Returns :ok or {:error, reason}.
   """
@@ -55,18 +55,21 @@ defmodule RecGPT.Clickstream.Fetch do
 
   defp extract_csv(zip_path, out_dir) do
     Mix.shell().info("Extracting...")
-    case :zip.extract(to_charlist(zip_path), [{:cwd, to_charlist(out_dir)}]) do
-      :ok ->
-        # Zip may extract to a subdir or flat
-        flat = Path.join(out_dir, @csv_name)
-        sub = Path.join(out_dir, "clickstream+data+for+online+shopping/#{@csv_name}")
-        cond do
-          File.regular?(flat) -> {:ok, flat}
-          File.regular?(sub) -> {:ok, sub}
-          true -> {:error, "CSV not found after extract"}
-        end
-      {:error, reason} ->
-        {:error, reason}
+    result = :zip.extract(to_charlist(zip_path), [{:cwd, to_charlist(out_dir)}])
+    case result do
+      :ok -> find_csv(out_dir)
+      {:ok, _paths} -> find_csv(out_dir)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp find_csv(out_dir) do
+    flat = Path.join(out_dir, @csv_name)
+    sub = Path.join(out_dir, "clickstream+data+for+online+shopping/#{@csv_name}")
+    cond do
+      File.regular?(flat) -> {:ok, flat}
+      File.regular?(sub) -> {:ok, sub}
+      true -> {:error, "CSV not found after extract"}
     end
   end
 
@@ -74,8 +77,8 @@ defmodule RecGPT.Clickstream.Fetch do
     Mix.shell().info("Running migrations...")
     path = migrations_path()
     case Ecto.Migrator.run(RecGPT.Repo, path, :up, all: true) do
-      {:ok, _} -> :ok
-      {:error, _} = err -> err
+      list when is_list(list) -> :ok
+      other -> other
     end
   end
 
@@ -88,7 +91,6 @@ defmodule RecGPT.Clickstream.Fetch do
   defp load_items_and_events(csv_path) do
     Mix.shell().info("Parsing CSV...")
     {rows, header} = parse_csv(csv_path)
-    # header: ["year","month",...,"session ID","order","page 1 (main category)","page 2 (clothing model)","colour",...]
     idx_session = find_index(header, "session ID")
     idx_order = find_index(header, "order")
     idx_page1 = find_index(header, "page 1 (main category)")
@@ -99,7 +101,6 @@ defmodule RecGPT.Clickstream.Fetch do
       raise "Expected columns not found. Header: #{inspect(header)}"
     end
 
-    # Build unique (page1, page2, colour) -> 0-based id and title
     keys_to_id = %{}
     id_to_title = %{}
     {keys_to_id, id_to_title, _next} =
@@ -122,27 +123,53 @@ defmodule RecGPT.Clickstream.Fetch do
     num_items = map_size(id_to_title)
     Mix.shell().info("Loading #{num_items} items, #{length(rows)} events...")
 
-    now = DateTime.utc_now() |> DateTime.to_unix(:microsecond)
-    item_rows =
+    now = DateTime.utc_now()
+
+    catalog_item_rows =
       for {id, title} <- id_to_title do
-        %{id: id, title: title, inserted_at: now, updated_at: now}
+        %{
+          item_id: id,
+          source_dataset: @source_dataset,
+          dc_title: title,
+          dc_description: title,
+          dcterms_source: @source_dataset,
+          inserted_at: now,
+          updated_at: now
+        }
       end
 
-    RecGPT.Repo.insert_all(RecGPT.Clickstream.Item, item_rows, on_conflict: :replace_all, conflict_target: [:id])
+    RecGPT.Repo.insert_all(
+      RecGPT.Clickstream.CatalogItem,
+      catalog_item_rows,
+      on_conflict: :replace_all,
+      conflict_target: [:item_id, :source_dataset]
+    )
 
-    events =
+    etnf_events =
       Enum.map(rows, fn row ->
         session_id = safe_at_int(row, idx_session)
         ord = safe_at_int(row, idx_order)
         key = {safe_at(row, idx_page1), safe_at(row, idx_page2), safe_at(row, idx_colour)}
         item_id = Map.fetch!(keys_to_id, key)
-        %{session_id: session_id, ord: ord, item_id: item_id, inserted_at: now, updated_at: now}
+        %{
+          session_id: session_id,
+          ord: ord,
+          item_id: item_id,
+          source_dataset: @source_dataset,
+          inserted_at: now,
+          updated_at: now
+        }
       end)
 
-    events
+    etnf_events
     |> Enum.chunk_every(@batch_size)
     |> Enum.each(fn batch ->
-      RecGPT.Repo.insert_all(RecGPT.Clickstream.Event, batch)
+      RecGPT.Repo.insert_all(
+        RecGPT.Clickstream.EtnfEvent,
+        batch,
+        on_conflict: :replace_all,
+        conflict_target: [:session_id, :ord]
+      )
     end)
 
     {:ok, num_items}
@@ -172,10 +199,10 @@ defmodule RecGPT.Clickstream.Fetch do
     Enum.find_index(header, fn h -> String.downcase(String.trim(h)) == String.downcase(name) end)
   end
 
-  defp safe_at(row, nil), do: ""
+  defp safe_at(_row, nil), do: ""
   defp safe_at(row, i) when is_list(row), do: Enum.at(row, i) || ""
 
-  defp safe_at_int(row, nil), do: 0
+  defp safe_at_int(_row, nil), do: 0
   defp safe_at_int(row, i) when is_list(row) do
     s = Enum.at(row, i) || "0"
     case Integer.parse(to_string(s)) do
@@ -185,9 +212,8 @@ defmodule RecGPT.Clickstream.Fetch do
   end
 
   defp write_eval_artifacts(data_path, num_items) do
-    # Build test_sequences: last-item-out per session
     query =
-      from e in RecGPT.Clickstream.Event,
+      from e in RecGPT.Clickstream.EtnfEvent,
         order_by: [asc: e.session_id, asc: e.ord],
         select: %{session_id: e.session_id, ord: e.ord, item_id: e.item_id}
 
@@ -200,9 +226,10 @@ defmodule RecGPT.Clickstream.Fetch do
           do: build_test_case(list)
 
     items =
-      RecGPT.Repo.all(RecGPT.Clickstream.Item)
-      |> Enum.sort_by(& &1.id)
-      |> Enum.map(fn i -> %{"id" => i.id, "title" => i.title} end)
+      RecGPT.Repo.all(RecGPT.Clickstream.CatalogItem)
+      |> Enum.filter(&(&1.source_dataset == @source_dataset))
+      |> Enum.sort_by(& &1.item_id)
+      |> Enum.map(fn i -> %{"id" => i.item_id, "title" => i.dc_title} end)
 
     items_json = Path.join(data_path, "items.json")
     File.write!(items_json, Jason.encode!(%{"items" => items, "num_items" => num_items}, pretty: true))

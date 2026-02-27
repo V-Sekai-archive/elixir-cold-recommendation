@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
   Loads fixture + checkpoint, runs RecGPT.Eval on a JSON test set, prints metrics.
 
   Use with a standard FOSS dataset (e.g. UCI Clickstream) so numbers are comparable.
-  Prepare test data: from test env run `RecGPT.Clickstream.Fetch.run()` to get data/clickstream/items.json and test_sequences.json; build fixture from items (Embedding + FSQ).
+  Prepare test data: run `mix run -e "Application.ensure_all_started(:recgpt); RecGPT.Clickstream.Fetch.run()"` to get data/clickstream/items.json and test_sequences.json; then build fixture from items (Embedding + FSQ).
 
   ## Options
     * `--fixture` - Path to fixture JSON (token_id_list; default: data/clickstream/fixture.json)

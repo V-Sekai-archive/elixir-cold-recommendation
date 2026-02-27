@@ -22,7 +22,19 @@ Thumbs.db
 logs/
 serve_e2e_data/
 
+# Migration backups (do not commit)
+priv/repo/migrations_old/
+
 # Generated DBs (UCI Clickstream, etc.)
 data/**/*.db
 data/**/*.db-shm
 data/**/*.db-wal
+
+# UCI Clickstream (downloaded + extracted + generated)
+data/clickstream/*.zip
+data/clickstream/*.csv
+data/clickstream/e-shop*
+data/clickstream/items.json
+data/clickstream/test_sequences.json
+data/clickstream/fixture.json
+data/clickstream/clickstream+data+for+online+shopping/

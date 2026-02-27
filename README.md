@@ -10,6 +10,16 @@ Elixir library for RecGPT-style recommendation: FSQ (Finite Scalar Quantization)
 - **RecGPT.Training** — `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` for training data and loss.
 - **RecGPT.Serve** — HTTP server (port of Python `serve.py`): `load_state/3`, `recommend/3`, `search/3`. Run with `mix recgpt.serve [--port 8000]`.
 
+## Clickstream PoC (UCI data → eval artifacts)
+
+One command to fetch UCI Clickstream zip, run migrations, load SQLite, and write `data/clickstream/items.json` and `test_sequences.json`:
+
+```bash
+mix run -e "Application.ensure_all_started(:recgpt); RecGPT.Clickstream.Fetch.run()"
+```
+
+If you see "table already exists", remove `data/clickstream/recgpt.db` and run again. Next: build fixture (Embedding + FSQ from items), then `mix recgpt.eval`.
+
 ## HTTP server (serve.py port)
 
 From `recgpt/` (or repo root; paths resolve to `data/` under cwd or parent):

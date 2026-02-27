@@ -1,6 +1,14 @@
 # ETNF catalog metadata: Dublin Core + XMP JSON-LD
 
-Catalog item metadata in the ETNF FOSS datasets DB (schema in separate repo) is stored as **Dublin Core** ([Wikipedia](https://en.wikipedia.org/wiki/Dublin_Core)) encoded as **XMP JSON-LD** in the style of [Khronos KHR_xmp_json_ld](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld).
+Catalog item metadata in the ETNF FOSS datasets DB is stored in normalized tables and exposed as **Dublin Core** ([Wikipedia](https://en.wikipedia.org/wiki/Dublin_Core)) **XMP JSON-LD** via a **view** (not a stored column), in the style of [Khronos KHR_xmp_json_ld](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld).
+
+---
+
+## Schema (this repo)
+
+- **`catalog_item`** — One row per item; composite key `(item_id, source_dataset)`. Columns: `dc_title`, `dc_description`, `dc_type`, `dcterms_source`, timestamps.
+- **`event`** — One row per click; composite key `(session_id, ord)`. Columns: `item_id`, `source_dataset`, timestamps.
+- **`catalog_item_xmp_jsonld`** — A **view** (read-only). Selects from `catalog_item` and builds the XMP JSON-LD document per row using SQLite `json_object`. Columns: `item_id`, `source_dataset`, `item_xmp_jsonld` (TEXT). No stored JSON-LD column; the view computes it from normalized columns.
 
 ---
 
@@ -30,7 +38,7 @@ Other terms (creator, date, subject, relation, etc.) may be added when the sourc
 
 ## XMP JSON-LD encoding
 
-The value in `catalog.item_xmp_jsonld` is a single JSON-LD document (TEXT) that:
+The view `catalog_item_xmp_jsonld` exposes a column `item_xmp_jsonld` (TEXT) computed from `catalog_item`. Each row is a single JSON-LD document that:
 
 1. Uses a `@context` that maps `dc` and `dcterms` to the DCMI URIs.
 2. Uses Dublin Core properties for all item metadata.
