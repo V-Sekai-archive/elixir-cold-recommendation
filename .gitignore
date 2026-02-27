@@ -1,0 +1,22 @@
+# Elixir / Mix
+_build/
+deps/
+.elixir_ls/
+cover/
+.cover/
+erl_crash.dump
+*.beam
+.mix/
+.fetch
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,77 @@
+defmodule RecGPT.Embedding do
+  @moduledoc """
+  Text → 768-d embeddings for RecGPT training (MPNet, sentence-transformers/all-mpnet-base-v2).
+
+  Uses Bumblebee to load and run the model. Mean pooling, no L2 norm (match Python normalize_embeddings=False).
+  Outputs are not guaranteed identical to Python; validate if you need parity.
+
+  ## Usage
+
+      serving = RecGPT.Embedding.serving()
+      result = Nx.Serving.run(serving, "Some market title Yes")
+      result = Nx.Serving.run(serving, ["Text A", "Text B"])
+      embeddings = RecGPT.Embedding.encode_item_text_dict(%{0 => "Title A", 1 => "Title B"})
+  """
+
+  @model_id "sentence-transformers/all-mpnet-base-v2"
+  @embedding_size 768
+
+  def embedding_size, do: @embedding_size
+
+  @doc "Loads the MPNet model and tokenizer, returns a text embedding serving. Cached in application env :recgpt."
+  def serving do
+    case Application.get_env(:recgpt, :embedding_serving) do
+      nil ->
+        serving = load_serving!()
+        Application.put_env(:recgpt, :embedding_serving, serving)
+        serving
+
+      cached ->
+        cached
+    end
+  end
+
+  defp load_serving! do
+    IO.puts("Downloading model #{@model_id} (first run may take several minutes)...")
+    # Load as :base to get hidden_state/pooled_state for embeddings (sentence-transformers model has LM head but we use encoder only)
+    {:ok, model_info} = Bumblebee.load_model({:hf, @model_id}, spec_overrides: [architecture: :base])
+    IO.puts("Model loaded. Downloading tokenizer...")
+    {:ok, tokenizer} = Bumblebee.load_tokenizer({:hf, @model_id})
+    IO.puts("Tokenizer loaded. Building serving...")
+
+    serving =
+      Bumblebee.Text.text_embedding(model_info, tokenizer,
+        output_pool: :mean_pooling,
+        output_attribute: :hidden_state,
+        embedding_processor: nil
+      )
+
+    IO.puts("Embedding serving ready.")
+    serving
+  end
+
+  @doc "Encodes a list of texts to a single Nx tensor of shape {num_texts, 768}."
+  def encode_texts(texts) when is_list(texts) do
+    serv = serving()
+    results = Nx.Serving.run(serv, texts)
+    tensors = Enum.map(results, fn %{embedding: t} -> t end)
+    Nx.stack(tensors)
+  end
+
+  @doc "Encodes item_text_dict (map of item_index => text) to Nx tensor {num_items, 768}. Indices 0..num_items-1, sorted."
+  def encode_item_text_dict(item_text_dict) when is_map(item_text_dict) do
+    indices = item_text_dict |> Map.keys() |> Enum.sort()
+    texts = Enum.map(indices, &Map.fetch!(item_text_dict, &1))
+    encode_texts(texts)
+  end
+
+  @doc "Saves embeddings tensor to path (Nx serialized). Load with Nx.deserialize(File.read!(path))."
+  def save_embeddings(embeddings, path) do
+    File.write!(path, Nx.serialize(embeddings))
+  end
+
+  @doc "Loads embeddings from a path written by save_embeddings/2."
+  def load_embeddings(path) do
+    path |> File.read!() |> Nx.deserialize()
+  end
+end
