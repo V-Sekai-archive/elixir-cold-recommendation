@@ -2,6 +2,8 @@
 
 How to evaluate RecGPT (zero-shot and trained), ensure eval uses **held-out data only**, and reject the null hypothesis that the model has no predictive signal.
 
+**For best quality:** Use **pretraining** on the train split, then eval on test (and optional cold). See [07 Steam dataset splits and pretraining](07_steam_splits_and_pretraining.md). Zero-shot is a baseline only.
+
 See also: [00 RecGPT library](00_recgpt_library.md), [02 Checkpoint layout](02_recgpt_checkpoint_layout.md).
 
 ---

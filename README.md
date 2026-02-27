@@ -12,7 +12,7 @@ Elixir library for RecGPT-style recommendation: FSQ (Finite Scalar Quantization)
 
 ## Clickstream PoC (UCI data → eval artifacts)
 
-One command to fetch UCI Clickstream zip, run migrations, load SQLite, and write `data/clickstream/items.json` and `test_sequences.json`:
+One command to fetch UCI Clickstream zip, run migrations, load SQLite, and write Steam-like artifacts: `items.json`, `train_sequences.json` (80% sessions for pretraining), and `test_sequences.json` (20% held-out). For best quality, pretrain on train then eval; see [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md).
 
 ```bash
 mix run -e "Application.ensure_all_started(:recgpt); RecGPT.Clickstream.Fetch.run()"
@@ -62,3 +62,4 @@ Compare test is excluded by default (needs fixtures). Python scripts (e.g. `comp
 - [Library documentation](docs/00_recgpt_library.md) — modules, deps, tests, training flow, links to repo RecGPT docs.
 - [Python RecGPT parity progress](docs/01_python_recgpt_parity_progress.md) — task list, validation commands, PropCheck and parity constants tests.
 - [Evaluation and testing](docs/05_evaluation_and_testing.md) — zero-shot vs trained, train/eval split (held-out eval), null-hypothesis rejection, test plan.
+- [Steam dataset splits and pretraining](docs/07_steam_splits_and_pretraining.md) — regular + cold splits, pretraining-first for best quality.
