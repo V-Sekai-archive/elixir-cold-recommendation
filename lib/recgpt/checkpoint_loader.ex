@@ -1,7 +1,11 @@
 defmodule RecGPT.CheckpointLoader do
   @moduledoc """
-  Load RecGPT checkpoint from an export directory produced by
-  `scripts/inspect_recgpt_checkpoint.py --export DIR`.
+  Load RecGPT checkpoint from an export directory (manifest.json + .npy files).
+
+  Export dir can be produced by:
+  - `RecGPT.CheckpointExport.write_export/2` or `mix recgpt.export_ckpt --from-export DIR --out DIR`
+  - `mix recgpt.export_ckpt --from-pt path.pt --out DIR` (requires Python + torch)
+  - Formerly: `scripts/inspect_recgpt_checkpoint.py --export DIR`
 
   The export dir must contain:
   - manifest.json: map of state_dict key -> %{"file" => "key.npy", "shape" => [dims]}
