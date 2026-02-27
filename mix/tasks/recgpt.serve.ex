@@ -29,29 +29,46 @@ defmodule Mix.Tasks.Recgpt.Serve do
       )
 
     port = opts[:port] || 8000
-    fixture_path = opts[:fixture] || System.get_env("RECGPT_FIXTURE") || resolve_path("data/steam_e2e_fixture.json")
-    ckpt_dir = opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") || resolve_path("data/recgpt_ckpt_export")
+
+    fixture_path =
+      opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        resolve_path("data/steam_e2e_fixture.json")
+
+    ckpt_dir =
+      opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
+        resolve_path("data/recgpt_ckpt_export")
+
     catalog_path = opts[:catalog]
 
     Application.ensure_all_started(:nx)
 
     Mix.shell().info("Loading model and fixture...")
+
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
         Mix.shell().info("Listening on http://0.0.0.0:#{port}/recommend")
-        Mix.shell().info("Example: curl -s -X POST http://localhost:#{port}/recommend -H \"Content-Type: application/json\" -d \"{\\\"item_ids\\\": [1, 2, 3], \\\"top_k\\\": 5}\"")
+
+        Mix.shell().info(
+          "Example: curl -s -X POST http://localhost:#{port}/recommend -H \"Content-Type: application/json\" -d \"{\\\"item_ids\\\": [1, 2, 3], \\\"top_k\\\": 5}\""
+        )
 
         spec = {Plug.Cowboy, scheme: :http, plug: RecGPT.Serve.Plug, options: [port: port]}
         {:ok, _pid} = Supervisor.start_link([spec], strategy: :one_for_one)
         Process.sleep(:infinity)
+
       {:error, reason} ->
-        Mix.raise("Failed to load: #{inspect(reason)}. Ensure fixture at #{fixture_path} and checkpoint at #{ckpt_dir}")
+        Mix.raise(
+          "Failed to load: #{inspect(reason)}. Ensure fixture at #{fixture_path} and checkpoint at #{ckpt_dir}"
+        )
     end
   end
 
   defp resolve_path(path) do
-    if absolute_path?(path), do: path, else: first_existing(Path.join(File.cwd!(), path), Path.join(Path.dirname(File.cwd!()), path))
+    if absolute_path?(path),
+      do: path,
+      else:
+        first_existing(Path.join(File.cwd!(), path), Path.join(Path.dirname(File.cwd!()), path))
   end
 
   defp absolute_path?(p), do: String.starts_with?(p, "/") or p =~ ~r/^[a-zA-Z]:/

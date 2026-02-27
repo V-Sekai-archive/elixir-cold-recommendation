@@ -16,12 +16,14 @@ defmodule RecGPT.DecodeTest do
       [1, 2, 3] -> make_logits([4], [5.0])
       _ -> make_logits([0], [0.0])
     end
+
     assert Decode.beam_search(get_logits, trie, [], 2) == {:ok, 0}
   end
 
   test "beam_search returns second item when logits favor that path" do
     token_id_list = [[1, 2, 3, 4], [10, 20, 30, 40]]
     trie = Trie.build(token_id_list)
+
     get_logits = fn
       [] -> make_logits([1, 10], [0.0, 10.0])
       [10] -> make_logits([20], [5.0])
@@ -29,6 +31,7 @@ defmodule RecGPT.DecodeTest do
       [10, 20, 30] -> make_logits([40], [5.0])
       _ -> make_logits([0], [0.0])
     end
+
     assert Decode.beam_search(get_logits, trie, [], 2) == {:ok, 1}
   end
 
@@ -36,6 +39,7 @@ defmodule RecGPT.DecodeTest do
     token_id_list = [[1, 2, 3, 4], [10, 20, 30, 40]]
     trie = Trie.build(token_id_list)
     context = [1, 2, 3, 4]
+
     get_logits = fn
       [1, 2, 3, 4] -> make_logits([1, 10], [0.0, 8.0])
       [1, 2, 3, 4, 10] -> make_logits([20], [5.0])
@@ -43,6 +47,7 @@ defmodule RecGPT.DecodeTest do
       [1, 2, 3, 4, 10, 20, 30] -> make_logits([40], [5.0])
       _ -> make_logits([0], [0.0])
     end
+
     assert Decode.beam_search(get_logits, trie, context, 2) == {:ok, 1}
   end
 
@@ -70,6 +75,7 @@ defmodule RecGPT.DecodeTest do
       [5, 6, 7] -> make_logits([8], [1.0])
       _ -> make_logits([0], [0.0])
     end
+
     assert {:ok, list} = Decode.beam_search_top_k(get_logits, trie, [], 2)
     assert length(list) <= 2
     assert length(list) >= 1
@@ -84,6 +90,7 @@ defmodule RecGPT.DecodeTest do
   defp make_logits(preferred_ids, preferred_scores) do
     vocab_size = 15361
     base = Nx.broadcast(-100.0, {1, vocab_size}) |> Nx.as_type({:f, 32})
+
     Enum.reduce(Enum.zip(preferred_ids, preferred_scores), base, fn {id, score}, acc ->
       Nx.put_slice(acc, [0, id], Nx.tensor([[score]], type: {:f, 32}))
     end)

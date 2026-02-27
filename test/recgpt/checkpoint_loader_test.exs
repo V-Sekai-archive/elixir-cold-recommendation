@@ -36,6 +36,7 @@ defmodule RecGPT.CheckpointLoaderTest do
   test "load_from_export raises when manifest.json is missing" do
     dir = Path.join(System.tmp_dir!(), "recgpt_empty_#{:erlang.unique_integer([:positive])}")
     File.mkdir_p!(dir)
+
     try do
       assert_raise File.Error, fn ->
         CheckpointLoader.load_from_export(dir)

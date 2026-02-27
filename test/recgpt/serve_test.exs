@@ -73,13 +73,15 @@ defmodule RecGPT.ServeTest do
 
   describe "load_state/3" do
     test "returns error when fixture missing" do
-      assert {:error, _} = Serve.load_state("/nonexistent/fixture.json", "data/recgpt_ckpt_export", nil)
+      assert {:error, _} =
+               Serve.load_state("/nonexistent/fixture.json", "data/recgpt_ckpt_export", nil)
     end
 
     @tag :integration
     test "loads state when fixture and checkpoint exist" do
       fixture = Path.expand("../data/steam_e2e_fixture.json", File.cwd!())
       ckpt = Path.expand("../data/recgpt_ckpt_export", File.cwd!())
+
       if File.regular?(fixture) and File.regular?(Path.join(ckpt, "manifest.json")) do
         assert {:ok, state} = Serve.load_state(fixture, ckpt, nil)
         assert state.num_items > 0
@@ -115,6 +117,7 @@ defmodule RecGPT.ServeTest do
 
     test "POST /recommend returns item_ids and item_texts" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
+
       conn =
         conn(:post, "/recommend", Jason.encode!(%{"item_ids" => [0], "top_k" => 5}))
         |> put_req_header("content-type", "application/json")
@@ -130,6 +133,7 @@ defmodule RecGPT.ServeTest do
 
     test "POST /recommend returns 400 when item_ids missing" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
+
       conn =
         conn(:post, "/recommend", Jason.encode!(%{}))
         |> put_req_header("content-type", "application/json")
@@ -149,6 +153,7 @@ defmodule RecGPT.ServeTest do
     token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
     trie = RecGPT.Trie.build(token_id_list)
     params = build_dummy_params()
+
     get_logits_fn = fn token_list ->
       seq_len = length(token_list)
       batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
@@ -171,11 +176,11 @@ defmodule RecGPT.ServeTest do
     wte = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
     head_w = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
     head_b = Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+
     %{
       "wte" => wte,
       "pred_head.weight" => head_w,
       "pred_head.bias" => head_b
     }
   end
-
 end

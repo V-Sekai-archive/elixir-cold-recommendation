@@ -12,6 +12,7 @@ defmodule RecGPT.PipelineIntegrationTest do
     project_in_b = Nx.broadcast(0.0, {5})
     project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192) |> Nx.subtract(0.05)
     project_out_b = Nx.broadcast(0.0, {192})
+
     %{
       "project_in" => %{"kernel" => project_in_k, "bias" => project_in_b},
       "project_out" => %{"kernel" => project_out_k, "bias" => project_out_b}
@@ -22,13 +23,15 @@ defmodule RecGPT.PipelineIntegrationTest do
   test "full pipeline: synthetic embeddings -> token_id_list -> build_train_batch -> loss_shifted_ce" do
     num_items = 5
     # 1. Synthetic item embeddings (num_items, 768)
-    item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items) |> Nx.as_type({:f, 32})
+    item_embeddings =
+      Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items) |> Nx.as_type({:f, 32})
 
     # 2. FSQ params and token_id_list
     params = fsq_params()
     token_id_list = FSQEncoder.encode_embeddings_to_token_id_list(item_embeddings, params, 2)
     assert length(token_id_list) == num_items
     assert Enum.all?(token_id_list, fn list -> length(list) == 4 end)
+
     assert Enum.all?(token_id_list, fn list ->
              Enum.all?(list, fn id -> id >= 0 and id < FSQ.vocab_size() end)
            end)
@@ -36,6 +39,7 @@ defmodule RecGPT.PipelineIntegrationTest do
     # 3. Training sequences (item indices) and batch
     seqs = [[0, 1, 2], [1, 2, 3], [0, 3, 4]]
     batch_indices = [0, 1, 2]
+
     {batch_seq, batch_labels, batch_aux, embed_mask} =
       Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
 
@@ -62,6 +66,7 @@ defmodule RecGPT.PipelineIntegrationTest do
     assert length(token_id_list) == 1
 
     seqs = [[0]]
+
     {batch_seq, batch_labels, batch_aux, _mask} =
       Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
 
@@ -70,7 +75,12 @@ defmodule RecGPT.PipelineIntegrationTest do
     assert Nx.shape(batch_aux) == {1, 256 * 4, 192}
 
     # First 4 tokens = item 0's tokens; rest padding
-    first_tokens = batch_seq |> Nx.squeeze(axes: [0]) |> Nx.slice_along_axis(0, 4, axis: 0) |> Nx.to_flat_list()
+    first_tokens =
+      batch_seq
+      |> Nx.squeeze(axes: [0])
+      |> Nx.slice_along_axis(0, 4, axis: 0)
+      |> Nx.to_flat_list()
+
     assert length(first_tokens) == 4
     assert Enum.all?(first_tokens, fn id -> id >= 0 and id < FSQ.vocab_size() end)
   end

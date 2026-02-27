@@ -20,6 +20,7 @@ defmodule RecGPT.CheckpointLoader do
 
   defp do_load_from_export(export_dir) do
     manifest_path = Path.join(export_dir, "manifest.json")
+
     if not File.regular?(manifest_path) do
       raise File.Error, path: manifest_path, reason: :enoent
     end
@@ -29,6 +30,7 @@ defmodule RecGPT.CheckpointLoader do
     Enum.reduce(manifest, %{}, fn {key, meta}, acc ->
       fname = meta["file"]
       path = Path.join(export_dir, fname)
+
       case Npy.load(path, :nx) do
         {:ok, tensor} -> Map.put(acc, key, tensor)
         {:error, reason} -> raise "Failed to load #{path}: #{inspect(reason)}"

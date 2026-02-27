@@ -93,6 +93,7 @@ defmodule RecGPT.ParityConstantsTest do
 
       assert length(token_id_list) == 2
       assert Enum.all?(token_id_list, fn list -> length(list) == @parity_fsq_tokens_per_item end)
+
       assert Enum.all?(token_id_list, fn list ->
                Enum.all?(list, fn id -> id >= 0 and id < @parity_fsq_vocab_size end)
              end)

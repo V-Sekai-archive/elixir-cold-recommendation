@@ -46,6 +46,7 @@ defmodule RecGPT.Inference do
           last_idx = seq_len - 1
           s = Nx.slice_along_axis(combined, last_idx, 1, axis: 1)
           Nx.squeeze(s, axes: [1])
+
         n_layers ->
           # Add position embeddings if present
           h = add_wpe(combined, params, seq_len)
@@ -61,9 +62,14 @@ defmodule RecGPT.Inference do
   end
 
   defp add_wpe(hidden, params, seq_len) do
-    wpe = params["gpt2model.wpe"] || params["gpt2model.wpe.weight"] || params["transformer.wpe"] || params["transformer.wpe.weight"]
+    wpe =
+      params["gpt2model.wpe"] || params["gpt2model.wpe.weight"] || params["transformer.wpe"] ||
+        params["transformer.wpe.weight"]
+
     case wpe do
-      nil -> hidden
+      nil ->
+        hidden
+
       _ ->
         # wpe: (max_pos, 768); we need (seq_len, 768)
         indices = Nx.iota({seq_len}, type: {:s, 32})
@@ -80,6 +86,7 @@ defmodule RecGPT.Inference do
 
   defp gpt2_prefix(params) do
     keys = Map.keys(params)
+
     cond do
       Enum.any?(keys, &String.starts_with?(&1, "gpt2model.h.")) -> "gpt2model."
       Enum.any?(keys, &String.starts_with?(&1, "transformer.h.")) -> "transformer."
@@ -89,24 +96,28 @@ defmodule RecGPT.Inference do
 
   defp count_gpt2_layers(params, prefix) do
     pattern = prefix <> "h."
+
     layer_indices =
       params
       |> Map.keys()
       |> Enum.filter(&String.starts_with?(&1, pattern))
       |> Enum.map(fn k ->
         rest = String.replace_prefix(k, pattern, "")
+
         case Integer.parse(rest) do
           {i, _} -> i
           :error -> -1
         end
       end)
       |> Enum.reject(&(&1 < 0))
+
     max_idx = Enum.max(layer_indices ++ [-1])
     max_idx + 1
   end
 
   defp run_gpt2_blocks(hidden, params, n_layers) do
     prefix = gpt2_prefix(params)
+
     Enum.reduce(0..(n_layers - 1), hidden, fn i, h ->
       gpt2_block(h, params, prefix, i)
     end)
@@ -148,6 +159,7 @@ defmodule RecGPT.Inference do
     # Per-head matmul: for each of (batch*n_head), (seq, head_dim) @ (head_dim, seq) -> (seq, seq)
     q_flat = Nx.reshape(q, {batch * @n_head, seq, @head_dim})
     k_flat = Nx.reshape(k, {batch * @n_head, seq, @head_dim}) |> Nx.transpose(axes: [0, 2, 1])
+
     scores =
       for i <- 0..(batch * @n_head - 1) do
         q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
@@ -155,18 +167,27 @@ defmodule RecGPT.Inference do
         Nx.dot(q_i, [1], k_i, [0]) |> Nx.divide(scale)
       end
       |> Nx.stack(axis: 0)
+
     scores = Nx.reshape(scores, {batch, @n_head, seq, seq})
     # Causal mask: position i may attend only to j <= i. Mask (seq, seq): -1e10 where j > i
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
     mask = Nx.greater(col, row)
-    mask = Nx.select(mask, Nx.broadcast(Nx.tensor(-1.0e10, type: {:f, 32}), {seq, seq}), Nx.broadcast(0.0, {seq, seq}))
+
+    mask =
+      Nx.select(
+        mask,
+        Nx.broadcast(Nx.tensor(-1.0e10, type: {:f, 32}), {seq, seq}),
+        Nx.broadcast(0.0, {seq, seq})
+      )
+
     mask = Nx.reshape(mask, {1, 1, seq, seq}) |> Nx.as_type({:f, 32})
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
     probs_flat = Nx.reshape(probs, {batch * @n_head, seq, seq})
     v_flat = Nx.reshape(v, {batch * @n_head, seq, @head_dim})
+
     out =
       for i <- 0..(batch * @n_head - 1) do
         p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
@@ -174,7 +195,12 @@ defmodule RecGPT.Inference do
         Nx.dot(p_i, [1], v_i, [0])
       end
       |> Nx.stack(axis: 0)
-    out = Nx.reshape(out, {batch, @n_head, seq, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3]) |> Nx.reshape({batch, seq, @n_embd})
+
+    out =
+      Nx.reshape(out, {batch, @n_head, seq, @head_dim})
+      |> Nx.transpose(axes: [0, 2, 1, 3])
+      |> Nx.reshape({batch, seq, @n_embd})
+
     c_proj_w = params[base <> "attn.c_proj.weight"]
     c_proj_b = params[base <> "attn.c_proj.bias"]
     c_proj_w = ensure_shape(c_proj_w, {@n_embd, @n_embd})
@@ -211,7 +237,10 @@ defmodule RecGPT.Inference do
   end
 
   defp get_wte(params) do
-    wte = params["gpt2model.wte"] || params["gpt2model.wte.weight"] || params["wte"] || params["wte.weight"]
+    wte =
+      params["gpt2model.wte"] || params["gpt2model.wte.weight"] || params["wte"] ||
+        params["wte.weight"]
+
     if is_nil(wte), do: raise("missing wte in params")
     # RecGPT checkpoint may have GPT-2 vocab (50257); use first 15361 for FSQ vocab
     {rows, _} = Nx.shape(wte)
@@ -223,6 +252,7 @@ defmodule RecGPT.Inference do
     bias = params["ae.linear.bias"] || params["ae.bias"]
     norm_w = params["ae.norm.weight"] || params["norm_aux.weight"]
     norm_b = params["ae.norm.bias"] || params["norm_aux.bias"]
+
     if weight do
       weight = ensure_shape(weight, {768, 192})
       out = Nx.dot(aux_192, [2], weight, [1])
@@ -246,6 +276,7 @@ defmodule RecGPT.Inference do
   defp apply_head(hidden, params) do
     weight = params["pred_head.weight"]
     bias = params["pred_head.bias"]
+
     if weight do
       # PyTorch Linear(768, 15361) is (15361, 768); Nx.dot needs (768, 15361)
       weight = ensure_shape(weight, {768, 15361})

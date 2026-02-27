@@ -31,6 +31,7 @@ defmodule RecGPT.TrainingTest do
       seqs = [Enum.to_list(0..(num_items - 1))]
       token_id_list = for _ <- 1..num_items, do: [1, 2, 3, 4]
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
+
       {batch_seq, _labels, batch_aux, _mask} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
 
@@ -72,10 +73,16 @@ defmodule RecGPT.TrainingTest do
     test "seq length exactly 256 is not truncated" do
       num_items = 256
       seqs = [Enum.to_list(0..(num_items - 1))]
-      token_id_list = for i <- 0..(num_items - 1), do: [rem(i, 100), rem(i + 1, 100), rem(i + 2, 100), rem(i + 3, 100)]
+
+      token_id_list =
+        for i <- 0..(num_items - 1),
+            do: [rem(i, 100), rem(i + 1, 100), rem(i + 2, 100), rem(i + 3, 100)]
+
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
+
       {batch_seq, _labels, batch_aux, _mask} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
+
       assert Nx.shape(batch_seq) == {1, @seq_cap}
       assert Nx.shape(batch_aux) == {1, @max_length * 4, 192}
     end

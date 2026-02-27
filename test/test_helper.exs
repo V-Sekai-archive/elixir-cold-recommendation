@@ -1,5 +1,13 @@
 Application.ensure_all_started(:nx)
-# Exclude embedding (needs HF model download) and compare_python (needs fixtures from compare_recgpt_fsq.py)
-# Exclude embedding (HF download), compare_python (fixtures), compare_embedding (fixtures + embedding), integration (disk I/O / Npy)
-# e2e_steam / steam_parity: Steam E2E tests and fixtures live in M:\reflex-logic-other (steam_e2e project)
-ExUnit.configure(exclude: [embedding: true, compare_python: true, compare_embedding: true, integration: true, e2e_steam: true, steam_parity: true])
+
+# Excluded tags: embedding (HF download), compare_python / compare_embedding (fixtures), integration (disk I/O), e2e_steam / steam_parity (M:\reflex-logic-other)
+ExUnit.configure(
+  exclude: [
+    embedding: true,
+    compare_python: true,
+    compare_embedding: true,
+    integration: true,
+    e2e_steam: true,
+    steam_parity: true
+  ]
+)

@@ -15,6 +15,7 @@ defmodule RecGPT.EmbeddingTest do
     test "returns cached value when Application env is set" do
       stub = :cached_serving_stub
       Application.put_env(:recgpt, :embedding_serving, stub)
+
       try do
         assert Embedding.serving() == stub
       after
@@ -27,6 +28,7 @@ defmodule RecGPT.EmbeddingTest do
     test "roundtrip preserves tensor shape and values" do
       embeddings = Nx.iota({3, 768}) |> Nx.divide(768) |> Nx.as_type({:f, 32})
       path = Path.join(System.tmp_dir!(), "recgpt_emb_#{:erlang.unique_integer([:positive])}.nx")
+
       try do
         Embedding.save_embeddings(embeddings, path)
         loaded = Embedding.load_embeddings(path)
@@ -38,7 +40,11 @@ defmodule RecGPT.EmbeddingTest do
     end
 
     test "load_embeddings/1 raises on missing file" do
-      path = Path.join(System.tmp_dir!(), "recgpt_nonexistent_#{:erlang.unique_integer([:positive])}.nx")
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "recgpt_nonexistent_#{:erlang.unique_integer([:positive])}.nx"
+        )
 
       assert_raise File.Error, fn ->
         Embedding.load_embeddings(path)
@@ -47,7 +53,11 @@ defmodule RecGPT.EmbeddingTest do
 
     test "save_embeddings/2 raises on invalid path (e.g. non-existent directory)" do
       embeddings = Nx.iota({1, 768}) |> Nx.divide(768) |> Nx.as_type({:f, 32})
-      path = System.tmp_dir!() |> Path.join("nonexistent_dir_#{:erlang.unique_integer([:positive])}") |> Path.join("file.nx")
+
+      path =
+        System.tmp_dir!()
+        |> Path.join("nonexistent_dir_#{:erlang.unique_integer([:positive])}")
+        |> Path.join("file.nx")
 
       assert_raise File.Error, fn ->
         Embedding.save_embeddings(embeddings, path)
@@ -55,8 +65,11 @@ defmodule RecGPT.EmbeddingTest do
     end
 
     test "load_embeddings/1 raises on corrupt file (invalid Nx serialization)" do
-      path = Path.join(System.tmp_dir!(), "recgpt_corrupt_#{:erlang.unique_integer([:positive])}.nx")
+      path =
+        Path.join(System.tmp_dir!(), "recgpt_corrupt_#{:erlang.unique_integer([:positive])}.nx")
+
       File.write!(path, <<0, 1, 2, 3, 255>>)
+
       try do
         assert_raise ArgumentError, fn ->
           Embedding.load_embeddings(path)
@@ -144,6 +157,7 @@ defmodule RecGPT.EmbeddingTest do
 
       # Cosine similarity per row; expect > 0.99 for same model + normalize_embeddings=False
       {n, _dim} = Nx.shape(elixir_emb)
+
       for i <- 0..(n - 1) do
         a = elixir_emb |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
         b = ref_emb |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
@@ -160,6 +174,7 @@ defmodule RecGPT.EmbeddingTest do
     cwd = File.cwd!()
     from_recgpt = Path.expand("../data/recgpt_embedding", cwd)
     from_repo = Path.join(cwd, "data/recgpt_embedding")
+
     cond do
       File.exists?(from_recgpt) -> from_recgpt
       File.exists?(from_repo) -> from_repo

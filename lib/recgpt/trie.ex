@@ -16,8 +16,10 @@ defmodule RecGPT.Trie do
   def build(token_id_list) when is_list(token_id_list) do
     Enum.reduce(Enum.with_index(token_id_list), %{}, fn {tokens, item_id}, acc ->
       case tokens do
-        [t0, t1, t2, t3] when is_integer(t0) and is_integer(t1) and is_integer(t2) and is_integer(t3) ->
+        [t0, t1, t2, t3]
+        when is_integer(t0) and is_integer(t1) and is_integer(t2) and is_integer(t3) ->
           put_path(acc, [t0, t1, t2, t3], item_id)
+
         _ ->
           acc
       end
@@ -25,6 +27,7 @@ defmodule RecGPT.Trie do
   end
 
   defp put_path(map, [k], v), do: Map.put(map, k, v)
+
   defp put_path(map, [k | rest], v) do
     child = Map.get(map, k) || %{}
     Map.put(map, k, put_path(child, rest, v))
@@ -48,6 +51,7 @@ defmodule RecGPT.Trie do
   `prefix` is 0..3 tokens (e.g. [] for first token, [t0] for second, [t0,t1,t2] for fourth).
   """
   def valid_next_tokens(trie, []) when is_map(trie), do: Map.keys(trie)
+
   def valid_next_tokens(trie, [h | t]) when is_map(trie) do
     case Map.get(trie, h) do
       nil -> []
@@ -55,6 +59,7 @@ defmodule RecGPT.Trie do
       _ -> []
     end
   end
+
   def valid_next_tokens(_, prefix) when not is_list(prefix), do: []
 
   def valid_next_tokens(_, _), do: []

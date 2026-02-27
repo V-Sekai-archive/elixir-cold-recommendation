@@ -1,5 +1,8 @@
 defmodule RecGPT.MixProject do
-  @moduledoc "RecGPT Elixir library: FSQ, embeddings (MPNet/Bumblebee), training data pipeline. No GenServer; use from any app."
+  @moduledoc """
+  Single top-level Mix project for RecGPT.
+  RecGPT Elixir library: FSQ, embeddings (MPNet/Bumblebee), training data pipeline. No GenServer; use from any app.
+  """
   use Mix.Project
 
   @version "0.1.0"

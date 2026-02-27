@@ -17,10 +17,19 @@ defmodule RecGPT.CompareTest do
     from_repo = Path.join(cwd, "data/recgpt_compare")
 
     cond do
-      from_env = System.get_env("RECGPT_COMPARE_FIXTURES"), from_env != "", File.exists?(Path.expand(from_env)) -> Path.expand(from_env)
-      File.exists?(from_recgpt) -> from_recgpt
-      File.exists?(from_repo) -> from_repo
-      true -> Path.join(cwd, "data/recgpt_compare")
+      from_env = System.get_env("RECGPT_COMPARE_FIXTURES"),
+      from_env != "",
+      File.exists?(Path.expand(from_env)) ->
+        Path.expand(from_env)
+
+      File.exists?(from_recgpt) ->
+        from_recgpt
+
+      File.exists?(from_repo) ->
+        from_repo
+
+      true ->
+        Path.join(cwd, "data/recgpt_compare")
     end
   end
 

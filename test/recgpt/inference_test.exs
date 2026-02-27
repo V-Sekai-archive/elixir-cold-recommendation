@@ -10,6 +10,7 @@ defmodule RecGPT.InferenceTest do
     wte = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
     head_w = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
     head_b = Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+
     %{
       "wte" => wte,
       "pred_head.weight" => head_w,
@@ -68,16 +69,37 @@ defmodule RecGPT.InferenceTest do
       dummy_params()
       |> Map.put("gpt2model.h.0.ln_1.weight", Nx.broadcast(1.0, {768}) |> Nx.as_type({:f, 32}))
       |> Map.put("gpt2model.h.0.ln_1.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.attn.c_attn.weight", Nx.iota({2304, 768}) |> Nx.divide(2304 * 768) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.attn.c_attn.bias", Nx.broadcast(0.0, {2304}) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.attn.c_proj.weight", Nx.iota({768, 768}) |> Nx.divide(768 * 768) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.attn.c_proj.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        "gpt2model.h.0.attn.c_attn.weight",
+        Nx.iota({2304, 768}) |> Nx.divide(2304 * 768) |> Nx.as_type({:f, 32})
+      )
+      |> Map.put(
+        "gpt2model.h.0.attn.c_attn.bias",
+        Nx.broadcast(0.0, {2304}) |> Nx.as_type({:f, 32})
+      )
+      |> Map.put(
+        "gpt2model.h.0.attn.c_proj.weight",
+        Nx.iota({768, 768}) |> Nx.divide(768 * 768) |> Nx.as_type({:f, 32})
+      )
+      |> Map.put(
+        "gpt2model.h.0.attn.c_proj.bias",
+        Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32})
+      )
       |> Map.put("gpt2model.h.0.ln_2.weight", Nx.broadcast(1.0, {768}) |> Nx.as_type({:f, 32}))
       |> Map.put("gpt2model.h.0.ln_2.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.mlp.c_fc.weight", Nx.iota({3072, 768}) |> Nx.divide(3072 * 768) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        "gpt2model.h.0.mlp.c_fc.weight",
+        Nx.iota({3072, 768}) |> Nx.divide(3072 * 768) |> Nx.as_type({:f, 32})
+      )
       |> Map.put("gpt2model.h.0.mlp.c_fc.bias", Nx.broadcast(0.0, {3072}) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.mlp.c_proj.weight", Nx.iota({768, 3072}) |> Nx.divide(768 * 3072) |> Nx.as_type({:f, 32}))
-      |> Map.put("gpt2model.h.0.mlp.c_proj.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        "gpt2model.h.0.mlp.c_proj.weight",
+        Nx.iota({768, 3072}) |> Nx.divide(768 * 3072) |> Nx.as_type({:f, 32})
+      )
+      |> Map.put(
+        "gpt2model.h.0.mlp.c_proj.bias",
+        Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32})
+      )
       |> Map.put("gpt2model.ln_f.weight", Nx.broadcast(1.0, {768}) |> Nx.as_type({:f, 32}))
       |> Map.put("gpt2model.ln_f.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
 
@@ -94,6 +116,7 @@ defmodule RecGPT.InferenceTest do
   test "load real checkpoint export and run forward (requires data/recgpt_ckpt_export)" do
     export_dir = ckpt_export_dir()
     manifest_path = Path.join(export_dir, "manifest.json")
+
     unless File.regular?(manifest_path) do
       raise """
       Checkpoint export not found. From repo root run:
@@ -122,6 +145,7 @@ defmodule RecGPT.InferenceTest do
   test "load checkpoint + trie + beam_search returns next item_id (requires data/recgpt_ckpt_export)" do
     export_dir = ckpt_export_dir()
     manifest_path = Path.join(export_dir, "manifest.json")
+
     unless File.regular?(manifest_path) do
       raise """
       Checkpoint export not found. From repo root run:
@@ -152,10 +176,12 @@ defmodule RecGPT.InferenceTest do
 
   defp ckpt_export_dir do
     cwd = File.cwd!()
+
     candidates = [
       Path.expand("../data/recgpt_ckpt_export", cwd),
       Path.join(cwd, "data/recgpt_ckpt_export")
     ]
+
     Enum.find(candidates, fn p -> File.regular?(Path.join(p, "manifest.json")) end) ||
       Path.join(cwd, "data/recgpt_ckpt_export")
   end

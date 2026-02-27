@@ -51,7 +51,7 @@ defmodule RecGPT.FSQTest do
       idx = FSQ.codes_to_indices(codes)
       assert Nx.shape(idx) == {1, 1}
       val = Nx.to_flat_list(idx) |> List.first()
-      assert val >= 0 and val < 15_360
+      assert val >= 0 and val < FSQ.vocab_size()
     end
 
     test "clips indices to vocab 0..15359 (max index 15359)" do
@@ -93,7 +93,7 @@ defmodule RecGPT.FSQTest do
       assert Nx.shape(quant_embeds) == {3, 4, 192}
       assert Nx.shape(quant_indices) == {3, 4}
       assert Nx.all(Nx.greater_equal(quant_indices, 0)) |> Nx.to_number() == 1
-      assert Nx.all(Nx.less(quant_indices, 15_360)) |> Nx.to_number() == 1
+      assert Nx.all(Nx.less(quant_indices, FSQ.vocab_size())) |> Nx.to_number() == 1
     end
   end
 
@@ -112,7 +112,8 @@ defmodule RecGPT.FSQTest do
       out = FSQ.round_ste(z)
       assert Nx.shape(out) == {1, 2}
       # Values should be close to rounded
-      assert Nx.all(Nx.less_equal(Nx.abs(Nx.subtract(out, Nx.round(z))), 1.0e-5)) |> Nx.to_number() == 1
+      assert Nx.all(Nx.less_equal(Nx.abs(Nx.subtract(out, Nx.round(z))), 1.0e-5))
+             |> Nx.to_number() == 1
     end
   end
 
@@ -140,10 +141,12 @@ defmodule RecGPT.FSQTest do
     test "works when project_in and project_out have no bias" do
       project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5)
       project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192)
+
       params = %{
         "project_in" => %{"kernel" => project_in_k, "bias" => nil},
         "project_out" => %{"kernel" => project_out_k, "bias" => nil}
       }
+
       z = Nx.iota({1, 4, 192}) |> Nx.divide(1000)
       {embeds, indices} = FSQ.encode(z, params)
       assert Nx.shape(embeds) == {1, 4, 192}
@@ -155,45 +158,56 @@ defmodule RecGPT.FSQTest do
     test "accepts project_in/kernel and project_out/kernel keys" do
       k_in = Nx.iota({192, 5}) |> Nx.divide(1)
       k_out = Nx.iota({5, 192}) |> Nx.divide(1)
-      params = FSQ.load_params(%{
-        "project_in/kernel" => k_in,
-        "project_in/bias" => nil,
-        "project_out/kernel" => k_out,
-        "project_out/bias" => nil
-      })
+
+      params =
+        FSQ.load_params(%{
+          "project_in/kernel" => k_in,
+          "project_in/bias" => nil,
+          "project_out/kernel" => k_out,
+          "project_out/bias" => nil
+        })
+
       assert map_size(params["project_in"]) == 2
       assert map_size(params["project_out"]) == 2
     end
 
     test "transposes project_in when shape is {5, 192}" do
       k_in = Nx.iota({5, 192}) |> Nx.divide(1)
-      params = FSQ.load_params(%{
-        "fsq.project_in.weight" => k_in,
-        "fsq.project_in.bias" => nil,
-        "fsq.project_out.weight" => Nx.iota({192, 5}),
-        "fsq.project_out.bias" => nil
-      })
+
+      params =
+        FSQ.load_params(%{
+          "fsq.project_in.weight" => k_in,
+          "fsq.project_in.bias" => nil,
+          "fsq.project_out.weight" => Nx.iota({192, 5}),
+          "fsq.project_out.bias" => nil
+        })
+
       assert Nx.shape(params["project_in"]["kernel"]) == {192, 5}
     end
 
     test "keeps project_out kernel shape {5, 192} as-is" do
       k_out = Nx.iota({5, 192}) |> Nx.divide(1)
-      params = FSQ.load_params(%{
-        "project_in/kernel" => Nx.iota({192, 5}),
-        "project_in/bias" => nil,
-        "project_out/kernel" => k_out,
-        "project_out/bias" => nil
-      })
+
+      params =
+        FSQ.load_params(%{
+          "project_in/kernel" => Nx.iota({192, 5}),
+          "project_in/bias" => nil,
+          "project_out/kernel" => k_out,
+          "project_out/bias" => nil
+        })
+
       assert Nx.shape(params["project_out"]["kernel"]) == {5, 192}
     end
 
     test "indices_to_codes with loaded params" do
       project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5)
       project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192)
+
       params = %{
         "project_in" => %{"kernel" => project_in_k, "bias" => nil},
         "project_out" => %{"kernel" => project_out_k, "bias" => nil}
       }
+
       indices = Nx.tensor([[10, 20, 100, 1000]], type: {:s, 32})
       codes = FSQ.indices_to_codes(indices, params)
       assert Nx.shape(codes) == {1, 4, 192}
