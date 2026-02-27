@@ -7,6 +7,11 @@ defmodule RecGPT.PropCheckTest do
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
   alias RecGPT.Training
+  alias RecGPT.ParamFlatten
+  alias RecGPT.Trie
+  alias RecGPT.CheckpointExport
+  alias RecGPT.CheckpointLoader
+  alias RecGPT.AxonTrain
 
   # Shared FSQ params for properties (fixed shape; no PropCheck generation of large tensors).
   defp fsq_params do
@@ -185,6 +190,162 @@ defmodule RecGPT.PropCheckTest do
       a = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, params, 4)
       b = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, params, 4)
       a == b
+    end
+  end
+
+  # --- ParamFlatten properties ---
+
+  defp param_flatten_canonical_keys do
+    ["wte", "ae.linear.weight", "ae.linear.bias", "pred_head.weight", "pred_head.bias"]
+  end
+
+  defp param_flatten_stub_params do
+    %{
+      "wte" => Nx.iota({100, 8}) |> Nx.as_type({:f, 32}),
+      "ae.linear.weight" => Nx.iota({768, 192}) |> Nx.divide(768 * 192) |> Nx.as_type({:f, 32}),
+      "ae.linear.bias" => Nx.broadcast(0.1, {768}) |> Nx.as_type({:f, 32}),
+      "pred_head.weight" => Nx.iota({768, 15361}) |> Nx.divide(768 * 15361) |> Nx.as_type({:f, 32}),
+      "pred_head.bias" => Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+    }
+  end
+
+  property "ParamFlatten: flatten then unflatten preserves keys and shapes" do
+    params = param_flatten_stub_params()
+    keys = param_flatten_canonical_keys()
+
+    forall _ <- nat() do
+      case ParamFlatten.flatten(params, keys) do
+        {:ok, flat, spec} ->
+          unflattened = ParamFlatten.unflatten(flat, spec)
+          keys_match = (Map.keys(unflattened) |> Enum.sort()) == (keys |> Enum.sort())
+
+          shapes_match =
+            Enum.all?(keys, fn key ->
+              orig = params[key]
+              restored = unflattened[key]
+              restored != nil and Nx.shape(restored) == Nx.shape(orig)
+            end)
+
+          keys_match and shapes_match
+        _ ->
+          false
+      end
+    end
+  end
+
+  property "ParamFlatten: unflatten(flat, spec) has total size equal to Nx.size(flat)" do
+    params = param_flatten_stub_params()
+    keys = param_flatten_canonical_keys()
+
+    forall _ <- nat() do
+      case ParamFlatten.flatten(params, keys) do
+        {:ok, flat, spec} ->
+          total_spec = Enum.reduce(spec, 0, fn s, acc -> acc + s.size end)
+          total_spec == Nx.size(flat)
+        _ ->
+          false
+      end
+    end
+  end
+
+  # --- Trie properties ---
+
+  property "Trie: build then lookup returns {:ok, i} for each 4-token sequence at index i" do
+    forall token_id_list <- non_empty(list(vector(4, integer(0, 1000)))) do
+      # Trie.build skips malformed entries; we only have 4-token lists here
+      trie = Trie.build(token_id_list)
+
+      Enum.with_index(token_id_list)
+      |> Enum.all?(fn {tokens, i} ->
+        Trie.lookup(trie, tokens) == {:ok, i}
+      end)
+    end
+  end
+
+  property "Trie: valid_next_tokens at [] returns only tokens that start some item" do
+    forall token_id_list <- non_empty(list(vector(4, integer(0, 1000)))) do
+      trie = Trie.build(token_id_list)
+      valid = Trie.valid_next_tokens(trie, [])
+      first_tokens = token_id_list |> Enum.map(&hd/1) |> Enum.uniq()
+      Enum.sort(valid) == Enum.sort(first_tokens)
+    end
+  end
+
+  # --- CheckpointExport round-trip (uses temp dir) ---
+
+  property "CheckpointExport: write_export then load_from_export preserves keys and shapes" do
+    forall n <- integer(1, 5) do
+      params =
+        Enum.reduce(1..n, %{}, fn i, acc ->
+          key = "tensor_#{i}"
+          shape = {2, 3}
+          t = Nx.iota(shape) |> Nx.multiply(i) |> Nx.as_type({:f, 32})
+          Map.put(acc, key, t)
+        end)
+
+      dir = Path.join(System.tmp_dir!(), "recgpt_prop_#{:erlang.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+
+      try do
+        :ok = CheckpointExport.write_export(params, dir)
+        loaded = CheckpointLoader.load_from_export(dir)
+
+        keys_ok = (Map.keys(loaded) |> Enum.sort()) == (Map.keys(params) |> Enum.sort())
+
+        shapes_ok =
+          Enum.all?(params, fn {k, t} ->
+            loaded[k] != nil and Nx.shape(loaded[k]) == Nx.shape(t)
+          end)
+
+        keys_ok and shapes_ok
+      after
+        File.rm_rf(dir)
+      end
+    end
+  end
+
+  # --- AxonTrain properties ---
+
+  property "AxonTrain: loss_fn is non-negative for random logits and labels" do
+    forall _ <- nat() do
+      batch = 2
+      seq_len = 4
+      vocab = 15_361
+      logits = Nx.iota({batch, seq_len, vocab}) |> Nx.divide(vocab) |> Nx.subtract(0.5)
+      labels = Nx.tensor([[1, 2, -100, 3], [0, 1, 2, -100]], type: {:s, 32})
+
+      loss = AxonTrain.loss_fn(labels, logits)
+      val = Nx.to_number(loss)
+      val >= 0.0 and val == val
+    end
+  end
+
+  property "AxonTrain: stream_batches yields batches with expected shapes" do
+    forall [num_items, batch_size] <- [integer(3, 8), integer(1, 3)] do
+      num_seqs = max(4, num_items)
+      seqs = for _ <- 1..num_seqs, do: [0, 1, 2]
+      item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items) |> Nx.as_type({:f, 32})
+      project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5) |> Nx.subtract(0.05)
+      project_in_b = Nx.broadcast(0.0, {5})
+      project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192) |> Nx.subtract(0.05)
+      project_out_b = Nx.broadcast(0.0, {192})
+      fsq_params = %{
+        "project_in" => %{"kernel" => project_in_k, "bias" => project_in_b},
+        "project_out" => %{"kernel" => project_out_k, "bias" => project_out_b}
+      }
+      token_id_list = FSQEncoder.encode_embeddings_to_token_id_list(item_embeddings, fsq_params, 2)
+
+      stream = AxonTrain.stream_batches(seqs, token_id_list, item_embeddings, batch_size: batch_size, shuffle: false)
+      batches = Enum.take(stream, 3)
+
+      Enum.all?(batches, fn {{batch_seq, batch_aux, embed_mask}, batch_labels} ->
+        b = Nx.axis_size(batch_seq, 0)
+        Nx.shape(batch_seq) == {b, 1024} and
+          Nx.shape(batch_aux) == {b, 256 * 4, 192} and
+          Nx.shape(embed_mask) == {b, 256 * 4, 1} and
+          Nx.shape(batch_labels) == {b, 1024} and
+          b >= 1 and b <= batch_size
+      end)
     end
   end
 end
