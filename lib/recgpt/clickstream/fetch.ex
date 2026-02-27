@@ -9,6 +9,7 @@ defmodule RecGPT.Clickstream.Fetch do
   @csv_name "e-shop clothing 2008.csv"
   @batch_size 10_000
   @source_dataset "uci_clickstream"
+  @train_ratio 0.8
 
   @doc """
   Download zip, extract, run migrations, load into Repo.
@@ -218,12 +219,20 @@ defmodule RecGPT.Clickstream.Fetch do
         select: %{session_id: e.session_id, ord: e.ord, item_id: e.item_id}
 
     events = RecGPT.Repo.all(query)
-    sessions = Enum.group_by(events, & &1.session_id, & &1)
+    sessions =
+      events
+      |> Enum.group_by(& &1.session_id, & &1)
+      |> Enum.filter(fn {_sid, list} -> length(list) >= 2 end)
+      |> Enum.sort_by(fn {sid, _} -> sid end)
 
-    test_cases =
-      for {_sid, list} <- sessions,
-          length(list) >= 2,
-          do: build_test_case(list)
+    {train_sessions, test_sessions} = split_train_test(sessions)
+
+    train_sequences =
+      for {_sid, list} <- train_sessions do
+        list |> Enum.sort_by(& &1.ord) |> Enum.map(& &1.item_id)
+      end
+
+    test_cases = for {_sid, list} <- test_sessions, do: build_test_case(list)
 
     items =
       RecGPT.Repo.all(RecGPT.Clickstream.CatalogItem)
@@ -235,11 +244,21 @@ defmodule RecGPT.Clickstream.Fetch do
     File.write!(items_json, Jason.encode!(%{"items" => items, "num_items" => num_items}, pretty: true))
     Mix.shell().info("Wrote #{items_json}")
 
+    train_json = Path.join(data_path, "train_sequences.json")
+    File.write!(train_json, Jason.encode!(%{"sequences" => train_sequences, "num_items" => num_items}, pretty: true))
+    Mix.shell().info("Wrote #{train_json} (#{length(train_sequences)} train sequences)")
+
     test_json = Path.join(data_path, "test_sequences.json")
     File.write!(test_json, Jason.encode!(%{"test_cases" => test_cases, "num_items" => num_items}, pretty: true))
     Mix.shell().info("Wrote #{test_json} (#{length(test_cases)} test cases)")
 
     :ok
+  end
+
+  defp split_train_test(sessions) do
+    n = length(sessions)
+    train_n = max(1, round(n * @train_ratio))
+    {Enum.take(sessions, train_n), Enum.drop(sessions, train_n)}
   end
 
   defp build_test_case(list) do
