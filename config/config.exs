@@ -3,3 +3,6 @@
 import Config
 
 config :nx, default_backend: Torchx.Backend
+
+# UCI Clickstream SQLite repo. Override with RECGPT_DATABASE_PATH.
+config :recgpt, RecGPT.Repo, []

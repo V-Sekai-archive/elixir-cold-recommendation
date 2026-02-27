@@ -79,7 +79,7 @@ defmodule RecGPT.ServeTest do
 
     @tag :integration
     test "loads state when fixture and checkpoint exist" do
-      fixture = Path.expand("../data/steam_e2e_fixture.json", File.cwd!())
+      fixture = Path.expand("../data/serve_e2e_fixture.json", File.cwd!())
       ckpt = Path.expand("../data/recgpt_ckpt_export", File.cwd!())
 
       if File.regular?(fixture) and File.regular?(Path.join(ckpt, "manifest.json")) do
@@ -87,7 +87,7 @@ defmodule RecGPT.ServeTest do
         assert state.num_items > 0
         assert is_list(state.token_id_list)
       else
-        raise "Skip: need data/steam_e2e_fixture.json and data/recgpt_ckpt_export (or run Steam E2E from M:\\reflex-logic-other)"
+        raise "Skip: need data/serve_e2e_fixture.json and data/recgpt_ckpt_export (or run Serve E2E from M:\\reflex-logic-other)"
       end
     end
   end

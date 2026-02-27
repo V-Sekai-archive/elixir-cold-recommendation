@@ -1,4 +1,4 @@
-# RecGPT Elixir library — documentation
+# RecGPT Elixir library â€” documentation
 
 This folder documents the **recgpt** package: FSQ, embeddings (MPNet/Bumblebee), and training data pipeline for RecGPT-style recommendation. No GenServer; use from any app (e.g. polymarket).
 
@@ -9,8 +9,8 @@ This folder documents the **recgpt** package: FSQ, embeddings (MPNet/Bumblebee),
 | Module | Purpose |
 |--------|---------|
 | **RecGPT.FSQ** | FSQ quantizer: levels [8,8,8,6,5], 4 tokens per item, vocab 15360 + padding. `load_params/1`, `encode/2`, `codes_to_indices/1`, `indices_to_codes/2`. |
-| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: (num_items, 768) embeddings + FSQ params → list of 4-token lists. `load_embeddings_from_npy/1` (npy hex package). |
-| **RecGPT.Embedding** | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_texts/1`, `encode_item_text_dict/1`, `save_embeddings/2`, `load_embeddings/1`. |
+| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: (num_items, 768) embeddings + FSQ params â†’ list of 4-token lists. `load_embeddings_from_npy/1` (npy hex package). |
+| **RecGPT.Embedding** | Text â†’ 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_texts/1`, `encode_item_text_dict/1`, `save_embeddings/2`, `load_embeddings/1`. |
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` for training data and loss. Model forward (GPT-2 + embed + head) not in this package. |
 
 ---
@@ -41,15 +41,16 @@ Embedding tests load the HuggingFace model; run with `--include embedding` and l
 
 ---
 
-## Training flow (using this package)
+## Evaluation
 
-1. Build or load `item_text_dict` (e.g. from RLM catalog).
-2. `RecGPT.Embedding.encode_item_text_dict/1` → embeddings tensor.
-3. Load FSQ params (from [export_recgpt_fsq_weights.py](../../scripts/export_recgpt_fsq_weights.py) or equivalent).
-4. `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3` → `token_id_list`.
-5. `RecGPT.Training.build_train_batch/4` with seqs, token_id_list, embeddings, batch indices.
+Evaluation (zero-shot vs trained), **train/eval data split** (held-out eval only), null-hypothesis rejection, and test plan are in [05_evaluation_and_testing](05_evaluation_and_testing.md).
 
-No Python required for embedding or FSQ encoding.
+---
+
+## Training flow and zero-shot (summary)
+
+- **Training flow:** item_text_dict â†’ Embedding â†’ FSQ params â†’ FSQEncoder â†’ token_id_list â†’ Training.build_train_batch. See [05_evaluation_and_testing](05_evaluation_and_testing.md) and [Fine-tuning RecGPT](../../polymarket/docs/25_recgpt_finetuning.md).
+- **Zero-shot:** Pretrained checkpoint + fixture from item text only (no gradient updates). See [05_evaluation_and_testing](05_evaluation_and_testing.md).
 
 ---
 
@@ -59,13 +60,14 @@ No Python required for embedding or FSQ encoding.
 |-----|---------|
 | [Python RecGPT parity progress](01_python_recgpt_parity_progress.md) | Task list: how close Elixir recgpt matches Python RecGPT (embeddings, FSQ, training data, model, decode). |
 | [RecGPT Bumblebee port estimate](../../polymarket/docs/36_recgpt_bumblebee_port_estimate.md) | What RecGPT is, Bumblebee port difficulty, what this package implements, testing vs Python. |
-| [RecGPT training data](../../polymarket/docs/12_recgpt_training_data.md) | Pipeline: RLM → train/test pkl, item text, MPNet embeddings; use RecGPT.Embedding for Elixir embeddings. |
+| [RecGPT training data](../../polymarket/docs/12_recgpt_training_data.md) | Pipeline: RLM â†’ train/test pkl, item text, MPNet embeddings; use RecGPT.Embedding for Elixir embeddings. |
 | [RecGPT overview](../../polymarket/docs/20_recgpt_overview.md) | Paper (arXiv:2506.06270), FSQ, hybrid attention, cold-start. |
 | [Fine-tuning RecGPT](../../polymarket/docs/25_recgpt_finetuning.md) | token_id_list, checkpoint loading, zero-shot vs ART. |
+| [Evaluation and testing](05_evaluation_and_testing.md) | Zero-shot vs trained, train/eval split, null-hypothesis rejection, test plan. |
 
 ---
 
 ## Links
 
-- [README](../README.md) — quick start and module list.
-- [RecGPT paper](https://arxiv.org/abs/2506.06270) · [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model)
+- [README](../README.md) â€” quick start and module list.
+- [RecGPT paper](https://arxiv.org/abs/2506.06270) Â· [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) Â· [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model)

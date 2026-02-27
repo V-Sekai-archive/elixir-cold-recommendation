@@ -20,4 +20,9 @@ Thumbs.db
 # Logs
 *.log
 logs/
-steam_data/
+serve_e2e_data/
+
+# Generated DBs (UCI Clickstream, etc.)
+data/**/*.db
+data/**/*.db-shm
+data/**/*.db-wal

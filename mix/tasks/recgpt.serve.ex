@@ -3,11 +3,11 @@ defmodule Mix.Tasks.Recgpt.Serve do
   @moduledoc """
   Start the RecGPT HTTP server for next-item recommendation.
 
-  Loads checkpoint and Steam fixture once; serves POST /recommend and GET /search.
+  Loads checkpoint and serve E2E fixture once; serves POST /recommend and GET /search.
 
   ## Options
     * `--port` - Port (default: 8000)
-    * `--fixture` - Path to steam_e2e_fixture.json (default: data/steam_e2e_fixture.json)
+    * `--fixture` - Path to serve_e2e_fixture.json (default: data/serve_e2e_fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--catalog` - Optional path to catalog JSON (item_id -> text)
 
@@ -32,7 +32,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
-        resolve_path("data/steam_e2e_fixture.json")
+        resolve_path("data/serve_e2e_fixture.json")
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||

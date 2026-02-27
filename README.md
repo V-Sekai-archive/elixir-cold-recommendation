@@ -16,10 +16,10 @@ From `recgpt/` (or repo root; paths resolve to `data/` under cwd or parent):
 
 ```bash
 mix recgpt.serve
-# Optional: --port 8080 --fixture path/to/steam_e2e_fixture.json --ckpt path/to/recgpt_ckpt_export
+# Optional: --port 8080 --fixture path/to/serve_e2e_fixture.json --ckpt path/to/recgpt_ckpt_export
 ```
 
-Requires `data/steam_e2e_fixture.json` and `data/recgpt_ckpt_export/` (or set `RECGPT_FIXTURE` and `RECGPT_CKPT_EXPORT`). Steam E2E fixtures and tests live in `M:\reflex-logic-other`. Endpoints:
+Requires `data/serve_e2e_fixture.json` and `data/recgpt_ckpt_export/` (or set `RECGPT_FIXTURE` and `RECGPT_CKPT_EXPORT`). Serve E2E fixtures and tests live in `M:\reflex-logic-other`. Endpoints:
 
 - **POST /recommend** — body `{"item_ids": [1, 2, 3], "top_k": 5}` → `{"item_ids": [...], "item_texts": [...]}` (single best from beam search).
 - **GET /search?q=...&limit=20** — catalog search by string.
@@ -41,7 +41,7 @@ mix test --exclude embedding
 - **PropCheck** property tests: `mix test test/recgpt/propcheck_test.exs` (FSQ, Training, FSQEncoder).
 - **Parity constants** (doc/code sync): `mix test test/recgpt/parity_constants_test.exs`.
 - **Pipeline integration** (full flow): `mix test test/recgpt/pipeline_integration_test.exs` — embeddings → token_id_list → train batch → loss.
-- **Steam E2E** (serve/predict flow): lives in `M:\reflex-logic-other` (see that repo’s steam_e2e project and `scripts/export_steam_e2e_fixture.py`). Run from reflex-logic-other; checkpoint can stay in reflex-logic-market.
+- **Serve E2E** (serve/predict flow): lives in `M:\reflex-logic-other` (see that repo’s serve_e2e project and `scripts/export_serve_e2e_fixture.py`). Run from reflex-logic-other; checkpoint can stay in reflex-logic-market.
 
 ## Python comparison
 
@@ -58,3 +58,4 @@ Or from polymarket: `mix recgpt.compare`.
 
 - [Library documentation](docs/00_recgpt_library.md) — modules, deps, tests, training flow, links to repo RecGPT docs.
 - [Python RecGPT parity progress](docs/01_python_recgpt_parity_progress.md) — task list, validation commands, PropCheck and parity constants tests.
+- [Evaluation and testing](docs/05_evaluation_and_testing.md) — zero-shot vs trained, train/eval split (held-out eval), null-hypothesis rejection, test plan.

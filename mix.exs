@@ -13,6 +13,7 @@ defmodule RecGPT.MixProject do
       version: @version,
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       description:
         "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee.",
@@ -20,8 +21,11 @@ defmodule RecGPT.MixProject do
     ]
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   def application do
-    [extra_applications: [:logger]]
+    [extra_applications: [:logger], mod: {RecGPT.Application, []}]
   end
 
   defp deps do
@@ -33,6 +37,8 @@ defmodule RecGPT.MixProject do
       {:npy, "~> 0.1.2"},
       {:torchx, "~> 0.11"},
       {:plug_cowboy, "~> 2.6"},
+      {:ecto_sqlite3, "~> 0.14"},
+      {:req, "~> 0.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:propcheck, "~> 1.5", only: [:dev, :test]}
     ]

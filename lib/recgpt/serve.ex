@@ -6,7 +6,7 @@ defmodule RecGPT.Serve do
   GET /search does simple string match over catalog text.
 
   Run: mix recgpt.serve [--port 8000]
-  Requires: data/steam_e2e_fixture.json (or RECGPT_FIXTURE), data/recgpt_ckpt_export (or RECGPT_CKPT_EXPORT).
+  Requires: data/serve_e2e_fixture.json (or RECGPT_FIXTURE), data/recgpt_ckpt_export (or RECGPT_CKPT_EXPORT).
   """
 
   alias RecGPT.CheckpointLoader

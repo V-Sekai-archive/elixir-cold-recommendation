@@ -72,7 +72,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 
 **Python ↔ Elixir FSQ port verification:** The encode path (embeddings → token_id_list) is ported from Python and validated as follows.
 
-| Step | Python (compare_recgpt_fsq.py / export_steam_e2e_fixture.py) | Elixir (RecGPT.FSQ, FSQEncoder) | Check |
+| Step | Python (compare_recgpt_fsq.py / export_serve_e2e_fixture.py) | Elixir (RecGPT.FSQ, FSQEncoder) | Check |
 |------|--------------------------------------------------------------|----------------------------------|--------|
 | Constants | LEVELS [8,8,8,6,5], VOCAB_SIZE 15360, BASIS [1,8,64,512,3072] | `@level_list`, `@vocab_size`, `basis()` | Parity constants test: `basis matches levels cumprod` |
 | bound(z) | half_l = (levels-1)*(1-ε)/2; offset = 0.5 if even else 0; tanh(z+tanh(offset/half_l))*half_l - offset | Same formula in `FSQ.bound/2` | Same logic |
@@ -82,7 +82,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | project_out | codes (batch,4,5) @ kernel (5,192) → (batch,4,192) | Nx.dot(codes, [2], kernel, [0]); kernel (5,192) | Same |
 | Embeddings → token_id_list | Reshape (N,768)→(N,4,192); encode per batch | `FSQEncoder.encode_embeddings_to_token_id_list`: reshape, `FSQ.encode` per batch | Same |
 
-**Tests that validate the port:** (1) `compare_test.exs` (fixtures from `compare_recgpt_fsq.py`): Elixir token_id_list matches Python expected_tokens. (2) Steam FSQ parity: `steam_e2e_test.exs` in **M:\\reflex-logic-other** (steam_e2e project) — Elixir token_id_list matches Python on `steam_e2e_parity.json`. (3) `parity_constants_test.exs`: basis, vocab_size, levels. Run compare + parity from recgpt; for Steam run from reflex-logic-other.
+**Tests that validate the port:** (1) `compare_test.exs` (fixtures from `compare_recgpt_fsq.py`): Elixir token_id_list matches Python expected_tokens. (2) Serve E2E FSQ parity: `serve_e2e_test.exs` in **M:\\reflex-logic-other** (serve_e2e project) — Elixir token_id_list matches Python on `serve_e2e_parity.json`. (3) `parity_constants_test.exs`: basis, vocab_size, levels. Run compare + parity from recgpt; for Serve E2E run from reflex-logic-other.
 
 **Batch format verification:** Elixir `RecGPT.Training.build_train_batch/4` and `encode_aux/3` were compared to [HKUDS/RecGPT `utils/data.py`](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) class `GPT2RecBatchTrainAuxData`. Same constants: `max_length=256`, `padding_id=15360`, token sequence length `1024`, `label_list` padded with `-100`; right-padding for training; `encode_aux` maps 256 item IDs to embeddings (256, 768) → reshape to (1024, 192) and mask (1024, 1). Parity constants test asserts shapes and padding; no runtime Python comparison required.
 
@@ -131,7 +131,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | **Data only:** item_text_dict → embeddings → token_id_list → train batches | ✅ Done | No Python needed: Embedding + FSQEncoder + Training. |
 | **Train (Python):** pre_train.py with our token_id_list + embeddings | ✅ Possible | Build token_id_list in Elixir; export or point Python at same data. |
 | **Inference in Elixir:** load checkpoint → forward → beam → item_id | ✅ Done | Loader + Inference.forward + Trie + Decode.beam_search. Real checkpoint load + forward + beam_search covered by integration test; run with `--include integration`. |
-| **Steam E2E (serve/predict flow)** | ✅ Done | Lives in **M:\\reflex-logic-other**: steam_e2e project + `scripts/export_steam_e2e_fixture.py`. Test loads Steam fixture, checkpoint (from reflex-logic-market or env), runs beam_search; run from reflex-logic-other with `--include e2e_steam --include integration`. |
+| **Serve E2E (serve/predict flow)** | ✅ Done | Lives in **M:\\reflex-logic-other**: serve_e2e project + `scripts/export_serve_e2e_fixture.py`. Test loads serve E2E fixture, checkpoint (from reflex-logic-market or env), runs beam_search; run from reflex-logic-other with `--include e2e_serve --include integration`. |
 | **Zero-shot eval (predict.py) with our data** | ✅ Possible | Python script; we can produce compatible pkl/npy from Elixir pipeline. |
 
 ---
@@ -148,8 +148,8 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 | Parity constants (doc/code sync) | `cd recgpt && mix test test/recgpt/parity_constants_test.exs` |
 | Loader + Inference | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs` |
 | **Real checkpoint load + forward + beam** | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
-| **Steam E2E (like serve.py)** | From **M:\\reflex-logic-other**: `uv run python scripts/export_steam_e2e_fixture.py --output data/steam_e2e_fixture.json` (uses `steam_data/`), then `cd steam_e2e && mix test test/recgpt/steam_e2e_test.exs --include e2e_steam --include integration`. Checkpoint from reflex-logic-market. |
-| **Steam FSQ parity (Python vs Elixir)** | From reflex-logic-other: same export writes `data/steam_e2e_parity.json`. Run from steam_e2e: `mix test test/recgpt/steam_e2e_test.exs --include steam_parity --include integration`. |
+| **Serve E2E (like serve.py)** | From **M:\\reflex-logic-other**: `uv run python scripts/export_serve_e2e_fixture.py --output data/serve_e2e_fixture.json` (uses `serve_e2e_data/`), then `cd serve_e2e && mix test test/recgpt/serve_e2e_test.exs --include e2e_serve --include integration`. Checkpoint from reflex-logic-market. |
+| **Serve E2E FSQ parity (Python vs Elixir)** | From reflex-logic-other: same export writes `data/serve_e2e_parity.json`. Run from serve_e2e: `mix test test/recgpt/serve_e2e_test.exs --include serve_parity --include integration`. |
 | Trie + Decode | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs` |
 | FSQ vs Python (fixtures) | `uv run python scripts/compare_recgpt_fsq.py --output-dir data/recgpt_compare` then `cd recgpt && mix test test/recgpt/compare_test.exs` (run with `--include compare_python`) |
 | Embedding (downloads model) | `cd recgpt && mix test --include embedding` |
