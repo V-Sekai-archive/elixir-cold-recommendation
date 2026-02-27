@@ -23,7 +23,7 @@ Or pass explicitly: `--ckpt path/to/recgpt_layer_3_weight.pt`.
 
 ## Discovering actual keys
 
-From repo root:
+The script `inspect_recgpt_checkpoint.py` may live in repo root or parent repo. From repo root:
 
 ```bash
 uv run python scripts/inspect_recgpt_checkpoint.py

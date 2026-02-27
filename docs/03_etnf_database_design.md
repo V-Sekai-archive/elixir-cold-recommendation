@@ -1,8 +1,3 @@
----
-alwaysApply: true
-description: Database design guidelines for ETNF (Essential Tuple Normal Form)
----
-
 ## What is ETNF?
 
 **Essential Tuple Normal Form (ETNF)** (Darwen, Date, Fagin, 2012) lies strictly between 4NF and 5NF. A relation schema is in ETNF if and only if it is in **BCNF** and **some component of every explicitly declared join dependency (JD) of the schema is a superkey**. ETNF is as effective as 5NF in eliminating tuple redundancy.

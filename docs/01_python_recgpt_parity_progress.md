@@ -2,6 +2,8 @@
 
 Task list for how close the **recgpt** Elixir package is to matching the [Python RecGPT](https://github.com/HKUDS/RecGPT) (HKUDS/RecGPT) pipeline and model. Reference: [RecGPT paper](https://arxiv.org/abs/2506.06270), [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model).
 
+**Note:** Python scripts (`compare_recgpt_fsq.py`, `inspect_recgpt_checkpoint.py`, `export_serve_e2e_fixture.py`, etc.) may live in repo root or parent/polymarket repo; this repo contains only the Elixir library.
+
 ---
 
 ## At a glance
@@ -131,7 +133,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | **Data only:** item_text_dict → embeddings → token_id_list → train batches | ✅ Done | No Python needed: Embedding + FSQEncoder + Training. |
 | **Train (Python):** pre_train.py with our token_id_list + embeddings | ✅ Possible | Build token_id_list in Elixir; export or point Python at same data. |
 | **Inference in Elixir:** load checkpoint → forward → beam → item_id | ✅ Done | Loader + Inference.forward + Trie + Decode.beam_search. Real checkpoint load + forward + beam_search covered by integration test; run with `--include integration`. |
-| **Serve E2E (serve/predict flow)** | ✅ Done | Lives in **M:\\reflex-logic-other**: serve_e2e project + `scripts/export_serve_e2e_fixture.py`. Test loads serve E2E fixture, checkpoint (from reflex-logic-market or env), runs beam_search; run from reflex-logic-other with `--include e2e_serve --include integration`. |
+| **Serve E2E (serve/predict flow)** | ✅ Done | Fixture and tests live in a separate repo; set RECGPT_FIXTURE to use that fixture with `mix recgpt.serve`. |
 | **Zero-shot eval (predict.py) with our data** | ✅ Possible | Python script; we can produce compatible pkl/npy from Elixir pipeline. |
 
 ---
@@ -148,8 +150,6 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 | Parity constants (doc/code sync) | `cd recgpt && mix test test/recgpt/parity_constants_test.exs` |
 | Loader + Inference | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs` |
 | **Real checkpoint load + forward + beam** | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
-| **Serve E2E (like serve.py)** | From **M:\\reflex-logic-other**: `uv run python scripts/export_serve_e2e_fixture.py --output data/serve_e2e_fixture.json` (uses `serve_e2e_data/`), then `cd serve_e2e && mix test test/recgpt/serve_e2e_test.exs --include e2e_serve --include integration`. Checkpoint from reflex-logic-market. |
-| **Serve E2E FSQ parity (Python vs Elixir)** | From reflex-logic-other: same export writes `data/serve_e2e_parity.json`. Run from serve_e2e: `mix test test/recgpt/serve_e2e_test.exs --include serve_parity --include integration`. |
 | Trie + Decode | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs` |
 | FSQ vs Python (fixtures) | `uv run python scripts/compare_recgpt_fsq.py --output-dir data/recgpt_compare` then `cd recgpt && mix test test/recgpt/compare_test.exs` (run with `--include compare_python`) |
 | Embedding (downloads model) | `cd recgpt && mix test --include embedding` |
@@ -218,6 +218,4 @@ Run: `mix test test/recgpt/propcheck_test.exs` (exclude embedding if no model).
 | [Parity constants test](../test/recgpt/parity_constants_test.exs) | Doc/code sync for §1–§3 constants. |
 | [CheckpointLoader](../lib/recgpt/checkpoint_loader.ex) · [Inference](../lib/recgpt/inference.ex) | Load export dir; forward (embed + aux + head). |
 | [Trie](../lib/recgpt/trie.ex) · [Decode](../lib/recgpt/decode.ex) | Catalog trie; beam search for next-item. |
-| [RecGPT Bumblebee port estimate](../../polymarket/docs/36_recgpt_bumblebee_port_estimate.md) | Inference path, difficulty, what’s done.
-| [Fine-tuning RecGPT](../../polymarket/docs/25_recgpt_finetuning.md) | token_id_list, checkpoint, pre_train.py. |
-| [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model. |
+ what’s done. | [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model. |

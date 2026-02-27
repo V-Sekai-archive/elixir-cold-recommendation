@@ -19,7 +19,7 @@ mix recgpt.serve
 # Optional: --port 8080 --fixture path/to/serve_e2e_fixture.json --ckpt path/to/recgpt_ckpt_export
 ```
 
-Requires `data/serve_e2e_fixture.json` and `data/recgpt_ckpt_export/` (or set `RECGPT_FIXTURE` and `RECGPT_CKPT_EXPORT`). Serve E2E fixtures and tests live in `M:\reflex-logic-other`. Endpoints:
+Requires `data/serve_e2e_fixture.json` and `data/recgpt_ckpt_export/` (or set `RECGPT_FIXTURE` and `RECGPT_CKPT_EXPORT`). Serve E2E fixture and tests live in a separate repo; set RECGPT_FIXTURE to use that fixture. Endpoints:
 
 - **POST /recommend** — body `{"item_ids": [1, 2, 3], "top_k": 5}` → `{"item_ids": [...], "item_texts": [...]}` (single best from beam search).
 - **GET /search?q=...&limit=20** — catalog search by string.
@@ -41,18 +41,11 @@ mix test --exclude embedding
 - **PropCheck** property tests: `mix test test/recgpt/propcheck_test.exs` (FSQ, Training, FSQEncoder).
 - **Parity constants** (doc/code sync): `mix test test/recgpt/parity_constants_test.exs`.
 - **Pipeline integration** (full flow): `mix test test/recgpt/pipeline_integration_test.exs` — embeddings → token_id_list → train batch → loss.
-- **Serve E2E** (serve/predict flow): lives in `M:\reflex-logic-other` (see that repo’s serve_e2e project and `scripts/export_serve_e2e_fixture.py`). Run from reflex-logic-other; checkpoint can stay in reflex-logic-market.
+- **Serve E2E** (serve/predict flow): fixture and tests in a separate repo (see that repo’s serve_e2e project and `scripts/export_serve_e2e_fixture.py`). Set RECGPT_FIXTURE to use that fixture with mix recgpt.serve.
 
 ## Python comparison
 
-Compare test is excluded by default (needs fixtures). With fixtures:
-
-```bash
-uv run python scripts/compare_recgpt_fsq.py --output-dir data/recgpt_compare
-cd recgpt && mix test test/recgpt/compare_test.exs --include compare_python
-```
-
-Or from polymarket: `mix recgpt.compare`.
+Compare test is excluded by default (needs fixtures). Python scripts (e.g. `compare_recgpt_fsq.py`) may live in parent repo. With fixtures: `mix test test/recgpt/compare_test.exs --include compare_python`.
 
 ## Docs
 

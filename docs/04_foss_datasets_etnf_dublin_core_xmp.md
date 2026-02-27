@@ -1,6 +1,6 @@
 # ETNF catalog metadata: Dublin Core + XMP JSON-LD
 
-Catalog item metadata in the [ETNF FOSS datasets DB](foss_datasets_etnf_schema.sql) is stored as **Dublin Core** ([Wikipedia](https://en.wikipedia.org/wiki/Dublin_Core)) encoded as **XMP JSON-LD** in the style of [Khronos KHR_xmp_json_ld](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld).
+Catalog item metadata in the ETNF FOSS datasets DB (schema in separate repo) is stored as **Dublin Core** ([Wikipedia](https://en.wikipedia.org/wiki/Dublin_Core)) encoded as **XMP JSON-LD** in the style of [Khronos KHR_xmp_json_ld](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld).
 
 ---
 
