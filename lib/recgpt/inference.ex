@@ -26,6 +26,23 @@ defmodule RecGPT.Inference do
   Returns logits (batch, 15361) for the last position.
   """
   def forward(batch_token_ids, batch_aux_embeds, embed_mask, params) do
+    hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
+    # Last position only: (batch, 768) -> (batch, 15361)
+    last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
+    last_hidden = hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
+    apply_head(last_hidden, params)
+  end
+
+  @doc """
+  Full-sequence forward for training. Same as forward/4 but returns logits for every position.
+  Returns logits (batch, seq_len, 15361) for use with Training.loss_shifted_ce/2.
+  """
+  def forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params) do
+    hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
+    apply_head(hidden, params)
+  end
+
+  defp forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     wte = get_wte(params)
     {batch, seq_len} = Nx.shape(batch_token_ids)
 
@@ -38,27 +55,16 @@ defmodule RecGPT.Inference do
     aux_768 = apply_aux_encoder(batch_aux_embeds, embed_mask, params)
     combined = Nx.add(token_embeds, aux_768)
 
-    # 3. GPT-2 backbone (or stub)
-    hidden =
-      case gpt2_n_layers(params) do
-        0 ->
-          # No GPT-2 params: use last position as hidden
-          last_idx = seq_len - 1
-          s = Nx.slice_along_axis(combined, last_idx, 1, axis: 1)
-          Nx.squeeze(s, axes: [1])
+    # 3. GPT-2 backbone (or stub) -> (batch, seq_len, 768)
+    case gpt2_n_layers(params) do
+      0 ->
+        combined
 
-        n_layers ->
-          # Add position embeddings if present
-          h = add_wpe(combined, params, seq_len)
-          h = run_gpt2_blocks(h, params, n_layers)
-          h = apply_ln_f(h, params)
-          last_idx = seq_len - 1
-          s = Nx.slice_along_axis(h, last_idx, 1, axis: 1)
-          Nx.squeeze(s, axes: [1])
-      end
-
-    # 4. Head: (batch, 768) -> (batch, 15361)
-    apply_head(hidden, params)
+      n_layers ->
+        h = add_wpe(combined, params, seq_len)
+        h = run_gpt2_blocks(h, params, n_layers)
+        apply_ln_f(h, params)
+    end
   end
 
   defp add_wpe(hidden, params, seq_len) do
@@ -280,7 +286,17 @@ defmodule RecGPT.Inference do
     if weight do
       # PyTorch Linear(768, 15361) is (15361, 768); Nx.dot needs (768, 15361)
       weight = ensure_shape(weight, {768, 15361})
-      logits = Nx.dot(hidden, [1], weight, [0])
+      # hidden: (batch, 768) or (batch, seq_len, 768)
+      shape = Nx.shape(hidden)
+      logits =
+        if tuple_size(shape) == 2 do
+          Nx.dot(hidden, [1], weight, [0])
+        else
+          {batch, seq_len, _} = shape
+          flat = Nx.reshape(hidden, {batch * seq_len, 768})
+          out = Nx.dot(flat, [1], weight, [0])
+          Nx.reshape(out, {batch, seq_len, 15361})
+        end
       if bias, do: Nx.add(logits, bias), else: logits
     else
       raise "missing pred_head.weight in params"
