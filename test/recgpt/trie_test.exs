@@ -55,4 +55,13 @@ defmodule RecGPT.TrieTest do
   test "seq_len is 4" do
     assert Trie.seq_len() == 4
   end
+
+  test "lookup returns :not_found for list length != 4" do
+    token_id_list = [[1, 2, 3, 4]]
+    trie = Trie.build(token_id_list)
+    assert Trie.lookup(trie, [1, 2]) == :not_found
+    assert Trie.lookup(trie, [1, 2, 3]) == :not_found
+    assert Trie.lookup(trie, [1, 2, 3, 4, 5]) == :not_found
+    assert Trie.lookup(trie, []) == :not_found
+  end
 end
