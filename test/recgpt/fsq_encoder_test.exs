@@ -13,8 +13,9 @@ defmodule RecGPT.FSQEncoderTest do
       token_id_list = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, params, 2)
       assert length(token_id_list) == 3
       assert Enum.all?(token_id_list, fn tokens -> length(tokens) == 4 end)
+
       assert Enum.all?(token_id_list, fn tokens ->
-               Enum.all?(tokens, fn t -> is_integer(t) and t >= 0 and t < 15_360 end)
+               Enum.all?(tokens, fn t -> is_integer(t) and t >= 0 and t < FSQ.vocab_size() end)
              end)
     end
 
@@ -53,7 +54,11 @@ defmodule RecGPT.FSQEncoderTest do
 
   describe "load_embeddings_from_npy/1" do
     test "raises on missing file" do
-      path = Path.join(System.tmp_dir!(), "recgpt_nonexistent_#{:erlang.unique_integer([:positive])}.npy")
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "recgpt_nonexistent_#{:erlang.unique_integer([:positive])}.npy"
+        )
 
       assert_raise RuntimeError, ~r/Failed to load embeddings/, fn ->
         FSQEncoder.load_embeddings_from_npy(path)
@@ -63,6 +68,7 @@ defmodule RecGPT.FSQEncoderTest do
     test "loads tensor from valid .npy file" do
       path = Path.join(System.tmp_dir!(), "recgpt_emb_#{:erlang.unique_integer([:positive])}.npy")
       tensor = Nx.iota({2, 768}) |> Nx.divide(768) |> Nx.as_type({:f, 32})
+
       try do
         Npy.save(tensor, path)
         loaded = FSQEncoder.load_embeddings_from_npy(path)
@@ -77,6 +83,7 @@ defmodule RecGPT.FSQEncoderTest do
   defp make_params do
     project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5) |> Nx.subtract(0.05)
     project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192) |> Nx.subtract(0.05)
+
     FSQ.load_params(%{
       "project_in/kernel" => project_in_k,
       "project_in/bias" => nil,

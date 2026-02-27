@@ -64,7 +64,10 @@ defmodule RecGPT.PropCheckTest do
       z = Nx.tensor([[[z_5]]], type: {:f, 32})
       out = FSQ.bound(z)
       vals = Nx.to_flat_list(out)
-      Enum.all?(vals, fn v -> is_number(v) and v == v and v != :infinity and v != :neg_infinity end)
+
+      Enum.all?(vals, fn v ->
+        is_number(v) and v == v and v != :infinity and v != :neg_infinity
+      end)
     end
   end
 

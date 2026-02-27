@@ -44,7 +44,9 @@ defmodule RecGPT.Decode do
       end)
 
     case candidates do
-      [] -> :not_found
+      [] ->
+        :not_found
+
       _ ->
         {item_id, _score} = Enum.max_by(candidates, fn {_, s} -> s end)
         {:ok, item_id}
@@ -59,6 +61,7 @@ defmodule RecGPT.Decode do
   def beam_search_top_k(get_logits_fn, trie, context_token_ids, top_k)
       when is_function(get_logits_fn, 1) and is_map(trie) and top_k >= 1 do
     beam_width = max(4, top_k)
+
     beam =
       Enum.reduce(0..(@seq_len - 1), [{[], 0.0}], fn _step, current_beam ->
         expand_beam(get_logits_fn, trie, context_token_ids, current_beam, beam_width)
@@ -90,13 +93,20 @@ defmodule RecGPT.Decode do
         full_prefix = context_token_ids ++ prefix
         logits = get_logits_fn.(full_prefix)
         valid = Trie.valid_next_tokens(trie, prefix)
+
         if valid == [] do
           []
         else
           # logits shape {1, vocab_size}; take log_softmax for numerical stability, then pick valid token scores
           logits_1d = logits |> Nx.squeeze(axes: [0])
+
           for token_id <- valid do
-            logit = logits_1d |> Nx.slice_along_axis(token_id, 1, axis: 0) |> Nx.squeeze(axes: [0]) |> Nx.to_number()
+            logit =
+              logits_1d
+              |> Nx.slice_along_axis(token_id, 1, axis: 0)
+              |> Nx.squeeze(axes: [0])
+              |> Nx.to_number()
+
             score = parent_score + logit
             {prefix ++ [token_id], score}
           end

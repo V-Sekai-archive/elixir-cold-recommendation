@@ -10,6 +10,7 @@ defmodule RecGPT.TrieTest do
       [10, 20, 30, 40],
       [1, 2, 99, 100]
     ]
+
     trie = Trie.build(token_id_list)
     assert Trie.lookup(trie, [1, 2, 3, 4]) == {:ok, 0}
     assert Trie.lookup(trie, [10, 20, 30, 40]) == {:ok, 1}

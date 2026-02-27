@@ -55,6 +55,7 @@ defmodule RecGPT.Serve do
 
   defp load_checkpoint(dir) do
     manifest = Path.join(dir, "manifest.json")
+
     if File.regular?(manifest) do
       {:ok, CheckpointLoader.load_from_export(dir)}
     else
@@ -65,7 +66,10 @@ defmodule RecGPT.Serve do
   defp load_fixture(path) do
     if File.regular?(path) do
       fixture = File.read!(path) |> Jason.decode!()
-      token_id_list = (fixture["token_id_list"] || []) |> Enum.map(&Enum.map(&1, fn x -> round(x) end))
+
+      token_id_list =
+        (fixture["token_id_list"] || []) |> Enum.map(&Enum.map(&1, fn x -> round(x) end))
+
       num_items = fixture["num_items"] || length(token_id_list)
       {:ok, token_id_list, num_items}
     else
@@ -79,6 +83,7 @@ defmodule RecGPT.Serve do
   defp load_catalog(path, _num_items) do
     if File.regular?(path) do
       raw = File.read!(path) |> Jason.decode!()
+
       item_text =
         case raw do
           %{"items" => items} when is_list(items) ->
@@ -127,12 +132,14 @@ defmodule RecGPT.Serve do
   @doc """
   Recommend next item(s) given context item_ids. Returns up to `top_k` item_ids (best first) from beam search.
   """
-  def recommend(state, item_ids, top_k \\ 5) when is_list(item_ids) and is_integer(top_k) and top_k >= 1 do
+  def recommend(state, item_ids, top_k \\ 5)
+      when is_list(item_ids) and is_integer(top_k) and top_k >= 1 do
     if item_ids == [] do
       {:error, "item_ids must be non-empty"}
     else
       top_k = min(top_k, 20)
       context_token_ids = item_ids_to_context_token_ids(item_ids, state.token_id_list)
+
       case Decode.beam_search_top_k(state.get_logits_fn, state.trie, context_token_ids, top_k) do
         {:ok, list} -> {:ok, list}
         :not_found -> {:ok, []}
@@ -145,6 +152,7 @@ defmodule RecGPT.Serve do
   """
   def search(state, q, limit \\ 20) do
     q = (q || "") |> String.downcase() |> String.trim()
+
     if q == "" or state.item_text == %{} do
       []
     else
@@ -160,8 +168,9 @@ defmodule RecGPT.Serve do
     end
   end
 
-  defp safe_str(nil), do: ""
-  defp safe_str(s) when is_binary(s), do: s
-  defp safe_str(m) when is_map(m), do: inspect(m)
-  defp safe_str(x), do: to_string(x)
+  @doc "Coerce value to string for API response (nil -> \"\", binary -> self, map -> inspect, other -> to_string)."
+  def safe_str(nil), do: ""
+  def safe_str(s) when is_binary(s), do: s
+  def safe_str(m) when is_map(m), do: inspect(m)
+  def safe_str(x), do: to_string(x)
 end

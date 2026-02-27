@@ -33,8 +33,11 @@ defmodule RecGPT.Embedding do
 
   defp load_serving! do
     IO.puts("Downloading model #{@model_id} (first run may take several minutes)...")
+
     # Load as :base to get hidden_state/pooled_state for embeddings (sentence-transformers model has LM head but we use encoder only)
-    {:ok, model_info} = Bumblebee.load_model({:hf, @model_id}, spec_overrides: [architecture: :base])
+    {:ok, model_info} =
+      Bumblebee.load_model({:hf, @model_id}, spec_overrides: [architecture: :base])
+
     IO.puts("Model loaded. Downloading tokenizer...")
     {:ok, tokenizer} = Bumblebee.load_tokenizer({:hf, @model_id})
     IO.puts("Tokenizer loaded. Building serving...")

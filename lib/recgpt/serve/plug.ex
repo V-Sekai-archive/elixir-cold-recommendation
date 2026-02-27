@@ -6,6 +6,7 @@ defmodule RecGPT.Serve.Plug do
 
   def call(conn, _opts) do
     state = Application.get_env(:recgpt, :serve_state)
+
     if is_nil(state) do
       send_resp(conn, 503, "Service not ready")
     else
@@ -46,15 +47,19 @@ defmodule RecGPT.Serve.Plug do
     case body do
       {:ok, %{"item_ids" => item_ids} = req} when is_list(item_ids) ->
         top_k = (req["top_k"] || 5) |> min(20)
+
         case RecGPT.Serve.recommend(state, item_ids, top_k) do
           {:ok, rec_ids} ->
             item_texts = Enum.map(rec_ids, fn id -> item_response(state, id) end)
             send_json(conn, 200, %{"item_ids" => rec_ids, "item_texts" => item_texts})
+
           {:error, msg} ->
             send_json(conn, 400, %{"error" => to_string(msg)})
         end
+
       {:ok, _} ->
         send_json(conn, 400, %{"error" => "body must contain item_ids (list)"})
+
       _ ->
         send_json(conn, 400, %{"error" => "invalid JSON body"})
     end
@@ -62,25 +67,22 @@ defmodule RecGPT.Serve.Plug do
 
   defp item_response(state, item_id) do
     text = Map.get(state.item_text, item_id)
-    %{"item_id" => item_id, "raw" => safe_str(text)}
+    %{"item_id" => item_id, "raw" => RecGPT.Serve.safe_str(text)}
   end
-
-  defp safe_str(nil), do: ""
-  defp safe_str(s) when is_binary(s), do: s
-  defp safe_str(m) when is_map(m), do: inspect(m)
-  defp safe_str(x), do: to_string(x)
 
   defp get_param(conn, key) do
     conn.query_params[key] || conn.params[key]
   end
 
   defp parse_int(nil, default), do: default
+
   defp parse_int(s, default) when is_binary(s) do
     case Integer.parse(s) do
       {n, _} -> n
       :error -> default
     end
   end
+
   defp parse_int(_, default), do: default
 
   defp send_json(conn, status, body) do
