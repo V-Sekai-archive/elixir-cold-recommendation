@@ -3,9 +3,9 @@
 defmodule RecGPT.ParityConstantsTest do
   use ExUnit.Case, async: true
 
+  alias RecGPT.Embedding
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
-  alias RecGPT.Embedding
   alias RecGPT.Training
 
   # Values from parity progress doc (01_python_recgpt_parity_progress.md)

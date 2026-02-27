@@ -65,8 +65,8 @@ defmodule RecGPT.ServeTest do
 
     test "returns matches when catalog has text" do
       state = %{build_stub_state() | item_text: %{0 => "Action game", 1 => "Puzzle"}}
-      assert length(Serve.search(state, "action", 20)) >= 1
-      assert length(Serve.search(state, "puzzle", 20)) >= 1
+      assert Serve.search(state, "action", 20) != []
+      assert Serve.search(state, "puzzle", 20) != []
       assert Serve.search(state, "nonexistent", 20) == []
     end
   end
@@ -78,9 +78,14 @@ defmodule RecGPT.ServeTest do
     end
 
     test "returns error when checkpoint dir has no manifest" do
-      dir = Path.join(System.tmp_dir!(), "recgpt_no_manifest_#{:erlang.unique_integer([:positive])}")
+      dir =
+        Path.join(System.tmp_dir!(), "recgpt_no_manifest_#{:erlang.unique_integer([:positive])}")
+
       File.mkdir_p!(dir)
-      fixture = Path.join(System.tmp_dir!(), "recgpt_fixture_#{:erlang.unique_integer([:positive])}.json")
+
+      fixture =
+        Path.join(System.tmp_dir!(), "recgpt_fixture_#{:erlang.unique_integer([:positive])}.json")
+
       File.write!(fixture, Jason.encode!(%{"token_id_list" => [[1, 2, 3, 4]], "num_items" => 1}))
 
       try do
@@ -104,62 +109,159 @@ defmodule RecGPT.ServeTest do
         raise "Skip: need data/serve_e2e_fixture.json and data/recgpt_ckpt_export (or run Serve E2E from M:\\reflex-logic-other)"
       end
     end
-  end
 
-  describe "Plug" do
-    test "returns 503 when serve_state not set" do
-      Application.delete_env(:recgpt, :serve_state)
-      conn = conn(:get, "/health") |> Plug.call([])
-      assert conn.status == 503
+    test "load_state with built fixture and stub checkpoint returns state; recommend returns valid item IDs" do
+      Application.ensure_all_started(:nx)
+
+      base =
+        Path.join(System.tmp_dir!(), "recgpt_serve_built_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(base)
+      fixture_path = Path.join(base, "fixture.json")
+      ckpt_dir = Path.join(base, "ckpt")
+
+      try do
+        num_items = 2
+        token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
+
+        File.write!(
+          fixture_path,
+          Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
+        )
+
+        write_stub_ckpt!(ckpt_dir)
+
+        assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
+        assert state.num_items == num_items
+        assert {:ok, list} = Serve.recommend(state, [0], 5)
+        assert is_list(list)
+        assert length(list) <= 5
+        assert Enum.all?(list, fn id -> is_integer(id) and id >= 0 and id < num_items end)
+      after
+        File.rm_rf(base)
+      end
     end
 
-    test "GET /health returns 200 when state set" do
+    @tag :integration
+    test "pipeline: load_state + recommend + Eval.evaluate returns metrics" do
+      Application.ensure_all_started(:nx)
+
+      base =
+        Path.join(System.tmp_dir!(), "recgpt_serve_eval_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(base)
+      fixture_path = Path.join(base, "fixture.json")
+      ckpt_dir = Path.join(base, "ckpt")
+
+      try do
+        num_items = 2
+        token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
+
+        File.write!(
+          fixture_path,
+          Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
+        )
+
+        write_stub_ckpt!(ckpt_dir)
+
+        assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
+
+        test_cases = [
+          %{"context" => [0], "next_item" => 1},
+          %{"context" => [1], "next_item" => 0}
+        ]
+
+        metrics = RecGPT.Eval.evaluate(state, test_cases, top_k: 10)
+        assert metrics.n == 2
+        assert metrics.catalog_size == 2
+        assert is_float(metrics.hit_at_1)
+        assert is_float(metrics.mrr)
+      after
+        File.rm_rf(base)
+      end
+    end
+  end
+
+  defp write_stub_ckpt!(dir) do
+    File.mkdir_p!(dir)
+
+    params = %{
+      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.weight" =>
+        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
+    }
+
+    RecGPT.CheckpointExport.write_export(params, dir)
+  end
+
+  describe "Plug (REST API)" do
+    test "returns 503 with error body when serve_state not set" do
+      Application.delete_env(:recgpt, :serve_state)
+      conn = conn(:get, "/v1/health") |> Plug.call([])
+      assert conn.status == 503
+      body = Jason.decode!(conn.resp_body)
+      assert body["error"]["code"] == 503
+      assert body["error"]["status"] == "UNAVAILABLE"
+    end
+
+    test "GET /v1/health returns 200 when state set" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
-      conn = conn(:get, "/health") |> Plug.call([])
+      conn = conn(:get, "/v1/health") |> Plug.call([])
       assert conn.status == 200
       assert Jason.decode!(conn.resp_body)["status"] == "ok"
     end
 
-    test "GET /search returns matches" do
+    test "GET /v1/catalog/items returns items with display_name" do
       state = %{build_stub_state() | item_text: %{0 => "Test game"}}
       Application.put_env(:recgpt, :serve_state, state)
-      conn = conn(:get, "/search?q=test") |> Plug.call([])
+      conn = conn(:get, "/v1/catalog/items?q=test") |> Plug.call([])
       assert conn.status == 200
       body = Jason.decode!(conn.resp_body)
-      assert Map.has_key?(body, "matches")
+      assert Map.has_key?(body, "items")
+      assert is_list(body["items"])
     end
 
-    test "POST /recommend returns item_ids and item_texts" do
+    test "POST /v1/catalog:recommend returns item_ids and items" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
 
       conn =
-        conn(:post, "/recommend", Jason.encode!(%{"item_ids" => [0], "top_k" => 5}))
+        conn(
+          :post,
+          "/v1/catalog:recommend",
+          Jason.encode!(%{"context_item_ids" => [0], "max_results" => 5})
+        )
         |> put_req_header("content-type", "application/json")
         |> Plug.call([])
 
       assert conn.status == 200
       body = Jason.decode!(conn.resp_body)
       assert Map.has_key?(body, "item_ids")
-      assert Map.has_key?(body, "item_texts")
+      assert Map.has_key?(body, "items")
       assert is_list(body["item_ids"])
-      assert is_list(body["item_texts"])
+      assert is_list(body["items"])
     end
 
-    test "POST /recommend returns 400 when item_ids missing" do
+    test "POST /v1/catalog:recommend returns 400 with error body when context_item_ids missing" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
 
       conn =
-        conn(:post, "/recommend", Jason.encode!(%{}))
+        conn(:post, "/v1/catalog:recommend", Jason.encode!(%{}))
         |> put_req_header("content-type", "application/json")
         |> Plug.call([])
 
       assert conn.status == 400
+      body = Jason.decode!(conn.resp_body)
+      assert body["error"]["code"] == 400
+      assert body["error"]["status"] == "INVALID_ARGUMENT"
     end
 
-    test "404 for unknown path" do
+    test "404 for unknown path with error body" do
       Application.put_env(:recgpt, :serve_state, build_stub_state())
-      conn = conn(:get, "/unknown") |> Plug.call([])
+      conn = conn(:get, "/v1/unknown") |> Plug.call([])
       assert conn.status == 404
+      body = Jason.decode!(conn.resp_body)
+      assert body["error"]["code"] == 404
     end
   end
 
@@ -205,9 +307,9 @@ defmodule RecGPT.ServeTest do
   end
 
   defp build_dummy_params do
-    wte = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
+    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
+    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
 
     %{
       "wte" => wte,

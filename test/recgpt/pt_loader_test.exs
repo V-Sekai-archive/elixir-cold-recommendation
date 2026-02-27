@@ -35,6 +35,7 @@ defmodule RecGPT.PtLoaderTest do
 
   test "load! raises when file does not exist" do
     path = Path.join(System.tmp_dir!(), "nonexistent_#{System.unique_integer([:positive])}.pt")
+
     assert_raise File.Error, fn ->
       PtLoader.load!(path)
     end

@@ -21,6 +21,7 @@ defmodule RecGPT.CheckpointExport do
   """
   def write_export(params, export_dir) when is_map(params) and is_binary(export_dir) do
     File.mkdir_p!(export_dir)
+
     manifest =
       Enum.reduce(params, %{}, fn {key, tensor}, acc ->
         unless is_struct(tensor, Nx.Tensor) do

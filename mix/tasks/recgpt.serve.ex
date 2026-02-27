@@ -1,9 +1,10 @@
 defmodule Mix.Tasks.Recgpt.Serve do
   @shortdoc "Start RecGPT recommendation HTTP server (port of serve.py)"
   @moduledoc """
-  Start the RecGPT HTTP server for next-item recommendation.
+  Start the RecGPT REST API server (Google API Design Guide).
 
-  Loads checkpoint and serve E2E fixture once; serves POST /recommend and GET /search.
+  Loads checkpoint and fixture once. Serves only /v1/ endpoints:
+  GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health.
 
   ## Options
     * `--port` - Port (default: 8000)
@@ -47,11 +48,14 @@ defmodule Mix.Tasks.Recgpt.Serve do
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
-        Mix.shell().info("Listening on http://0.0.0.0:#{port}/recommend")
+        Mix.shell().info("REST API: http://0.0.0.0:#{port}/v1/")
+        Mix.shell().info("  GET  /v1/catalog/items?q=...&pageSize=20")
 
         Mix.shell().info(
-          "Example: curl -s -X POST http://localhost:#{port}/recommend -H \"Content-Type: application/json\" -d \"{\\\"item_ids\\\": [1, 2, 3], \\\"top_k\\\": 5}\""
+          "  POST /v1/catalog:recommend  body: {\"context_item_ids\": [0,1], \"max_results\": 5}"
         )
+
+        Mix.shell().info("  GET  /v1/health")
 
         spec = {Plug.Cowboy, scheme: :http, plug: RecGPT.Serve.Plug, options: [port: port]}
         {:ok, _pid} = Supervisor.start_link([spec], strategy: :one_for_one)

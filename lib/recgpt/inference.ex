@@ -4,14 +4,14 @@ defmodule RecGPT.Inference do
 
   Params from RecGPT.CheckpointLoader.load_from_export/1. Expected keys
   (see docs/02_recgpt_checkpoint_layout.md):
-  - wte or gpt2model.wte: (15361, 768) token embedding table
+  - wte or gpt2model.wte: (15_361, 768) token embedding table
   - gpt2model.wpe (optional): position embeddings; added to hidden if present
   - gpt2model.h.{i}.attn.*, ln_1, mlp.*, ln_2: transformer blocks (when present)
   - gpt2model.ln_f: final layer norm
   - ae.*: aux encoder linear 192->768 + optional LayerNorm
-  - pred_head.weight, pred_head.bias: Linear(768, 15361)
+  - pred_head.weight, pred_head.bias: Linear(768, 15_361)
 
-  forward/4 returns logits (batch, 15361) for the last position. When checkpoint
+  forward/4 returns logits (batch, 15_361) for the last position. When checkpoint
   includes GPT-2 layer params (e.g. gpt2model.h.0.attn.c_attn.weight), the full
   backbone runs; otherwise a stub (last-position combined embed) is used.
   """
@@ -23,11 +23,11 @@ defmodule RecGPT.Inference do
   @doc """
   Forward pass. batch_token_ids: (batch, seq_len), batch_aux_embeds: (batch, seq_len, 192),
   embed_mask: (batch, seq_len, 1), params: map from CheckpointLoader.
-  Returns logits (batch, 15361) for the last position.
+  Returns logits (batch, 15_361) for the last position.
   """
   def forward(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    # Last position only: (batch, 768) -> (batch, 15361)
+    # Last position only: (batch, 768) -> (batch, 15_361)
     last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
     last_hidden = hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
     apply_head(last_hidden, params)
@@ -35,7 +35,7 @@ defmodule RecGPT.Inference do
 
   @doc """
   Full-sequence forward for training. Same as forward/4 but returns logits for every position.
-  Returns logits (batch, seq_len, 15361) for use with Training.loss_shifted_ce/2.
+  Returns logits (batch, seq_len, 15_361) for use with Training.loss_shifted_ce/2.
   """
   def forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
@@ -248,9 +248,9 @@ defmodule RecGPT.Inference do
         params["wte.weight"]
 
     if is_nil(wte), do: raise("missing wte in params")
-    # RecGPT checkpoint may have GPT-2 vocab (50257); use first 15361 for FSQ vocab
+    # RecGPT checkpoint may have GPT-2 vocab (50257); use first 15_361 for FSQ vocab
     {rows, _} = Nx.shape(wte)
-    if rows >= 15361, do: Nx.slice_along_axis(wte, 0, 15361, axis: 0), else: wte
+    if rows >= 15_361, do: Nx.slice_along_axis(wte, 0, 15_361, axis: 0), else: wte
   end
 
   defp apply_aux_encoder(aux_192, mask, params) do
@@ -284,10 +284,11 @@ defmodule RecGPT.Inference do
     bias = params["pred_head.bias"]
 
     if weight do
-      # PyTorch Linear(768, 15361) is (15361, 768); Nx.dot needs (768, 15361)
-      weight = ensure_shape(weight, {768, 15361})
+      # PyTorch Linear(768, 15_361) is (15_361, 768); Nx.dot needs (768, 15_361)
+      weight = ensure_shape(weight, {768, 15_361})
       # hidden: (batch, 768) or (batch, seq_len, 768)
       shape = Nx.shape(hidden)
+
       logits =
         if tuple_size(shape) == 2 do
           Nx.dot(hidden, [1], weight, [0])
@@ -295,8 +296,9 @@ defmodule RecGPT.Inference do
           {batch, seq_len, _} = shape
           flat = Nx.reshape(hidden, {batch * seq_len, 768})
           out = Nx.dot(flat, [1], weight, [0])
-          Nx.reshape(out, {batch, seq_len, 15361})
+          Nx.reshape(out, {batch, seq_len, 15_361})
         end
+
       if bias, do: Nx.add(logits, bias), else: logits
     else
       raise "missing pred_head.weight in params"

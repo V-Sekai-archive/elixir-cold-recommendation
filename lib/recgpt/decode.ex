@@ -15,7 +15,7 @@ defmodule RecGPT.Decode do
   Beam search for the next 4-token sequence (one item), then map to item_id via trie.
 
   - `get_logits_fn`: function that takes the current token sequence (context + predicted so far)
-    and returns logits tensor of shape `{1, vocab_size}` (e.g. 15361). Pass the full sequence
+    and returns logits tensor of shape `{1, vocab_size}` (e.g. 15_361). Pass the full sequence
     that would be fed to the model (previous items' tokens concatenated + current step tokens).
   - `trie`: from `RecGPT.Trie.build/1` over the catalog token_id_list.
   - `context_token_ids`: list of token IDs already generated (e.g. previous items' 4 tokens each).

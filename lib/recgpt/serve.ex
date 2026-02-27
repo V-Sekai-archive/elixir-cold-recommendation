@@ -1,12 +1,10 @@
 defmodule RecGPT.Serve do
   @moduledoc """
-  HTTP server for next-item recommendation (port of thirdparty/RecGPT_repo/serve.py).
+  Next-item recommendation and catalog search (backend for REST API).
 
-  Loads model + token_id_list + trie once; POST /recommend runs beam search.
-  GET /search does simple string match over catalog text.
-
-  Run: mix recgpt.serve [--port 8000]
-  Requires: data/serve_e2e_fixture.json (or RECGPT_FIXTURE), data/recgpt_ckpt_export (or RECGPT_CKPT_EXPORT).
+  Loads model + token_id_list + trie once. The HTTP surface is a RESTful API
+  (Google API Design Guide): see `RecGPT.Serve.Plug` and `RecGPT.Serve.REST`.
+  Run: mix recgpt.serve [--port 8000]. Requires fixture and checkpoint export dir.
   """
 
   alias RecGPT.CheckpointLoader
@@ -18,7 +16,7 @@ defmodule RecGPT.Serve do
   @max_length 255
   @seq_token_capacity 1024
 
-  defstruct [:params, :trie, :token_id_list, :item_text, :num_items, :get_logits_fn]
+  defstruct [:params, :trie, :token_id_list, :item_text, :num_items, :get_logits_fn, :item_extra]
 
   @type state :: %__MODULE__{
           params: map(),
@@ -26,19 +24,29 @@ defmodule RecGPT.Serve do
           token_id_list: [[non_neg_integer()]],
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
-          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t())
+          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
+          item_extra:
+            nil
+            | %{optional(non_neg_integer()) => map()}
+            | (non_neg_integer(), %__MODULE__{} -> map())
         }
 
   @doc """
   Load server state: checkpoint export, fixture (token_id_list), optional catalog JSON.
+
+  Options:
+  - :item_extra — Optional. Map or function to add extra fields per item in API responses.
+    - Map: %{item_id => %{"asset_id" => "...", "slug" => "..."}} (e.g. for Polymarket).
+    - Function: (item_id, state) -> %{"key" => "value"}.
   Returns {:ok, state} or {:error, reason}.
   """
-  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
+  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil, opts \\ []) do
     with {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       trie = Trie.build(token_id_list)
       get_logits_fn = build_get_logits_fn(params)
+      item_extra = Keyword.get(opts, :item_extra)
 
       state = %__MODULE__{
         params: params,
@@ -46,7 +54,8 @@ defmodule RecGPT.Serve do
         token_id_list: token_id_list,
         item_text: item_text,
         num_items: num_items,
-        get_logits_fn: get_logits_fn
+        get_logits_fn: get_logits_fn,
+        item_extra: item_extra
       }
 
       {:ok, state}

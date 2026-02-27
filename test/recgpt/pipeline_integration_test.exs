@@ -54,7 +54,7 @@ defmodule RecGPT.PipelineIntegrationTest do
     loss = Training.loss_shifted_ce(logits, batch_labels)
     assert Nx.shape(loss) == {}
     loss_val = Nx.to_number(loss)
-    assert loss_val >= 0 and loss_val == loss_val
+    assert loss_val >= 0 and Float.is_finite(loss_val)
   end
 
   @tag :integration

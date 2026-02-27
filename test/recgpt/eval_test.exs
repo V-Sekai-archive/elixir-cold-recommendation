@@ -1,5 +1,5 @@
-# Eval test: load_test_cases with synthetic data; evaluate with stub state; Fetch output (top-k form); integration requires RECGPT_* env.
-# To build data/clickstream for Fetch test: mix run -e "Application.ensure_all_started(:recgpt); RecGPT.Clickstream.Fetch.run()"
+# Eval test: load_test_cases with synthetic data; evaluate with stub state; Fetch output (top-k).
+# Integration requires RECGPT_* env. To build data/clickstream: mix run -e "..." with Fetch.run().
 defmodule RecGPT.EvalTest do
   use ExUnit.Case, async: false
 
@@ -24,10 +24,12 @@ defmodule RecGPT.EvalTest do
 
     test "skips test cases with empty context or nil next_item" do
       state = build_eval_stub_state()
+
       test_cases = [
         %{"context" => [], "next_item" => 0},
         %{"context" => [0], "next_item" => nil}
       ]
+
       metrics = Eval.evaluate(state, test_cases, top_k: 5)
       assert metrics.n == 0 or metrics.n == 1
     end
@@ -35,7 +37,9 @@ defmodule RecGPT.EvalTest do
 
   describe "load_test_cases/1" do
     test "returns error when file does not exist" do
-      path = Path.join(System.tmp_dir!(), "nonexistent_#{:erlang.unique_integer([:positive])}.json")
+      path =
+        Path.join(System.tmp_dir!(), "nonexistent_#{:erlang.unique_integer([:positive])}.json")
+
       assert {:error, msg} = Eval.load_test_cases(path)
       assert msg =~ "not found" or msg =~ path
     end
@@ -44,12 +48,15 @@ defmodule RecGPT.EvalTest do
   @tag :eval
   test "Fetch output test_sequences.json fits top-k form (one next_item per case, k=10)" do
     path = Path.join(File.cwd!(), "data/clickstream/test_sequences.json")
+
     if not File.regular?(path) do
-      ExUnit.skip("Run RecGPT.Clickstream.Fetch.run() to build data/clickstream/test_sequences.json")
+      ExUnit.skip(
+        "Run RecGPT.Clickstream.Fetch.run() to build data/clickstream/test_sequences.json"
+      )
     end
 
     assert {:ok, cases} = Eval.load_test_cases(path)
-    assert length(cases) >= 1
+    assert cases != []
 
     raw = File.read!(path) |> Jason.decode!()
     num_items = raw["num_items"] || 0
@@ -62,14 +69,19 @@ defmodule RecGPT.EvalTest do
       assert is_integer(next_item), "each test case must have single next_item (top-k form)"
       assert next_item >= 0 and next_item < num_items, "next_item must be in 0..num_items-1"
     end
-
   end
 
   @tag :eval
   test "load_test_cases loads synthetic test_sequences JSON" do
     num_items = 20
     payload = RecGPT.EvalFixtures.generate_test_sequences_json(num_items, 15)
-    path = Path.join(System.tmp_dir!(), "recgpt_eval_test_sequences_#{:erlang.unique_integer([:positive])}.json")
+
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "recgpt_eval_test_sequences_#{:erlang.unique_integer([:positive])}.json"
+      )
+
     File.write!(path, Jason.encode!(payload))
 
     try do
@@ -100,7 +112,8 @@ defmodule RecGPT.EvalTest do
       """)
     end
 
-    unless is_binary(ckpt) and ckpt != "" and File.dir?(ckpt) and File.regular?(Path.join(ckpt, "manifest.json")) do
+    unless is_binary(ckpt) and ckpt != "" and File.dir?(ckpt) and
+             File.regular?(Path.join(ckpt, "manifest.json")) do
       flunk("""
       Skipped (missing data): Set RECGPT_CKPT_EXPORT to checkpoint export dir. See docs/02_recgpt_checkpoint_layout.md.
       """)
@@ -117,7 +130,7 @@ defmodule RecGPT.EvalTest do
 
     assert {:ok, state} = Serve.load_state(fixture, ckpt, nil)
     assert {:ok, test_cases} = Eval.load_test_cases(test_file)
-    assert length(test_cases) >= 1, "need at least one test case"
+    assert test_cases != [], "need at least one test case"
 
     metrics = Eval.evaluate(state, test_cases, top_k: @top_k)
 
@@ -133,11 +146,14 @@ defmodule RecGPT.EvalTest do
   defp build_eval_stub_state do
     token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
     trie = RecGPT.Trie.build(token_id_list)
+
     params = %{
-      "wte" => Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" => Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.weight" =>
+        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     }
+
     get_logits_fn = fn token_list ->
       batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
       seq_len = length(token_list)
@@ -145,6 +161,7 @@ defmodule RecGPT.EvalTest do
       embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
       RecGPT.Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
     end
+
     %Serve{
       params: params,
       trie: trie,

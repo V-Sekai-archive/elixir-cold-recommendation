@@ -47,7 +47,10 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
       case stream_download(@hf_url, out_path) do
         :ok ->
           Mix.shell().info("Done. Export to Elixir format (manifest + .npy):")
-          Mix.shell().info("  mix recgpt.export_ckpt --from-pt #{out_path} --out data/recgpt_ckpt_export")
+
+          Mix.shell().info(
+            "  mix recgpt.export_ckpt --from-pt #{out_path} --out data/recgpt_ckpt_export"
+          )
 
         {:error, reason} ->
           Mix.raise("Download failed: #{inspect(reason)}")

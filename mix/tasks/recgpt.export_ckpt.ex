@@ -26,6 +26,7 @@ defmodule Mix.Tasks.Recgpt.ExportCkpt do
       OptionParser.parse(args, switches: [from_export: :string, from_pt: :string, out: :string])
 
     out_dir = opts[:out]
+
     unless out_dir do
       Mix.raise("--out DIR is required")
     end

@@ -47,7 +47,9 @@ defmodule RecGPT.CheckpointLoaderTest do
   end
 
   test "load_from_export raises when manifest references missing .npy file" do
-    dir = Path.join(System.tmp_dir!(), "recgpt_missing_npy_#{:erlang.unique_integer([:positive])}")
+    dir =
+      Path.join(System.tmp_dir!(), "recgpt_missing_npy_#{:erlang.unique_integer([:positive])}")
+
     File.mkdir_p!(dir)
     manifest = %{"wte" => %{"file" => "nonexistent.npy", "shape" => [2, 8]}}
     File.write!(Path.join(dir, "manifest.json"), Jason.encode!(manifest))

@@ -34,7 +34,8 @@ defmodule RecGPT.Eval do
     top_k = min(top_k, 20)
 
     {h1, h5, h10, rr_sum, n} =
-      Enum.reduce(test_cases, {0, 0, 0, 0.0, 0}, fn tc, {acc_h1, acc_h5, acc_h10, acc_rr, acc_n} ->
+      Enum.reduce(test_cases, {0, 0, 0, 0.0, 0}, fn tc,
+                                                    {acc_h1, acc_h5, acc_h10, acc_rr, acc_n} ->
         context = get_tc_context(tc)
         next_item = get_tc_next_item(tc)
 

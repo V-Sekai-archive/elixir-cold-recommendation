@@ -15,7 +15,9 @@ defmodule Mix.Tasks.Recgpt.Clickstream do
 
     case RecGPT.Clickstream.Fetch.run(data_dir) do
       :ok ->
-        Mix.shell().info("Done. Next: build fixture (Embedding + FSQ), then mix recgpt.eval")
+        Mix.shell().info(
+          "Done. Next: mix recgpt.build_fixture, then mix recgpt.pretrain, then mix recgpt.eval (requires --cold-test)"
+        )
 
       {:error, reason} ->
         Mix.raise("Clickstream fetch failed: #{inspect(reason)}")

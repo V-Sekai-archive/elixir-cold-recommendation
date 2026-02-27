@@ -24,10 +24,12 @@ defmodule RecGPT.AxonTrain do
   """
   def model do
     init_fn = fn _inp, init_state -> init_state end
+
     forward_fn = fn params, input ->
       logits = predict(params, input)
       %{prediction: logits, state: %{}}
     end
+
     {init_fn, forward_fn}
   end
 
@@ -140,6 +142,7 @@ defmodule RecGPT.AxonTrain do
 
     Stream.flat_map(1..epochs, fn _epoch ->
       indices = if shuffle, do: Enum.shuffle(indices), else: indices
+
       indices
       |> Enum.chunk_every(batch_size)
       |> Stream.map(fn batch_indices ->

@@ -21,7 +21,8 @@ defmodule RecGPT.PtLoader do
     if binary_starts_with?(binary, @zip_magic) do
       load_zip!(binary)
     else
-      raise ArgumentError, "RecGPT.PtLoader only supports zip-based .pt files (PyTorch 1.6+). Got non-zip file."
+      raise ArgumentError,
+            "RecGPT.PtLoader only supports zip-based .pt files (PyTorch 1.6+). Got non-zip file."
     end
   end
 
@@ -45,10 +46,11 @@ defmodule RecGPT.PtLoader do
       resolve_tensor_object(obj)
     end
 
-    {root, _rest} = Unpickler.load!(data_pkl,
-      persistent_id_resolver: persistent_id_resolver,
-      object_resolver: object_resolver
-    )
+    {root, _rest} =
+      Unpickler.load!(data_pkl,
+        persistent_id_resolver: persistent_id_resolver,
+        object_resolver: object_resolver
+      )
 
     state_dict(root)
   end
@@ -64,6 +66,7 @@ defmodule RecGPT.PtLoader do
     entries
     |> Enum.filter(fn p ->
       trimmed = String.trim_trailing(p, "/")
+
       case String.split(trimmed, "/") do
         [_, "data", key] when key != "" -> true
         ["data", key] when key != "" -> true
@@ -107,6 +110,7 @@ defmodule RecGPT.PtLoader do
 
   defp storage_type_to_nx(type) when is_binary(type) do
     type = type |> String.split(".") |> List.last()
+
     case type do
       "FloatStorage" -> {:f, 32}
       "DoubleStorage" -> {:f, 64}
@@ -141,9 +145,13 @@ defmodule RecGPT.PtLoader do
     end
   end
 
-  # PyTorch REDUCE args: (storage, offset, shape, stride) as list, or single tuple; tuple order may be (storage, shape, offset, stride).
+  defp resolve_tensor_object(_), do: :error
+
+  # PyTorch REDUCE args: (storage, offset, shape, stride) as list, or single tuple;
+  # tuple order may be (storage, shape, offset, stride).
   defp extract_tensor_args([single]) when is_tuple(single) and tuple_size(single) == 4 do
     [s, x, y, _z] = Tuple.to_list(single)
+
     # If x is a small int (offset) and y is a list/tuple (shape), then order is (storage, offset, shape, stride).
     # If x is list/tuple (shape) and y is int (offset), then order is (storage, shape, offset, stride).
     {offset, shape} =
@@ -152,6 +160,7 @@ defmodule RecGPT.PtLoader do
       else
         {y, x}
       end
+
     shape_tuple = parse_shape(shape) |> List.to_tuple()
     {s, offset, shape_tuple, nil}
   end
@@ -161,25 +170,29 @@ defmodule RecGPT.PtLoader do
     # Identify storage (map with :data) and offset (integer); the other two are shape and stride.
     {storage, offset, shape, _stride} =
       cond do
-        is_storage(a) and is_offset(b) -> order_storage_offset_shape_stride(a, b, c, d)
-        is_storage(b) and is_offset(a) -> order_storage_offset_shape_stride(b, a, c, d)
-        is_storage(a) and is_offset(c) -> order_storage_offset_shape_stride(a, c, b, d)
-        is_storage(b) and is_offset(c) -> order_storage_offset_shape_stride(b, c, a, d)
-        is_storage(c) and is_offset(a) -> order_storage_offset_shape_stride(c, a, b, d)
-        is_storage(c) and is_offset(b) -> order_storage_offset_shape_stride(c, b, a, d)
+        storage?(a) and offset?(b) -> order_storage_offset_shape_stride(a, b, c, d)
+        storage?(b) and offset?(a) -> order_storage_offset_shape_stride(b, a, c, d)
+        storage?(a) and offset?(c) -> order_storage_offset_shape_stride(a, c, b, d)
+        storage?(b) and offset?(c) -> order_storage_offset_shape_stride(b, c, a, d)
+        storage?(c) and offset?(a) -> order_storage_offset_shape_stride(c, a, b, d)
+        storage?(c) and offset?(b) -> order_storage_offset_shape_stride(c, b, a, d)
         true -> order_storage_offset_shape_stride(a, b, c, d)
       end
+
     {storage, offset, shape, nil}
   end
 
-  defp is_storage(%{data: _}), do: true
-  defp is_storage(_), do: false
+  defp extract_tensor_args(_), do: {nil, nil, nil, nil}
 
-  defp is_offset(x) when is_integer(x), do: true
-  defp is_offset(_), do: false
+  defp storage?(%{data: _}), do: true
+  defp storage?(_), do: false
+
+  defp offset?(x) when is_integer(x), do: true
+  defp offset?(_), do: false
 
   defp order_storage_offset_shape_stride(s, o, a, b) do
-    # PyTorch may pass (storage, offset, shape, stride) or (storage, offset, stride, shape). Shape has product = num_elements; stride often has 1s.
+    # PyTorch may pass (storage, offset, shape, stride) or (storage, offset, stride, shape).
+    # Shape has product = num_elements; stride often has 1s.
     a_list = parse_shape(a)
     b_list = parse_shape(b)
     num_a = Enum.reduce(a_list, 1, &*/2)
@@ -192,17 +205,14 @@ defmodule RecGPT.PtLoader do
     end
   end
 
-  defp extract_tensor_args(_), do: {nil, nil, nil, nil}
-
-  defp resolve_tensor_object(_), do: :error
-
   defp rebuild_tensor(%{data: data, dtype: dtype}, offset, shape, _stride) do
     elem_bytes = nx_dtype_to_bytes(dtype)
     shape_list = parse_shape(shape)
     shape_tuple = List.to_tuple(shape_list)
     num_elems = Enum.reduce(shape_list, 1, &*/2)
     offset_bytes = offset * elem_bytes
-    # When pickle reports shape with product 1 but storage has more, use remaining bytes as 1-D (handles some PyTorch pickle variants).
+    # When pickle reports shape with product 1 but storage has more, use remaining bytes as 1-D
+    # (handles some PyTorch pickle variants).
     {num_elems, shape_tuple} =
       if num_elems == 1 do
         remaining = byte_size(data) - offset_bytes
@@ -211,6 +221,7 @@ defmodule RecGPT.PtLoader do
       else
         {num_elems, shape_tuple}
       end
+
     need_bytes = num_elems * elem_bytes
     slice = binary_part(data, offset_bytes, need_bytes)
     tensor = binary_to_nx(slice, dtype, shape_tuple)
@@ -234,6 +245,7 @@ defmodule RecGPT.PtLoader do
     product = Enum.reduce(Tuple.to_list(shape), 1, &*/2)
     if product == 1 and size > 1, do: List.to_tuple([size]), else: shape
   end
+
   defp maybe_fix_shape(shape, _), do: shape
 
   defp binary_to_nx(binary, {:f, 32}, shape) do
@@ -292,9 +304,14 @@ defmodule RecGPT.PtLoader do
 
   defp state_dict(root) do
     cond do
-      is_map(root) and Map.get(root, :__module) -> %{}
-      function_exported?(root, :state_dict, 0) -> root.state_dict() |> state_dict()
-      true -> raise "Unsupported .pt root: expected map (state_dict) or list of pairs, got #{inspect(root)}"
+      is_map(root) and Map.get(root, :__module) ->
+        %{}
+
+      function_exported?(root, :state_dict, 0) ->
+        root.state_dict() |> state_dict()
+
+      true ->
+        raise "Unsupported .pt root: expected map (state_dict) or list of pairs, got #{inspect(root)}"
     end
   end
 end

@@ -7,10 +7,10 @@ defmodule RecGPT.Clickstream.EtnfEvent do
 
   @primary_key false
   schema "event" do
-    field :session_id, :integer
-    field :ord, :integer
-    field :item_id, :integer
-    field :source_dataset, :string
+    field(:session_id, :integer)
+    field(:ord, :integer)
+    field(:item_id, :integer)
+    field(:source_dataset, :string)
     timestamps(type: :utc_datetime_usec)
   end
 end

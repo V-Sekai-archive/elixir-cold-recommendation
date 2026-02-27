@@ -13,8 +13,9 @@ defmodule RecGPT.ParamFlattenTest do
       "wte" => Nx.iota({100, 8}) |> Nx.as_type({:f, 32}),
       "ae.linear.weight" => Nx.iota({768, 192}) |> Nx.divide(768 * 192) |> Nx.as_type({:f, 32}),
       "ae.linear.bias" => Nx.broadcast(0.1, {768}) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" => Nx.iota({768, 15361}) |> Nx.divide(768 * 15361) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+      "pred_head.weight" =>
+        Nx.iota({768, 15_361}) |> Nx.divide(768 * 15_361) |> Nx.as_type({:f, 32}),
+      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     }
   end
 
@@ -24,7 +25,7 @@ defmodule RecGPT.ParamFlattenTest do
       assert {:ok, spec, total} = ParamFlatten.spec_from_params(params, canonical_keys())
 
       assert length(spec) == 5
-      assert total == 100 * 8 + 768 * 192 + 768 + 768 * 15361 + 15361
+      assert total == 100 * 8 + 768 * 192 + 768 + 768 * 15_361 + 15_361
 
       keys = Enum.map(spec, & &1.key) |> Enum.sort()
       assert keys == canonical_keys() |> Enum.sort()
@@ -80,8 +81,9 @@ defmodule RecGPT.ParamFlattenTest do
       for key <- canonical_keys() do
         orig = params[key]
         restored = unflattened[key]
+
         assert Nx.shape(restored) == Nx.shape(orig),
-          "key #{key}: shape mismatch #{inspect(Nx.shape(restored))} != #{inspect(Nx.shape(orig))}"
+               "key #{key}: shape mismatch #{inspect(Nx.shape(restored))} != #{inspect(Nx.shape(orig))}"
       end
     end
 
@@ -115,6 +117,7 @@ defmodule RecGPT.ParamFlattenTest do
         "pred_head.weight" => ["pred_head.weight"],
         "pred_head.bias" => ["pred_head.bias"]
       }
+
       updated = ParamFlatten.update_params(params, unflattened, key_to_checkpoint)
 
       assert Map.has_key?(updated, "wte")

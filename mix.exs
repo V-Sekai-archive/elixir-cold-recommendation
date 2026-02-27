@@ -41,6 +41,9 @@ defmodule RecGPT.MixProject do
       {:plug_cowboy, "~> 2.6"},
       {:ecto_sqlite3, "~> 0.14"},
       {:req, "~> 0.5"},
+      {:rdf, "~> 2.0"},
+      {:json_ld, "~> 1.0"},
+      {:grax, "~> 0.6"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:propcheck, "~> 1.5", only: [:dev, :test]}
     ]

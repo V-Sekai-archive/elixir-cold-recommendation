@@ -39,6 +39,7 @@ defmodule RecGPT.CheckpointExportTest do
       "wte" => Nx.iota({2, 2}) |> Nx.as_type({:f, 32}),
       "bad" => "not a tensor"
     }
+
     dir = Path.join(System.tmp_dir!(), "recgpt_export_bad_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
 
@@ -53,7 +54,13 @@ defmodule RecGPT.CheckpointExportTest do
 
   test "round-trip: write_export then load_from_export returns same keys and shapes" do
     params = dummy_params()
-    dir = Path.join(System.tmp_dir!(), "recgpt_export_roundtrip_#{System.unique_integer([:positive])}")
+
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "recgpt_export_roundtrip_#{System.unique_integer([:positive])}"
+      )
+
     File.mkdir_p!(dir)
 
     try do

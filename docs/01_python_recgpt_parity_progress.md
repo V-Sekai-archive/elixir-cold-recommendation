@@ -33,7 +33,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | VAE `vae_len4_fsq88865_ep90.pt` | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1` | Encoder logic in Elixir; weights from export. |
 | `GPT2RecBatchTrainAuxData`, batch build, loss | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package. |
 | `pre_train.py` / `predict.py` | — | Use our token_id_list + embeddings from Elixir pipeline. |
-| **`serve.py`** (HTTP server) | **`RecGPT.Serve` + `mix recgpt.serve`** | POST /recommend, GET /search, GET /health; loads fixture + checkpoint once. |
+| **`serve.py`** (HTTP server) | **`RecGPT.Serve` + `mix recgpt.serve`** | REST API: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health (Google API Design Guide). |
 
 ---
 
@@ -146,7 +146,7 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 |------|--------|
 | Unit + PropCheck (no HF model) | `cd recgpt && mix test` (excludes embedding, compare_python, integration by default) |
 | All tests (embedding, compare_python, integration) | `cd recgpt && mix test --include embedding --include compare_python --include integration` |
-| PropCheck only | `cd recgpt && mix test test/recgpt/propcheck_test.exs` |
+| PropCheck only | `cd recgpt && MIX_ENV=test mix run script/run_propcheck.exs` |
 | Parity constants (doc/code sync) | `cd recgpt && mix test test/recgpt/parity_constants_test.exs` |
 | Loader + Inference | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs` |
 | **Real checkpoint load + forward + beam** | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
@@ -166,7 +166,7 @@ Implemented in **`test/recgpt/propcheck_test.exs`** ([PropCheck](https://github.
 - **Training:** `build_train_batch` returns correct tensor shapes; `loss_shifted_ce` non-negative and 0 when all labels -100; `encode_aux` output shapes (n×4, 192) and (n×4, 1).
 - **FSQEncoder:** `encode_embeddings_to_token_id_list` length = num_items; each token list 4 elements in 0..vocab_size-1; determinism (same input → same output).
 
-Run: `mix test test/recgpt/propcheck_test.exs` (exclude embedding if no model).
+Run: `MIX_ENV=test mix run script/run_propcheck.exs`.
 
 ---
 
@@ -214,8 +214,15 @@ Run: `mix test test/recgpt/propcheck_test.exs` (exclude embedding if no model).
 |-----|--------------|
 | [00 RecGPT library](00_recgpt_library.md) | Modules, deps, tests, training flow. |
 | [02 RecGPT checkpoint layout](02_recgpt_checkpoint_layout.md) | state_dict layout, inspect_recgpt_checkpoint.py, loader usage. |
-| [PropCheck property tests](../test/recgpt/propcheck_test.exs) | FSQ, Training, FSQEncoder properties. |
+| [PropCheck property tests](../test/recgpt/propcheck_test.exs.skip) | FSQ, Training, FSQEncoder properties. Run via `script/run_propcheck.exs`. |
 | [Parity constants test](../test/recgpt/parity_constants_test.exs) | Doc/code sync for §1–§3 constants. |
 | [CheckpointLoader](../lib/recgpt/checkpoint_loader.ex) · [Inference](../lib/recgpt/inference.ex) | Load export dir; forward (embed + aux + head). |
 | [Trie](../lib/recgpt/trie.ex) · [Decode](../lib/recgpt/decode.ex) | Catalog trie; beam search for next-item. |
- what’s done. | [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model. |
+| [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model. |
+
+---
+
+## See also
+
+- [00 RecGPT library](00_recgpt_library.md) — Module reference.
+- [02 Checkpoint layout](02_recgpt_checkpoint_layout.md) — Export and loader.

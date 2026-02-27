@@ -2,14 +2,14 @@
 defmodule RecGPT.InferenceTest do
   use ExUnit.Case, async: true
 
-  alias RecGPT.Inference
   alias RecGPT.Decode
+  alias RecGPT.Inference
   alias RecGPT.Trie
 
   defp dummy_params do
-    wte = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15361, 768}) |> Nx.divide(15361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15361}) |> Nx.as_type({:f, 32})
+    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
+    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
+    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
 
     %{
       "wte" => wte,
@@ -18,7 +18,7 @@ defmodule RecGPT.InferenceTest do
     }
   end
 
-  test "forward returns logits (batch, 15361) with dummy params" do
+  test "forward returns logits (batch, 15_361) with dummy params" do
     params = dummy_params()
     batch = 2
     seq_len = 4
@@ -27,10 +27,10 @@ defmodule RecGPT.InferenceTest do
     embed_mask = Nx.broadcast(1.0, {batch, seq_len, 1}) |> Nx.as_type({:f, 32})
 
     logits = Inference.forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {batch, 15361}
+    assert Nx.shape(logits) == {batch, 15_361}
   end
 
-  test "forward_full_sequence returns logits (batch, seq_len, 15361) for training" do
+  test "forward_full_sequence returns logits (batch, seq_len, 15_361) for training" do
     params = dummy_params()
     batch = 2
     seq_len = 8
@@ -38,8 +38,10 @@ defmodule RecGPT.InferenceTest do
     batch_aux_embeds = Nx.broadcast(0.0, {batch, seq_len, 192}) |> Nx.as_type({:f, 32})
     embed_mask = Nx.broadcast(1.0, {batch, seq_len, 1}) |> Nx.as_type({:f, 32})
 
-    logits = Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {batch, seq_len, 15361}
+    logits =
+      Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
+
+    assert Nx.shape(logits) == {batch, seq_len, 15_361}
   end
 
   test "forward with single batch and no aux params (no ae keys)" do
@@ -49,7 +51,7 @@ defmodule RecGPT.InferenceTest do
     embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
 
     logits = Inference.forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {1, 15361}
+    assert Nx.shape(logits) == {1, 15_361}
   end
 
   test "forward with seq_len 1 returns logits for single position" do
@@ -59,11 +61,11 @@ defmodule RecGPT.InferenceTest do
     embed_mask = Nx.broadcast(1.0, {1, 1, 1}) |> Nx.as_type({:f, 32})
 
     logits = Inference.forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {1, 15361}
+    assert Nx.shape(logits) == {1, 15_361}
   end
 
   test "forward raises when wte is missing" do
-    params = %{"pred_head.weight" => Nx.iota({15361, 768})}
+    params = %{"pred_head.weight" => Nx.iota({15_361, 768})}
     batch_token_ids = Nx.tensor([[0, 1, 2, 3]], type: {:s, 32})
     batch_aux_embeds = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
     embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
@@ -130,7 +132,7 @@ defmodule RecGPT.InferenceTest do
     embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
 
     logits = Inference.forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {1, 15361}
+    assert Nx.shape(logits) == {1, 15_361}
   end
 
   @tag :integration
@@ -157,7 +159,7 @@ defmodule RecGPT.InferenceTest do
     embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
 
     logits = Inference.forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    assert Nx.shape(logits) == {1, 15361}
+    assert Nx.shape(logits) == {1, 15_361}
     # Logits should be finite (no NaN; backend may not have is_finite)
     assert Nx.all(Nx.equal(logits, logits)) |> Nx.to_number() == 1
   end

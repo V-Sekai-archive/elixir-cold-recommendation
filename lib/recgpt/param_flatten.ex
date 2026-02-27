@@ -9,7 +9,7 @@ defmodule RecGPT.ParamFlatten do
   Build a spec from a param map and an ordered list of canonical keys.
   Each canonical key may map to one or more checkpoint keys (first found wins).
   Returns [%{key: key, shape: shape, size: size}, ...] and total size.
-  Tensors are normalized to inference-ready shapes (e.g. pred_head.weight as {768, 15361}).
+  Tensors are normalized to inference-ready shapes (e.g. pred_head.weight as {768, 15_361}).
   """
   def spec_from_params(params, canonical_keys, key_aliases \\ %{}) do
     key_aliases =
@@ -39,8 +39,7 @@ defmodule RecGPT.ParamFlatten do
   defp default_key_aliases do
     %{
       "wte" => ["gpt2model.wte", "gpt2model.wte.weight", "wte", "wte.weight"],
-      "ae.linear.weight" =>
-        ["ae.linear.weight", "ae.weight", "linear_layer.weight"],
+      "ae.linear.weight" => ["ae.linear.weight", "ae.weight", "linear_layer.weight"],
       "ae.linear.bias" => ["ae.linear.bias", "ae.bias"],
       "pred_head.weight" => ["pred_head.weight"],
       "pred_head.bias" => ["pred_head.bias"]
@@ -53,7 +52,7 @@ defmodule RecGPT.ParamFlatten do
 
   defp ensure_canonical_shape("wte", tensor) do
     {rows, _} = Nx.shape(tensor)
-    if rows >= 15361, do: Nx.slice_along_axis(tensor, 0, 15361, axis: 0), else: tensor
+    if rows >= 15_361, do: Nx.slice_along_axis(tensor, 0, 15_361, axis: 0), else: tensor
   end
 
   defp ensure_canonical_shape("ae.linear.weight", tensor) do
@@ -61,7 +60,7 @@ defmodule RecGPT.ParamFlatten do
   end
 
   defp ensure_canonical_shape("pred_head.weight", tensor) do
-    ensure_shape(tensor, {768, 15361})
+    ensure_shape(tensor, {768, 15_361})
   end
 
   defp ensure_canonical_shape(_, tensor), do: tensor
@@ -115,7 +114,10 @@ defmodule RecGPT.ParamFlatten do
     default_aliases = default_key_aliases()
 
     Enum.reduce(unflattened, params, fn {canonical_key, tensor}, acc ->
-      checkpoint_keys = Map.get(key_to_checkpoint, canonical_key) || Map.get(default_aliases, canonical_key) || [canonical_key]
+      checkpoint_keys =
+        Map.get(key_to_checkpoint, canonical_key) || Map.get(default_aliases, canonical_key) ||
+          [canonical_key]
+
       checkpoint_key = List.first(List.wrap(checkpoint_keys))
       Map.put(acc, checkpoint_key, tensor)
     end)
