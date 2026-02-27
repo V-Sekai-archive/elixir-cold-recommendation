@@ -22,7 +22,7 @@ defmodule RecGPT.MixProject do
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(_), do: ["lib", "mix"]
 
   def application do
     [extra_applications: [:logger], mod: {RecGPT.Application, []}]
@@ -35,6 +35,8 @@ defmodule RecGPT.MixProject do
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},
       {:npy, "~> 0.1.2"},
+      {:unpickler, "~> 0.1"},
+      {:unzip, "~> 0.13"},
       {:torchx, "~> 0.11"},
       {:plug_cowboy, "~> 2.6"},
       {:ecto_sqlite3, "~> 0.14"},

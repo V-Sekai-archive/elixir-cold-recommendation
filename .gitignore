@@ -35,6 +35,8 @@ data/clickstream/*.zip
 data/clickstream/*.csv
 data/clickstream/e-shop*
 data/clickstream/items.json
+data/clickstream/train_sequences.json
 data/clickstream/test_sequences.json
 data/clickstream/fixture.json
 data/clickstream/clickstream+data+for+online+shopping/
+data/recgpt_layer_3_weight.pt
