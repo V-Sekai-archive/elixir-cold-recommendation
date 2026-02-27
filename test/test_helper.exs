@@ -9,6 +9,7 @@ ExUnit.configure(
     integration: true,
     eval: true,
     e2e_serve: true,
-    serve_parity: true
+    serve_parity: true,
+    pt_fixture: true
   ]
 )
