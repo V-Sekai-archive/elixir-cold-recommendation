@@ -76,18 +76,11 @@ Order: 1 → 2 → 3 → 4. See [08 Pipeline reference](08_pipeline_reference.md
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | [05_evaluation_and_testing.md](05_evaluation_and_testing.md) | Zero-shot vs trained, null hypothesis rejection, held-out eval, test commands. |
 
-### Data and schema
-
-| Document                                                                             | Description                                                           |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| [03_etnf_database_design.md](03_etnf_database_design.md)                             | ETNF and database design steps.                                       |
-| [04_foss_datasets_etnf_dublin_core_xmp.md](04_foss_datasets_etnf_dublin_core_xmp.md) | Schema in this repo, Dublin Core, XMP JSON-LD (RDF/Grax enforcement). |
-
 ### Parity and progress
 
 | Document                                                                   | Description                                                              |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [01_python_recgpt_parity_progress.md](01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation, PropCheck and parity tests. |
+| [01_python_recgpt_parity_progress.md](01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation, integration tests.         |
 
 ### Architecture (production recommender)
 
@@ -115,5 +108,4 @@ gRPC-only; served by `mix recgpt.serve`. Read 11 → 17.
 | Export or load a checkpoint                              | [02_recgpt_checkpoint_layout.md](02_recgpt_checkpoint_layout.md)                            |
 | Run eval and interpret metrics                           | [05_evaluation_and_testing.md](05_evaluation_and_testing.md)                                |
 | Generate or use test/fixture JSON                        | [06_eval_data_shapes.md](06_eval_data_shapes.md)                                            |
-| Enforce or validate XMP JSON-LD (RDF/Grax)               | [04_foss_datasets_etnf_dublin_core_xmp.md](04_foss_datasets_etnf_dublin_core_xmp.md)        |
 | Read the architecture blueprint                          | [11_recgpt_paradigm.md](11_recgpt_paradigm.md), [16_architecture_conclusion.md](16_architecture_conclusion.md) |

@@ -1,33 +1,8 @@
-# FixtureBuild: build_from_embeddings produces valid fixture (num_items, token_id_list shape).
+# FixtureBuild: write_fixture and build (items → fixture).
 defmodule RecGPT.FixtureBuildTest do
   use ExUnit.Case, async: true
 
-  alias RecGPT.CheckpointExport
   alias RecGPT.FixtureBuild
-  alias RecGPT.FSQ
-
-  describe "build_from_embeddings/3" do
-    test "produces fixture with num_items and token_id_list of correct length and shape" do
-      num_items = 3
-      embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items) |> Nx.as_type({:f, 32})
-      ckpt_dir = write_fsq_export!()
-
-      try do
-        fixture = FixtureBuild.build_from_embeddings(embeddings, ckpt_dir, [])
-
-        assert fixture["num_items"] == num_items
-        assert is_list(fixture["token_id_list"])
-        assert length(fixture["token_id_list"]) == num_items
-
-        assert Enum.all?(fixture["token_id_list"], fn tokens ->
-                 is_list(tokens) and length(tokens) == 4 and
-                   Enum.all?(tokens, fn t -> is_integer(t) and t >= 0 and t < FSQ.vocab_size() end)
-               end)
-      after
-        File.rm_rf(ckpt_dir)
-      end
-    end
-  end
 
   describe "write_fixture/2" do
     test "writes JSON that load_fixture can read (num_items, token_id_list)" do
@@ -52,21 +27,5 @@ defmodule RecGPT.FixtureBuildTest do
         if File.regular?(path), do: File.rm(path)
       end
     end
-  end
-
-  defp write_fsq_export! do
-    dir = Path.join(System.tmp_dir!(), "recgpt_fsq_ckpt_#{:erlang.unique_integer([:positive])}")
-    File.mkdir_p!(dir)
-    # Use keys without "/" so CheckpointExport writes flat filenames (no subdirs)
-    project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5) |> Nx.as_type({:f, 32})
-    project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192) |> Nx.as_type({:f, 32})
-
-    params = %{
-      "fsq.project_in.weight" => project_in_k,
-      "fsq.project_out.weight" => project_out_k
-    }
-
-    CheckpointExport.write_export(params, dir)
-    dir
   end
 end

@@ -51,22 +51,6 @@ defmodule RecGPT.ServeTest do
     end
   end
 
-  describe "search/3" do
-    test "returns empty when q empty or no catalog" do
-      state = build_stub_state()
-      assert Serve.search(state, "", 20) == []
-      state_empty = %{state | item_text: %{}}
-      assert Serve.search(state_empty, "foo", 20) == []
-    end
-
-    test "returns matches when catalog has text" do
-      state = %{build_stub_state() | item_text: %{0 => "Action game", 1 => "Puzzle"}}
-      assert Serve.search(state, "action", 20) != []
-      assert Serve.search(state, "puzzle", 20) != []
-      assert Serve.search(state, "nonexistent", 20) == []
-    end
-  end
-
   describe "load_state/3" do
     test "returns error when fixture missing" do
       assert {:error, _} =

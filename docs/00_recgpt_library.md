@@ -18,7 +18,7 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 
 | Module                  | Purpose                                                                                                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RecGPT.FixtureBuild** | Build fixture from items or embeddings. `build/3`, `build_from_embeddings/3`, `write_fixture/2`. Option `:fsq_dir` when FSQ params are not in the checkpoint. |
+| **RecGPT.FixtureBuild** | Build fixture from items.json. `build/3`, `write_fixture/2`. Option `:fsq_dir` when FSQ params are not in the checkpoint. |
 | **RecGPT.Training**     | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. Batch format matches Inference.                                                                   |
 
 ### Training loop
@@ -34,7 +34,7 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | **RecGPT.Inference** | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
 | **RecGPT.Decode**    | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
 | **RecGPT.Trie**      | Build trie from token_id_list for beam search.                                                                                |
-| **RecGPT.Serve**     | `load_state/4` (opts: `:item_extra` for response enrichment), `recommend/3`, `search/3`, `item_ids_to_context_token_ids/3`.   |
+| **RecGPT.Serve**     | `load_state/4`, `recommend/3`, `item_ids_to_context_token_ids/3`. |
 
 ### Evaluation
 
@@ -52,12 +52,9 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 
 ### Data pipeline
 
-| Module                           | Purpose                                                                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **RecGPT.Steam.Fetch**           | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/2`.               |
-| **RecGPT.Xmp.DublinCore**        | Dublin Core IRIs and `context/0` for XMP JSON-LD.                                                                             |
-| **RecGPT.Xmp.CatalogItemSchema** | Grax schema for catalog item (DC properties).                                                                                |
-| **RecGPT.Xmp.Jsonld**            | Catalog item → Grax → RDF → XMP JSON-LD. `from_catalog_item/1`, `validate_jsonld/1`, `to_xmp_jsonld_string/2`.                |
+| Module                 | Purpose                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| **RecGPT.Steam.Fetch** | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/2`. |
 
 ### HTTP and application
 
@@ -79,12 +76,10 @@ API: gRPC only ([13](13_grpc_api.md), proto in `priv/proto/recgpt/v1/`). Contrac
 | Axon                      | Model API (training loop is custom in AxonTrain).                                                            |
 | Bumblebee (GitHub `main`) | MPNet text embeddings.                                                                                       |
 | Jason, Npy                | JSON; checkpoint `.npy` load/save.                                                                           |
-| RDF, JSON.LD, Grax        | XMP JSON-LD: Dublin Core struct mapping and validation (see [04](04_foss_datasets_etnf_dublin_core_xmp.md)). |
 | (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server.                                                        |
 | grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).                                                         |
 | Req                       | HTTP (fetch_ckpt, fetch_steam).                                                                              |
 | Unpickler, Unzip          | PyTorch `.pt` loading.                                                                                       |
-| PropCheck (dev/test)      | Property-based tests.                                                                                        |
 
 See [mix.exs](../mix.exs).
 
@@ -94,12 +89,9 @@ See [mix.exs](../mix.exs).
 
 | Scope                              | Command                                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Default                            | `mix test --no-start` (excludes embedding, integration, eval, e2e_serve, pt_fixture). |
-| Integration                        | `mix test --include integration`.                                                                     |
-| Embedding                          | `mix test --include embedding` (downloads HF model; use long timeout).                                |
-| Eval (fixture + ckpt + test files) | `mix test test/recgpt/eval_test.exs --include eval --include integration`.                            |
-| PropCheck                          | `MIX_ENV=test mix run script/run_propcheck.exs` (see `test/recgpt/propcheck_test.exs.skip`).          |
-| Parity constants                   | `mix test test/recgpt/parity_constants_test.exs`.                                                     |
+| Default                            | `mix test --no-start` (excludes integration, eval, e2e_serve). |
+| Integration                        | `mix test --include integration`.                             |
+| Eval (fixture + ckpt + test files) | `mix test test/recgpt/eval_test.exs --include eval --include integration`. |
 
 Tests live in `test/recgpt/*_test.exs` and `test/support/recgpt/`.
 
@@ -119,7 +111,6 @@ Tests live in `test/recgpt/*_test.exs` and `test/support/recgpt/`.
 ## See also
 
 - [Documentation index](README.md) — All docs by topic.
-- [04 FOSS datasets and Dublin Core XMP](04_foss_datasets_etnf_dublin_core_xmp.md) — Schema, XMP JSON-LD, RDF/Grax modules.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Zero-shot vs trained, null hypothesis, held-out eval.
 - [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Train/test/cold splits, pretrain-first.
 - [08 Pipeline reference](08_pipeline_reference.md) — Commands and file layout.

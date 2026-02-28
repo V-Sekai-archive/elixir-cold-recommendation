@@ -2,7 +2,7 @@
 
 Task list for how close the **recgpt** Elixir package is to matching the [Python RecGPT](https://github.com/HKUDS/RecGPT) (HKUDS/RecGPT) pipeline and model. Reference: [RecGPT paper](https://arxiv.org/abs/2506.06270), [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model).
 
-**Note:** This repo has no Python; parity is validated via PropCheck, parity_constants_test, and integration tests. External Python scripts (if any) are not in this codebase.
+**Note:** This repo has no Python; parity is validated via unit and integration tests. External Python scripts (if any) are not in this codebase.
 
 ---
 
@@ -29,7 +29,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | ------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity test: `export_mpnet_embeddings.py` + `--include compare_embedding`.              |
 | `data_processing/make_token_list.py`                    | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Compare test validates.                                                                                |
-| `utils/fsq.py` (levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | PropCheck + compare test.                                                                              |
+| `utils/fsq.py` (levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | Unit tests.                                                                                             |
 | VAE `vae_len4_fsq88865_ep90.pt`                         | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1`           | Encoder logic in Elixir; weights from export.                                                          |
 | `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                                                           |
 | `pre_train.py` / `predict.py`                           | —                                                                          | Use our token_id_list + embeddings from Elixir pipeline.                                               |
@@ -56,9 +56,8 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | codes_to_indices / indices_to_codes                       | ✅ Done | Round-trip and encode path covered by tests.                                                                                       |
 | Load params (project_in / project_out) from export        | ✅ Done | `load_params/1`; keys `project_in/kernel` or `fsq.project_in.weight`, transpose when shape {5,192}.                                |
 | **FSQ encode: 768-d → 4 token IDs**                       | ✅ Done | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`; matches Python `make_token_list.py` logic.                               |
-| **Python vs Elixir FSQ parity**                           | ✅ Done | Parity via `parity_constants_test.exs`, PropCheck, and pipeline integration tests. (Compare test removed; no Python in repo.)   |
-| Load embeddings from .npy                                 | ✅ Done | `FSQEncoder.load_embeddings_from_npy/1` (npy hex).                                                                                 |
-| **Property-based tests (PropCheck)**                      | ✅ Done | See [Property-based testing](#property-based-testing-propcheck) below.                                                             |
+| **Python vs Elixir FSQ parity**                           | ✅ Done | Parity via unit tests and pipeline integration tests.                                                |
+| Load embeddings from .npy                                 | ✅ Done | `FSQEncoder.load_embeddings_from_npy/1` (npy hex).                                                   |
 
 ---
 
@@ -70,13 +69,12 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | Encode aux (item ids → 192-d per position, mask)               | ✅ Done     | `encode_aux/3`; gather item_embeddings, reshape to (n\*4, 192), mask for valid/padding.                                                                                                                           |
 | Loss: shifted CE over FSQ vocab                                | ✅ Done     | `loss_shifted_ce/2`; ignore -100, mean over valid positions.                                                                                                                                                      |
 | Same batch shape / format as Python RecGPT                     | ✅ Verified | Matches HKUDS/RecGPT `utils/data.py` `GPT2RecBatchTrainAuxData`: max_length=256, padding_id=15360, seq_token_capacity=1024, label_ignore=-100, right-padding; aux (256 items → 1024×192) and mask (1024×1) match. |
-| **Property-based tests (PropCheck)**                           | ✅ Done     | See [Property-based testing](#property-based-testing-propcheck) below.                                                                                                                                            |
 
 **Python ↔ Elixir FSQ port verification:** The encode path (embeddings → token_id_list) is ported from Python and validated as follows.
 
 | Step                       | Python (compare_recgpt_fsq.py / export_serve_e2e_fixture.py)                                          | Elixir (RecGPT.FSQ, FSQEncoder)                                                  | Check                                                 |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Constants                  | LEVELS [8,8,8,6,5], VOCAB_SIZE 15360, BASIS [1,8,64,512,3072]                                         | `@level_list`, `@vocab_size`, `basis()`                                          | Parity constants test: `basis matches levels cumprod` |
+| Constants                  | LEVELS [8,8,8,6,5], VOCAB_SIZE 15360, BASIS [1,8,64,512,3072]                                         | `@level_list`, `@vocab_size`, `basis()`                                          | Same logic                                            |
 | bound(z)                   | half_l = (levels-1)*(1-ε)/2; offset = 0.5 if even else 0; tanh(z+tanh(offset/half_l))*half_l - offset | Same formula in `FSQ.bound/2`                                                    | Same logic                                            |
 | quantize(z)                | bound → round → divide by levels/2                                                                    | bound → round_ste → divide by levels/2 (round_ste forward = round)               | Same numeric output                                   |
 | codes_to_indices(codes)    | zhat = codes*half_width+half_width; round(sum(zhat*basis)); clip 0..vocab_size-1                      | `scale_and_shift` then multiply by basis, sum, round, clip                       | Same; `scale_and_shift` = zhat                        |
@@ -84,9 +82,9 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | project_out                | codes (batch,4,5) @ kernel (5,192) → (batch,4,192)                                                    | Nx.dot(codes, [2], kernel, [0]); kernel (5,192)                                  | Same                                                  |
 | Embeddings → token_id_list | Reshape (N,768)→(N,4,192); encode per batch                                                           | `FSQEncoder.encode_embeddings_to_token_id_list`: reshape, `FSQ.encode` per batch | Same                                                  |
 
-**Tests that validate the port:** (1) `parity_constants_test.exs`: basis, vocab_size, levels. (2) PropCheck and pipeline integration tests. (3) Serve E2E FSQ parity: `serve_e2e_test.exs` in an external serve_e2e project if used.
+**Tests that validate the port:** Unit tests and pipeline integration tests. Serve E2E FSQ parity: `serve_e2e_test.exs` in an external serve_e2e project if used.
 
-**Batch format verification:** Elixir `RecGPT.Training.build_train_batch/4` and `encode_aux/3` were compared to [HKUDS/RecGPT `utils/data.py`](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) class `GPT2RecBatchTrainAuxData`. Same constants: `max_length=256`, `padding_id=15360`, token sequence length `1024`, `label_list` padded with `-100`; right-padding for training; `encode_aux` maps 256 item IDs to embeddings (256, 768) → reshape to (1024, 192) and mask (1024, 1). Parity constants test asserts shapes and padding; no runtime Python comparison required.
+**Batch format verification:** Elixir `RecGPT.Training.build_train_batch/4` and `encode_aux/3` were compared to [HKUDS/RecGPT `utils/data.py`](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) class `GPT2RecBatchTrainAuxData`. Same constants: `max_length=256`, `padding_id=15360`, token sequence length `1024`, `label_list` padded with `-100`; right-padding for training; `encode_aux` maps 256 item IDs to embeddings (256, 768) → reshape to (1024, 192) and mask (1024, 1).
 
 ---
 
@@ -144,35 +142,12 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 
 | What                                               | Command                                                                                                                                                                                                                           |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit + PropCheck (no HF model)                     | `cd recgpt && mix test` (excludes embedding, integration by default)                                                                                                                                                             |
-| All tests (embedding, integration)                 | `cd recgpt && mix test --include embedding --include integration`                                                                                                                                                                |
-| PropCheck only                                     | `cd recgpt && MIX_ENV=test mix run script/run_propcheck.exs`                                                                                                                                                                      |
-| Parity constants (doc/code sync)                   | `cd recgpt && mix test test/recgpt/parity_constants_test.exs`                                                                                                                                                                     |
-| Loader + Inference                                 | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs`                                                                                                                                     |
-| **Real checkpoint load + forward + beam**          | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
-| Trie + Decode                                      | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs`                                                                                                                                                     |
-| FSQ parity (constants + PropCheck)                 | `mix test test/recgpt/parity_constants_test.exs` and PropCheck / pipeline integration tests                                                                                                                                    |
-| Embedding (downloads model)                        | `cd recgpt && mix test --include embedding`                                                                                                                                                                                       |
-| MPNet vs Python (normalize_embeddings=False)       | From repo root: `uv run python scripts/export_mpnet_embeddings.py --output-dir data/recgpt_embedding` then `cd recgpt && mix test --include compare_embedding --include embedding`                                                |
-| Coverage                                           | `cd recgpt && mix test --exclude embedding --cover`                                                                                                                                                                               |
-
----
-
-## Property-based testing (PropCheck)
-
-Implemented in **`test/recgpt/propcheck_test.exs`** ([PropCheck](https://github.com/alfert/propcheck)):
-
-- **FSQ:** indices round-trip via 5-d codes; `codes_to_indices` in 0..vocab_size-1; `scale_and_shift` / `scale_and_shift_inverse` round-trip; `bound` finite; `quantize` in [-1.1, 1.1]; `encode` indices in range.
-- **Training:** `build_train_batch` returns correct tensor shapes; `loss_shifted_ce` non-negative and 0 when all labels -100; `encode_aux` output shapes (n×4, 192) and (n×4, 1).
-- **FSQEncoder:** `encode_embeddings_to_token_id_list` length = num_items; each token list 4 elements in 0..vocab_size-1; determinism (same input → same output).
-
-Run: `MIX_ENV=test mix run script/run_propcheck.exs`.
-
----
-
-## Parity constants test
-
-**`test/recgpt/parity_constants_test.exs`** asserts that code constants match the parity doc (§1–§3): FSQ vocab_size 15360, padding_id 15360, seq_len 4, dim 192; Embedding size 768; Training batch format (seq_token_capacity 1024, max_length 256, padding_id, label_ignore -100); FSQEncoder output (4 tokens per item, 0..vocab_size-1). Run: `mix test test/recgpt/parity_constants_test.exs`.
+| Unit tests (no HF model)                            | `cd recgpt && mix test` (excludes integration by default)                                                                                                           |
+| All tests (integration)                             | `cd recgpt && mix test --include integration`                                                                                                                         |
+| Loader + Inference                                  | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs`                                                                         |
+| **Real checkpoint load + forward + beam**            | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
+| Trie + Decode                                       | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs`                                                                                        |
+| Coverage                                            | `cd recgpt && mix test --cover`                                                                                                                                      |
 
 ---
 
@@ -193,8 +168,8 @@ Run: `MIX_ENV=test mix run script/run_propcheck.exs`.
 | Area                                           | Parity                                       | Blocker / note                                                                                  |
 | ---------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Embeddings                                     | ✅ Implemented                               | Compare test: `export_mpnet_embeddings.py` + `--include compare_embedding --include embedding`. |
-| FSQ + FSQEncoder                               | ✅ Implemented, tested vs Python + PropCheck | Compare test with fixtures; PropCheck for invariants.                                           |
-| Training data + loss                           | ✅ Implemented, PropCheck                    | Same shapes and loss as paper; properties for shapes and loss.                                  |
+| FSQ + FSQEncoder                               | ✅ Implemented, unit tested                  | Same logic as Python.                                                                           |
+| Training data + loss                           | ✅ Implemented                               | Same shapes and loss as paper.                                                                   |
 | Checkpoint loader                              | ✅ Implemented                               | `CheckpointLoader.load_from_export/1`; export via inspect_recgpt_checkpoint.py.                 |
 | Inference forward (embed + aux + GPT-2 + head) | ✅ Implemented                               | `RecGPT.Inference.forward/4`; full backbone when params have gpt2model.h.\*.                    |
 | Decode (trie + beam)                           | ✅ Implemented                               | `RecGPT.Trie`, `RecGPT.Decode.beam_search/4`.                                                   |
@@ -214,8 +189,6 @@ Run: `MIX_ENV=test mix run script/run_propcheck.exs`.
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | [00 RecGPT library](00_recgpt_library.md)                                                                         | Modules, deps, tests, training flow.                                      |
 | [02 RecGPT checkpoint layout](02_recgpt_checkpoint_layout.md)                                                     | state_dict layout, inspect_recgpt_checkpoint.py, loader usage.            |
-| [PropCheck property tests](../test/recgpt/propcheck_test.exs.skip)                                                | FSQ, Training, FSQEncoder properties. Run via `script/run_propcheck.exs`. |
-| [Parity constants test](../test/recgpt/parity_constants_test.exs)                                                 | Doc/code sync for §1–§3 constants.                                        |
 | [CheckpointLoader](../lib/recgpt/checkpoint_loader.ex) · [Inference](../lib/recgpt/inference.ex)                  | Load export dir; forward (embed + aux + head).                            |
 | [Trie](../lib/recgpt/trie.ex) · [Decode](../lib/recgpt/decode.ex)                                                 | Catalog trie; beam search for next-item.                                  |
 | [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model.                                        |

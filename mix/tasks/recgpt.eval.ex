@@ -10,7 +10,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
     * `--fixture` - Path to fixture JSON (token_id_list; default: data/steam/fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--test` - Path to test_sequences.json (default: data/steam/test_sequences.json)
-    * `--cold-test` - Path to cold_test_sequences.json (required; default: data/steam/cold_test_sequences.json)
+    * `--cold-test` - Path to cold_test_sequences.json (optional; default: data/steam/cold_test_sequences.json)
     * `--catalog` - Optional catalog JSON (for serve; not required for eval)
 
   ## Environment
@@ -42,24 +42,15 @@ defmodule Mix.Tasks.Recgpt.Eval do
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
         resolve_path("data/recgpt_ckpt_export")
 
-    test_path = opts[:test] || resolve_path("data/clickstream/test_sequences.json")
-    cold_test_path = opts[:cold_test] || resolve_path("data/clickstream/cold_test_sequences.json")
+    test_path = opts[:test] || resolve_path("data/steam/test_sequences.json")
+    cold_test_path = opts[:cold_test] || resolve_path("data/steam/cold_test_sequences.json")
     catalog_path = opts[:catalog]
-
-    unless File.regular?(cold_test_path) do
-      Mix.raise(
-        "Cold test file required but not found: #{cold_test_path}. " <>
-          "Produce it by running mix recgpt.fetch_steam data/steam."
-      )
-    end
 
     Application.ensure_all_started(:nx)
 
     with {:ok, state} <- RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path),
-         {:ok, test_cases} <- RecGPT.Eval.load_test_cases(test_path),
-         {:ok, cold_test_cases} <- RecGPT.Eval.load_test_cases(cold_test_path) do
+         {:ok, test_cases} <- RecGPT.Eval.load_test_cases(test_path) do
       metrics = RecGPT.Eval.evaluate(state, test_cases, top_k: 10)
-      cold_metrics = RecGPT.Eval.evaluate(state, cold_test_cases, top_k: 10)
 
       Mix.shell().info("Evaluation (standard test set)")
       Mix.shell().info("  n = #{metrics.n}")
@@ -77,22 +68,28 @@ defmodule Mix.Tasks.Recgpt.Eval do
         "  Reject null (Hit@1 > random): #{if metrics.rejects_null, do: "yes", else: "no"}"
       )
 
-      Mix.shell().info("")
-      Mix.shell().info("Cold test")
-      Mix.shell().info("  n = #{cold_metrics.n}")
+      if File.regular?(cold_test_path) do
+        case RecGPT.Eval.load_test_cases(cold_test_path) do
+          {:ok, cold_test_cases} ->
+            cold_metrics = RecGPT.Eval.evaluate(state, cold_test_cases, top_k: 10)
+            Mix.shell().info("")
+            Mix.shell().info("Cold test")
+            Mix.shell().info("  n = #{cold_metrics.n}")
+            Mix.shell().info(
+              "  Hit@1  = #{format(cold_metrics.hit_at_1)}  (random baseline #{format(cold_metrics.random_hit_at_1)})"
+            )
+            Mix.shell().info("  Hit@5  = #{format(cold_metrics.hit_at_5)}")
+            Mix.shell().info("  Hit@10 = #{format(cold_metrics.hit_at_10)}")
+            Mix.shell().info("  MRR    = #{format(cold_metrics.mrr)}")
+            Mix.shell().info("  catalog_size = #{cold_metrics.catalog_size}")
+            Mix.shell().info(
+              "  Reject null (Hit@1 > random): #{if cold_metrics.rejects_null, do: "yes", else: "no"}"
+            )
 
-      Mix.shell().info(
-        "  Hit@1  = #{format(cold_metrics.hit_at_1)}  (random baseline #{format(cold_metrics.random_hit_at_1)})"
-      )
-
-      Mix.shell().info("  Hit@5  = #{format(cold_metrics.hit_at_5)}")
-      Mix.shell().info("  Hit@10 = #{format(cold_metrics.hit_at_10)}")
-      Mix.shell().info("  MRR    = #{format(cold_metrics.mrr)}")
-      Mix.shell().info("  catalog_size = #{cold_metrics.catalog_size}")
-
-      Mix.shell().info(
-        "  Reject null (Hit@1 > random): #{if cold_metrics.rejects_null, do: "yes", else: "no"}"
-      )
+          _ ->
+            :ok
+        end
+      end
     else
       {:error, reason} when is_binary(reason) ->
         Mix.raise("Eval failed: #{reason}")

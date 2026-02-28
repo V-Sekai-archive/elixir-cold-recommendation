@@ -1,6 +1,6 @@
 defmodule RecGPT.Serve do
   @moduledoc """
-  Next-item recommendation and catalog search (backend for gRPC API).
+  Next-item recommendation (backend for gRPC API).
 
   Loads model + token_id_list + trie once. Served via gRPC (recgpt.v1.PredictionService).
   Run: mix recgpt.serve [--grpc-port 50051]. Requires fixture and checkpoint export dir.
@@ -15,7 +15,7 @@ defmodule RecGPT.Serve do
   @max_length 255
   @seq_token_capacity 1024
 
-  defstruct [:params, :trie, :token_id_list, :item_text, :num_items, :get_logits_fn, :item_extra]
+  defstruct [:params, :trie, :token_id_list, :item_text, :num_items, :get_logits_fn]
 
   @type state :: %__MODULE__{
           params: map(),
@@ -23,29 +23,19 @@ defmodule RecGPT.Serve do
           token_id_list: [[non_neg_integer()]],
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
-          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
-          item_extra:
-            nil
-            | %{optional(non_neg_integer()) => map()}
-            | (non_neg_integer(), %__MODULE__{} -> map())
+          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t())
         }
 
   @doc """
   Load server state: checkpoint export, fixture (token_id_list), optional catalog JSON.
-
-  Options:
-  - :item_extra — Optional. Map or function to add extra fields per item in API responses.
-    - Map: %{item_id => %{"asset_id" => "...", "slug" => "..."}} (e.g. for Polymarket).
-    - Function: (item_id, state) -> %{"key" => "value"}.
   Returns {:ok, state} or {:error, reason}.
   """
-  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil, opts \\ []) do
+  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil, _opts \\ []) do
     with {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       trie = Trie.build(token_id_list)
       get_logits_fn = build_get_logits_fn(params)
-      item_extra = Keyword.get(opts, :item_extra)
 
       state = %__MODULE__{
         params: params,
@@ -53,8 +43,7 @@ defmodule RecGPT.Serve do
         token_id_list: token_id_list,
         item_text: item_text,
         num_items: num_items,
-        get_logits_fn: get_logits_fn,
-        item_extra: item_extra
+        get_logits_fn: get_logits_fn
       }
 
       {:ok, state}
@@ -152,27 +141,6 @@ defmodule RecGPT.Serve do
         {:ok, list} -> {:ok, list}
         :not_found -> {:ok, []}
       end
-    end
-  end
-
-  @doc """
-  Search catalog by string q; returns list of %{item_id: id, ...} up to limit.
-  """
-  def search(state, q, limit \\ 20) do
-    q = (q || "") |> String.downcase() |> String.trim()
-
-    if q == "" or state.item_text == %{} do
-      []
-    else
-      state.item_text
-      |> Enum.filter(fn {_id, text} ->
-        str = if is_map(text), do: inspect(text), else: to_string(text)
-        String.contains?(String.downcase(str), q)
-      end)
-      |> Enum.take(limit)
-      |> Enum.map(fn {id, text} ->
-        %{"item_id" => id, "raw" => safe_str(text)}
-      end)
     end
   end
 

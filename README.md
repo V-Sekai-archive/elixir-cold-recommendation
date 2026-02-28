@@ -70,11 +70,11 @@ Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--f
 | **RecGPT.FSQ** | FSQ quantizer (levels [8,8,8,6,5], 4 tokens/item, vocab 15360). `load_params/1`, `encode/2`. |
 | **RecGPT.FSQEncoder** | Embeddings (num_items, 768) + FSQ params → `token_id_list` (list of 4-token lists). |
 | **RecGPT.Embedding** | Text → 768-d via Bumblebee (all-mpnet-base-v2). `encode_item_text_dict/1`, `encode_texts/1`. |
-| **RecGPT.FixtureBuild** | Build fixture from items or from precomputed embeddings. `build/3`, `build_from_embeddings/3`, `write_fixture/2`. |
+| **RecGPT.FixtureBuild** | Build fixture from items.json. `build/3`, `write_fixture/2`. |
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. |
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
 | **RecGPT.Inference** | Forward pass: token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
-| **RecGPT.Serve** | Load state (fixture + checkpoint), `recommend/3`, `search/3`, item_ids_to_context_token_ids. |
+| **RecGPT.Serve** | Load state (fixture + checkpoint), `recommend/3`, item_ids_to_context_token_ids. |
 | **RecGPT.Eval** | `evaluate/3`, `load_test_cases/1` (Hit@k, MRR, null rejection). |
 | **RecGPT.Decode** | Beam search for next-item from logits + trie. |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
@@ -102,10 +102,8 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 mix test --no-start
 ```
 
-- Excluded by default: `embedding` (loads HF model), `integration`, `eval`, `e2e_serve`, `pt_fixture`.
+- Excluded by default: `integration`, `eval`, `e2e_serve`.
 - **Include integration:** `mix test --include integration`
-- **Include embedding:** `mix test --include embedding` (long timeout)
-- **PropCheck:** `MIX_ENV=test mix run script/run_propcheck.exs`
 - **Eval (fixture + ckpt + test file):** `mix test test/recgpt/eval_test.exs --include eval --include integration`
 
 See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
@@ -128,10 +126,8 @@ Errors use gRPC status (e.g. INVALID_ARGUMENT, UNAVAILABLE). See [recommendation
 |-----|---------|
 | [docs/README.md](docs/README.md) | **Documentation index** — all docs by topic and quick reference. |
 | [docs/00_recgpt_library.md](docs/00_recgpt_library.md) | Full module reference, deps, tests. |
-| [docs/01_python_recgpt_parity_progress.md](docs/01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation, PropCheck. |
+| [docs/01_python_recgpt_parity_progress.md](docs/01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation. |
 | [docs/02_recgpt_checkpoint_layout.md](docs/02_recgpt_checkpoint_layout.md) | Checkpoint state_dict, export, loader. |
-| [docs/03_etnf_database_design.md](docs/03_etnf_database_design.md) | ETNF and database design steps. |
-| [docs/04_foss_datasets_etnf_dublin_core_xmp.md](docs/04_foss_datasets_etnf_dublin_core_xmp.md) | Schema, Dublin Core, XMP JSON-LD (RDF/Grax). |
 | [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) | Zero-shot vs trained, null hypothesis, held-out eval. |
 | [docs/06_eval_data_shapes.md](docs/06_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
 | [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |

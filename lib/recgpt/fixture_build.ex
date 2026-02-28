@@ -25,18 +25,9 @@ defmodule RecGPT.FixtureBuild do
   def build(items_path, ckpt_dir, opts \\ []) do
     item_text_dict = load_item_text_dict(items_path)
     embeddings = Embedding.encode_item_text_dict(item_text_dict)
-    build_from_embeddings(embeddings, ckpt_dir, opts)
-  end
-
-  @doc """
-  Builds fixture from precomputed embeddings tensor (for testing or when embeddings are precomputed).
-  embeddings: Nx tensor {num_items, 768}. Returns %{"num_items" => n, "token_id_list" => token_id_list}.
-  """
-  def build_from_embeddings(embeddings, ckpt_dir, opts \\ []) do
-    fsq_dir = Keyword.get(opts, :fsq_dir)
     {num_items, _} = Nx.shape(embeddings)
     num_items = if is_tuple(num_items), do: elem(num_items, 0), else: num_items
-    fsq_params = load_fsq_params(ckpt_dir, fsq_dir)
+    fsq_params = load_fsq_params(ckpt_dir, Keyword.get(opts, :fsq_dir))
     token_id_list = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
     %{"num_items" => num_items, "token_id_list" => token_id_list}
   end
