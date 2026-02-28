@@ -240,8 +240,6 @@ defmodule RecGPT.PtLoader do
     if product == 1 and size > 1, do: List.to_tuple([size]), else: shape
   end
 
-  defp maybe_fix_shape(shape, _), do: shape
-
   defp binary_to_nx(binary, {:f, 32}, shape) do
     size = div(byte_size(binary), 4)
     out_shape = maybe_fix_shape(shape, size)

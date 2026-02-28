@@ -17,7 +17,8 @@ defmodule RecGPT.MixProject do
       deps: deps(),
       dialyzer: [
         plt_add_apps: [:mix],
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        ignore_warnings: ".dialyzer_ignore.exs"
       ],
       description:
         "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee."

@@ -2,7 +2,7 @@ defmodule RecGPT.Application do
   @moduledoc false
   use Application
 
-  @impl true
+  @impl Application
   def start(_type, _args) do
     children = []
     opts = [strategy: :one_for_one, name: RecGPT.Supervisor]
