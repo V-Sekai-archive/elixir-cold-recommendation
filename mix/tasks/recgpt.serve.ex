@@ -1,14 +1,16 @@
 defmodule Mix.Tasks.Recgpt.Serve do
   @shortdoc "Start RecGPT recommendation HTTP server (port of serve.py)"
   @moduledoc """
-  Start the RecGPT REST API server (Google API Design Guide).
+  Start the RecGPT REST and gRPC API server.
 
-  Loads checkpoint and fixture once. Serves only /v1/ endpoints:
-  GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health.
+  Loads checkpoint and fixture once. Serves:
+  - REST: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health
+  - gRPC: recgpt.v1.PredictionService/Predict on a separate port
 
   ## Options
-    * `--port` - Port (default: 8000)
-    * `--fixture` - Path to serve_e2e_fixture.json (default: data/serve_e2e_fixture.json)
+    * `--port` - REST port (default: 8000)
+    * `--grpc-port` - gRPC port (default: 50051)
+    * `--fixture` - Path to fixture JSON (default: data/serve_e2e_fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--catalog` - Optional path to catalog JSON (item_id -> text)
 
@@ -26,10 +28,11 @@ defmodule Mix.Tasks.Recgpt.Serve do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [port: :integer, fixture: :string, ckpt: :string, catalog: :string]
+        switches: [port: :integer, grpc_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
       )
 
     port = opts[:port] || 8000
+    grpc_port = opts[:grpc_port] || 50051
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
@@ -56,9 +59,13 @@ defmodule Mix.Tasks.Recgpt.Serve do
         )
 
         Mix.shell().info("  GET  /v1/health")
+        Mix.shell().info("gRPC: 0.0.0.0:#{grpc_port} (recgpt.v1.PredictionService/Predict)")
 
-        spec = {Plug.Cowboy, scheme: :http, plug: RecGPT.Serve.Plug, options: [port: port]}
-        {:ok, _pid} = Supervisor.start_link([spec], strategy: :one_for_one)
+        children = [
+          {Plug.Cowboy, scheme: :http, plug: RecGPT.Serve.Plug, options: [port: port]},
+          {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
+        ]
+        {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
         Process.sleep(:infinity)
 
       {:error, reason} ->

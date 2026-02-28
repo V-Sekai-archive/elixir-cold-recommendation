@@ -30,6 +30,8 @@ defmodule RecGPT.MixProject do
 
   defp deps do
     [
+      {:grpc, "~> 0.11"},
+      {:protobuf, "~> 0.14"},
       {:nx, "~> 0.11", override: true},
       {:torchx, "~> 0.11"},
       {:axon, "~> 0.7"},
