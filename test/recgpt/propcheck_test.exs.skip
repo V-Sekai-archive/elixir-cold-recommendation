@@ -9,7 +9,6 @@ defmodule RecGPT.PropCheckTest do
   alias RecGPT.CheckpointLoader
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
-  alias RecGPT.ParamFlatten
   alias RecGPT.Training
   alias RecGPT.Trie
 
@@ -193,64 +192,6 @@ defmodule RecGPT.PropCheckTest do
       a = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, params, 4)
       b = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, params, 4)
       a == b
-    end
-  end
-
-  # --- ParamFlatten properties ---
-
-  defp param_flatten_canonical_keys do
-    ["wte", "ae.linear.weight", "ae.linear.bias", "pred_head.weight", "pred_head.bias"]
-  end
-
-  defp param_flatten_stub_params do
-    %{
-      "wte" => Nx.iota({100, 8}) |> Nx.as_type({:f, 32}),
-      "ae.linear.weight" => Nx.iota({768, 192}) |> Nx.divide(768 * 192) |> Nx.as_type({:f, 32}),
-      "ae.linear.bias" => Nx.broadcast(0.1, {768}) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" =>
-        Nx.iota({768, 15_361}) |> Nx.divide(768 * 15_361) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    }
-  end
-
-  property "ParamFlatten: flatten then unflatten preserves keys and shapes" do
-    params = param_flatten_stub_params()
-    keys = param_flatten_canonical_keys()
-
-    forall _ <- nat() do
-      case ParamFlatten.flatten(params, keys) do
-        {:ok, flat, spec} ->
-          unflattened = ParamFlatten.unflatten(flat, spec)
-          keys_match = Map.keys(unflattened) |> Enum.sort() == keys |> Enum.sort()
-
-          shapes_match =
-            Enum.all?(keys, fn key ->
-              orig = params[key]
-              restored = unflattened[key]
-              restored != nil and Nx.shape(restored) == Nx.shape(orig)
-            end)
-
-          keys_match and shapes_match
-
-        _ ->
-          false
-      end
-    end
-  end
-
-  property "ParamFlatten: unflatten(flat, spec) has total size equal to Nx.size(flat)" do
-    params = param_flatten_stub_params()
-    keys = param_flatten_canonical_keys()
-
-    forall _ <- nat() do
-      case ParamFlatten.flatten(params, keys) do
-        {:ok, flat, spec} ->
-          total_spec = Enum.reduce(spec, 0, fn s, acc -> acc + s.size end)
-          total_spec == Nx.size(flat)
-
-        _ ->
-          false
-      end
     end
   end
 

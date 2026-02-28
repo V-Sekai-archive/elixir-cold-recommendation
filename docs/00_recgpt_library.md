@@ -49,7 +49,6 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | **RecGPT.CheckpointLoader** | `load_from_export/1` → `%{key => Nx.Tensor}`. Expects `manifest.json` and `.npy` files. |
 | **RecGPT.CheckpointExport** | `write_export/2`. Writes manifest and one `.npy` per key.                               |
 | **RecGPT.PtLoader**         | Load PyTorch `.pt` (zip format) for `mix recgpt.export_ckpt --from-pt`.                 |
-| **RecGPT.ParamFlatten**     | Flatten nested state_dict when needed.                                                  |
 
 ### Data pipeline
 
