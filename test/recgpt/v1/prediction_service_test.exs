@@ -3,11 +3,12 @@ defmodule Recgpt.V1.PredictionServiceTest do
   use ExUnit.Case, async: false
 
   alias RecGPT.Serve
+  alias RecGPT.TestSupport.FrozenHelpers
   alias Recgpt.V1.PredictionService.Server
   alias Recgpt.V1.PredictRequest
 
   setup do
-    state = build_stub_state()
+    state = FrozenHelpers.build_stub_state()
     Application.put_env(:recgpt, :serve_state, state)
     on_exit(fn -> Application.delete_env(:recgpt, :serve_state) end)
     :ok
@@ -48,7 +49,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
           e in GRPC.RPCError -> assert e.status == 14
         end
       after
-        Application.put_env(:recgpt, :serve_state, build_stub_state())
+        Application.put_env(:recgpt, :serve_state, FrozenHelpers.build_stub_state())
       end
     end
 
@@ -89,7 +90,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
           Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
         )
 
-        write_stub_ckpt!(ckpt_dir)
+        FrozenHelpers.write_stub_ckpt!(ckpt_dir)
 
         assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
         Application.put_env(:recgpt, :serve_state, state)
@@ -115,47 +116,4 @@ defmodule Recgpt.V1.PredictionServiceTest do
     end
   end
 
-  defp build_stub_state do
-    Application.ensure_all_started(:nx)
-    token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
-    trie = RecGPT.Trie.build(token_id_list)
-    params = build_dummy_params()
-
-    get_logits_fn = fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      RecGPT.Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
-    end
-
-    %RecGPT.Serve{
-      params: params,
-      trie: trie,
-      token_id_list: token_id_list,
-      item_text: %{},
-      num_items: 2,
-      get_logits_fn: get_logits_fn
-    }
-  end
-
-  defp build_dummy_params do
-    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
-  end
-
-  defp write_stub_ckpt!(dir) do
-    File.mkdir_p!(dir)
-
-    params = %{
-      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" =>
-        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    }
-
-    RecGPT.CheckpointExport.write_export(params, dir)
-  end
 end

@@ -4,9 +4,15 @@ Sub-proposal of the [documentation index](README.md). Elevate the library to pro
 
 ---
 
-## Goal
+## Problem or limitation
 
-Make the codebase production-ready with static typing, linting, tests, health checks, and deployable artifacts.
+The library must be production-ready: static typing, linting, tests, health checks, and deployable artifacts. Without a defined checklist, quality and deployment vary.
+
+---
+
+## Proposed improvement
+
+Make the codebase production-ready with the following improvements. Checklist: [23 Quality assurance](23_quality_assurance.md).
 
 ---
 

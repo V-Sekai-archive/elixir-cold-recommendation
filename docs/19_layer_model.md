@@ -4,17 +4,17 @@ Sub-proposal of the [documentation index](README.md). Overview: [15 Layers overv
 
 ---
 
-## What it does
+## Problem or limitation
 
-Forward pass (Inference), loss (Training), and training loop (AxonTrain). Params come from CheckpointLoader. Same forward/loss used for training and inference.
+Forward pass, loss, and training loop must be documented and testable; without a single surface (Inference, Training, AxonTrain), parity and reuse are unclear.
 
-## Public surface
+---
 
-RecGPT.Inference.forward/4, RecGPT.Inference.forward_full_sequence/4, RecGPT.Training.build_train_batch/4, RecGPT.Training.loss_shifted_ce/2, RecGPT.AxonTrain.stream_batches/4, RecGPT.AxonTrain.run/3.
+## Proposed improvement
 
-## How to test
+Document Layer 4 (Model): responsibility, public surface, and how to test. Params from CheckpointLoader; same forward/loss for training and inference.
 
-inference_test.exs, training_test.exs, axon_train_test.exs. Stub checkpoint params for Inference.
+Forward pass (Inference), loss (Training), and training loop (AxonTrain). Params come from CheckpointLoader. Same forward/loss used for training and inference. **Public surface:** RecGPT.Inference.forward/4, RecGPT.Inference.forward_full_sequence/4, RecGPT.Training.build_train_batch/4, RecGPT.Training.loss_shifted_ce/2, RecGPT.AxonTrain.stream_batches/4, RecGPT.AxonTrain.run/3. **How to test:** inference_test.exs, training_test.exs, axon_train_test.exs. Stub checkpoint params for Inference.
 
 ---
 

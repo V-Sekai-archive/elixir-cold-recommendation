@@ -1,7 +1,9 @@
 defmodule RecGPT.ServeTest do
   use ExUnit.Case, async: false
 
+  alias RecGPT.LayerFreeze
   alias RecGPT.Serve
+  alias RecGPT.TestSupport.FrozenHelpers
 
   describe "item_ids_to_context_token_ids/3" do
     test "left-pads to seq_token_capacity 1024" do
@@ -25,13 +27,13 @@ defmodule RecGPT.ServeTest do
 
   describe "recommend/3" do
     test "returns error when item_ids empty" do
-      state = build_stub_state()
-      assert Serve.recommend(state, [], 5) == {:error, "item_ids must be non-empty"}
+      frozen = FrozenHelpers.build_frozen([0])
+      assert LayerFreeze.recommend(frozen, [], 5) == {:error, "item_ids must be non-empty"}
     end
 
-    test "returns up to top_k recommended item_ids (best first)" do
-      state = build_stub_state()
-      assert {:ok, list} = Serve.recommend(state, [0], 5)
+    test "returns up to top_k recommended item_ids (best first) via frozen inputs" do
+      frozen = FrozenHelpers.build_frozen([0])
+      assert {:ok, list} = LayerFreeze.recommend(frozen, [0], 5)
       assert is_list(list)
       assert length(list) <= 5
       assert length(list) <= 2, "stub catalog has 2 items"
@@ -39,15 +41,32 @@ defmodule RecGPT.ServeTest do
     end
 
     test "top_k=1 returns at most one item" do
-      state = build_stub_state()
-      assert {:ok, list} = Serve.recommend(state, [0], 1)
+      frozen = FrozenHelpers.build_frozen([0])
+      assert {:ok, list} = LayerFreeze.recommend(frozen, [0], 1)
       assert length(list) <= 1
     end
 
     test "top_k is capped at 20" do
-      state = build_stub_state()
-      assert {:ok, list} = Serve.recommend(state, [0], 100)
+      frozen = FrozenHelpers.build_frozen([0])
+      assert {:ok, list} = LayerFreeze.recommend(frozen, [0], 100)
       assert length(list) <= 20
+    end
+  end
+
+  describe "LayerFreeze (frozen inputs for layer isolation)" do
+    test "forward_model with frozen params returns logits (Model layer in isolation)" do
+      frozen = FrozenHelpers.build_frozen([0])
+      token_list = Enum.take(frozen.context_token_ids, 8)
+      logits = LayerFreeze.forward_model(frozen, token_list)
+      assert Nx.shape(logits) == {1, 15_361}
+    end
+
+    test "recommend via frozen matches Serve.recommend with same state" do
+      state = FrozenHelpers.build_stub_state()
+      frozen = LayerFreeze.record_from_state(state, [0])
+      assert {:ok, a} = LayerFreeze.recommend(frozen, [0], 5)
+      assert {:ok, b} = Serve.recommend(state, [0], 5)
+      assert a == b
     end
   end
 
@@ -109,11 +128,12 @@ defmodule RecGPT.ServeTest do
           Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
         )
 
-        write_stub_ckpt!(ckpt_dir)
+        FrozenHelpers.write_stub_ckpt!(ckpt_dir)
 
         assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
         assert state.num_items == num_items
-        assert {:ok, list} = Serve.recommend(state, [0], 5)
+        frozen = LayerFreeze.record_from_state(state, [0])
+        assert {:ok, list} = LayerFreeze.recommend(frozen, [0], 5)
         assert is_list(list)
         assert length(list) <= 5
         assert Enum.all?(list, fn id -> is_integer(id) and id >= 0 and id < num_items end)
@@ -142,7 +162,7 @@ defmodule RecGPT.ServeTest do
           Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
         )
 
-        write_stub_ckpt!(ckpt_dir)
+        FrozenHelpers.write_stub_ckpt!(ckpt_dir)
 
         assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
 
@@ -162,51 +182,4 @@ defmodule RecGPT.ServeTest do
     end
   end
 
-  defp write_stub_ckpt!(dir) do
-    File.mkdir_p!(dir)
-
-    params = %{
-      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" =>
-        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    }
-
-    RecGPT.CheckpointExport.write_export(params, dir)
-  end
-
-  defp build_stub_state do
-    token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
-    trie = RecGPT.Trie.build(token_id_list)
-    params = build_dummy_params()
-
-    get_logits_fn = fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      RecGPT.Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
-    end
-
-    %Serve{
-      params: params,
-      trie: trie,
-      token_id_list: token_id_list,
-      item_text: %{},
-      num_items: 2,
-      get_logits_fn: get_logits_fn
-    }
-  end
-
-  defp build_dummy_params do
-    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-
-    %{
-      "wte" => wte,
-      "pred_head.weight" => head_w,
-      "pred_head.bias" => head_b
-    }
-  end
 end

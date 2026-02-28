@@ -40,3 +40,12 @@ The codebase does not use ETS today; this is the recommended path from “load f
 
 - **Trie and beam search** (above) — `Trie.build/1`, `lookup/2`, `valid_next_tokens/2`; `Decode.beam_search/4`, `beam_search_top_k/4`.
 - **Future ETS scaling** (above) — Optional path for high concurrency and live catalog updates.
+
+---
+
+## See also
+
+- [Documentation index](README.md)
+- [15 Layers overview](15_layers_overview.md)
+- [20 Layer Recommendation](20_layer_recommendation.md)
+- [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)

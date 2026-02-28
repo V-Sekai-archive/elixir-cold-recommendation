@@ -82,3 +82,11 @@ Maintain a **works cited** list: RecGPT paper and repo, beam/trie decoding, ETS 
 62. How to Use AWS Local Zones for Low-Latency Applications — OneUptime, accessed February 27, 2026, https://oneuptime.com/blog/post/2026-02-12-aws-local-zones-low-latency-applications/view
 63. AWS Latency Monitoring — CloudPing, accessed February 27, 2026, https://www.cloudping.co/
 64. Ultralow latency seismic interpretation on AWS Local Zones — Amazon, accessed February 27, 2026, https://aws.amazon.com/blogs/industries/ultralow-latency-seismic-interpretation-on-aws-local-zones/
+
+---
+
+## See also
+
+- [Documentation index](README.md)
+- [15 Layers overview](15_layers_overview.md)
+- [11 RecGPT paradigm](11_recgpt_paradigm.md)

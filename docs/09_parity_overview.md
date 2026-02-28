@@ -36,12 +36,12 @@ Maintain **parity progress** docs: at-a-glance table, Python to Elixir mapping, 
 | Python (RecGPT repo)                                    | Elixir (recgpt)                                                            | Notes                                                                      |
 | ------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity via unit tests.                                      |
-| `data_processing/make_token_list.py`                   | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Unit and pipeline integration tests.                                       |
+| `data_processing/make_token_list.py`                    | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Unit and pipeline integration tests.                                       |
 | `utils/fsq.py` (levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | Unit tests.                                                                |
-| VAE `vae_len4_fsq88865_ep90.pt`                        | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1`           | Encoder logic in Elixir; weights from export.                              |
-| `GPT2RecBatchTrainAuxData`, batch build, loss          | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                               |
-| `pre_train.py` / `predict.py`                          | —                                                                          | Use our token_id_list + embeddings from Elixir pipeline.                   |
-| **`serve.py`** (HTTP server)                           | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | gRPC only: recgpt.v1.PredictionService/Predict (see recommendation.proto). |
+| VAE `vae_len4_fsq88865_ep90.pt`                         | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1`           | Encoder logic in Elixir; weights from export.                              |
+| `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                               |
+| `pre_train.py` / `predict.py`                           | —                                                                          | Use our token_id_list + embeddings from Elixir pipeline.                   |
+| **`serve.py`** (HTTP server)                            | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | gRPC only: recgpt.v1.PredictionService/Predict (see recommendation.proto). |
 
 ---
 

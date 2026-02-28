@@ -2,6 +2,16 @@
 
 Sub-proposal of the [documentation index](README.md). Steps 2-4, serve, checkpoint setup, and file layout. Overview and Step 1: [02 Pipeline overview](02_pipeline_overview.md).
 
+## Problem or limitation
+
+Steps 2-4 (build fixture, pretrain, eval), optional serve, checkpoint setup, and file layout must be documented so users can run the pipeline. Without a single reference, order and options are unclear.
+
+---
+
+## Proposed improvement
+
+Document steps 2-4, optional serve, checkpoint setup, and file layout. Overview and Step 1: [02 Pipeline overview](02_pipeline_overview.md).
+
 ---
 
 ## Step 2: Build fixture

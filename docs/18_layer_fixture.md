@@ -4,17 +4,17 @@ Sub-proposal of the [documentation index](README.md). Overview: [15 Layers overv
 
 ---
 
-## What it does
+## Problem or limitation
 
-Build fixture.json (num_items, token_id_list) from items JSON and checkpoint (for FSQ params). Depends on Layer 1 (CheckpointLoader) and Layer 2 (Embedding, FSQEncoder).
+Fixture (num_items, token_id_list) must be built from items and checkpoint in a single place; without a documented surface, build and test strategy are unclear.
 
-## Public surface
+---
 
-RecGPT.FixtureBuild.build/2, RecGPT.FixtureBuild.write_fixture/2.
+## Proposed improvement
 
-## How to test
+Document Layer 3 (Fixture): responsibility, public surface, and how to test. FixtureBuild depends on Artifacts and Representation.
 
-Stub Embedding/CheckpointLoader or use real fixture files; see fixture_build_test.exs.
+Build fixture.json (num_items, token_id_list) from items JSON and checkpoint (for FSQ params). Depends on Layer 1 (CheckpointLoader) and Layer 2 (Embedding, FSQEncoder). **Public surface:** RecGPT.FixtureBuild.build/2, RecGPT.FixtureBuild.write_fixture/2. **How to test:** Stub Embedding/CheckpointLoader or use real fixture files; see fixture_build_test.exs.
 
 ---
 

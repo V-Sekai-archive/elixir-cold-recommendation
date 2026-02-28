@@ -4,17 +4,17 @@ Sub-proposal of the [documentation index](README.md). Overview: [15 Layers overv
 
 ---
 
-## What it does
+## Problem or limitation
 
-Eval loads test cases and calls Serve.recommend to compute Hit@k, MRR, etc. PredictionService.Server handles gRPC Predict and delegates to Serve.recommend. GRPCEndpoint wires the server.
+Eval and gRPC serving must be documented and testable; without a single surface (Eval, PredictionService, GRPCEndpoint), integration and QA are unclear.
 
-## Public surface
+---
 
-RecGPT.Eval.evaluate/3, RecGPT.Eval.load_test_cases/1, Recgpt.V1.PredictionService.Server (gRPC), RecGPT.GRPCEndpoint.
+## Proposed improvement
 
-## How to test
+Document Layer 6 (Application): responsibility, public surface, and how to test. Eval and gRPC delegate to Serve.recommend.
 
-eval_test.exs, prediction_service_test.exs. Stub Serve state for unit tests; integration tests use real stack.
+Eval loads test cases and calls Serve.recommend to compute Hit@k, MRR, etc. PredictionService.Server handles gRPC Predict and delegates to Serve.recommend. GRPCEndpoint wires the server. **Public surface:** RecGPT.Eval.evaluate/3, RecGPT.Eval.load_test_cases/1, Recgpt.V1.PredictionService.Server (gRPC), RecGPT.GRPCEndpoint. **How to test:** eval_test.exs, prediction_service_test.exs. Stub Serve state for unit tests; integration tests use real stack.
 
 ---
 

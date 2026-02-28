@@ -44,4 +44,13 @@ Data → fixture → pretrain → eval. Fixture building uses `RecGPT.FixtureBui
 - **FSQ and semantic tokenization** (above) — Text → vector → tokens; Embedding, FSQ, FSQEncoder.
 - **Hybrid attention** (above) — Bidirectional within item, causal across items.
 - **Pipeline and modules** (above) — Data → fixture → pretrain → eval; module roles.
-- [12_dynamic_state_ets.md](12_dynamic_state_ets.md) — Trie, beam search, optional ETS.
+- [12 Dynamic state (trie and ETS)](12_dynamic_state_ets.md) — Trie, beam search, optional ETS.
+
+---
+
+## See also
+
+- [Documentation index](README.md)
+- [02 Pipeline overview](02_pipeline_overview.md)
+- [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)
+- [15 Layers overview](15_layers_overview.md)

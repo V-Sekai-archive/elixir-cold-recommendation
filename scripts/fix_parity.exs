@@ -1,0 +1,1 @@
+path = Path.join(File.cwd!(), "docs/10_parity_layers.md"); c = File.read!(path); c = String.replace(c, "? Done", "\u2705 Done"); c = String.replace(c, "? Validated", "\u2705 Validated"); c = String.replace(c, " ? ", " \u2192 "); File.write!(path, c); IO.puts("OK")

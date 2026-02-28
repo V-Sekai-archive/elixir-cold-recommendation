@@ -4,17 +4,17 @@ Sub-proposal of the [documentation index](README.md). Overview: [15 Layers overv
 
 ---
 
-## What it does
+## Problem or limitation
 
-Trie from token_id_list; Decode runs beam search using a logits function (from Inference); Serve loads fixture + checkpoint, builds trie and get_logits, and exposes recommend/3.
+Next-item recommendation must be catalog-constrained (trie, beam search) and loadable from fixture and checkpoint; without a documented surface, Serve and Decode roles are unclear.
 
-## Public surface
+---
 
-RecGPT.Trie.build/1, RecGPT.Decode.beam_search_top_k/4, RecGPT.Serve.load_state/3, RecGPT.Serve.recommend/3.
+## Proposed improvement
 
-## How to test
+Document Layer 5 (Recommendation): responsibility, public surface, and how to test. Trie, Decode, and Serve; load_state + recommend.
 
-trie_test.exs, decode_test.exs, serve_test.exs. Stub get_logits for Trie/Decode; Serve tests can use stub state or full stack.
+Trie from token_id_list; Decode runs beam search using a logits function (from Inference); Serve loads fixture + checkpoint, builds trie and get_logits, and exposes recommend/3. **Public surface:** RecGPT.Trie.build/1, RecGPT.Decode.beam_search_top_k/4, RecGPT.Serve.load_state/3, RecGPT.Serve.recommend/3. **How to test:** trie_test.exs, decode_test.exs, serve_test.exs. Stub get_logits for Trie/Decode; Serve tests can use stub state or full stack.
 
 ---
 

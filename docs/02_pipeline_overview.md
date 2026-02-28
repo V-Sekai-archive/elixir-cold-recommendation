@@ -32,13 +32,13 @@ Define the **pipeline** as four steps with commands, options, and outputs. Both 
 
 **Outputs (under the data dir):**
 
-| File                        | Description                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `items.json`                | Catalog: `{"items": [{"id", "title"}], "num_items"}`.                             |
-| `train_sequences.json`      | `{"sequences": [[id, ...], ...], "num_items"}` — 80% of sessions.                 |
-| `test_sequences.json`       | `{"test_cases": [{"context", "next_item"}], "num_items"}` — 20% last-item-out.    |
-| `cold_test_sequences.json`  | Same shape as test; only cases where `next_item` is cold. |
-| `cold_train_sequences.json` | Train sequences that contain at least one cold item.                              |
+| File                        | Description                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `items.json`                | Catalog: `{"items": [{"id", "title"}], "num_items"}`.                          |
+| `train_sequences.json`      | `{"sequences": [[id, ...], ...], "num_items"}` — 80% of sessions.              |
+| `test_sequences.json`       | `{"test_cases": [{"context", "next_item"}], "num_items"}` — 20% last-item-out. |
+| `cold_test_sequences.json`  | Same shape as test; only cases where `next_item` is cold.                      |
+| `cold_train_sequences.json` | Train sequences that contain at least one cold item.                           |
 
 Cold files are produced by Steam Fetch from the dataset.
 

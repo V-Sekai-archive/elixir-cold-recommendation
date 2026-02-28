@@ -1,18 +1,19 @@
-# Eval test: load_test_cases with synthetic data; evaluate with stub state; Fetch output (top-k).
+# Eval test: load_test_cases with synthetic data; evaluate with frozen inputs (stub state).
 # Integration: build data/steam with mix recgpt.fetch_steam data/steam.
 defmodule RecGPT.EvalTest do
   use ExUnit.Case, async: false
 
   alias RecGPT.Eval
   alias RecGPT.Serve
+  alias RecGPT.TestSupport.FrozenHelpers
 
   @top_k 10
 
   describe "evaluate/3" do
-    test "returns metrics with stub state and test cases" do
-      state = build_eval_stub_state()
+    test "returns metrics with frozen inputs (stub state) and test cases" do
+      frozen = FrozenHelpers.build_frozen([0])
       test_cases = [%{"context" => [0], "next_item" => 0}, %{"context" => [0], "next_item" => 1}]
-      metrics = Eval.evaluate(state, test_cases, top_k: 5)
+      metrics = Eval.evaluate(frozen.state, test_cases, top_k: 5)
       assert metrics.n >= 1
       assert metrics.hit_at_1 >= 0.0 and metrics.hit_at_1 <= 1.0
       assert metrics.hit_at_5 >= 0.0 and metrics.hit_at_5 <= 1.0
@@ -23,14 +24,14 @@ defmodule RecGPT.EvalTest do
     end
 
     test "skips test cases with empty context or nil next_item" do
-      state = build_eval_stub_state()
+      frozen = FrozenHelpers.build_frozen([0])
 
       test_cases = [
         %{"context" => [], "next_item" => 0},
         %{"context" => [0], "next_item" => nil}
       ]
 
-      metrics = Eval.evaluate(state, test_cases, top_k: 5)
+      metrics = Eval.evaluate(frozen.state, test_cases, top_k: 5)
       assert metrics.n == 0 or metrics.n == 1
     end
   end
@@ -193,32 +194,4 @@ defmodule RecGPT.EvalTest do
              "when zero-shot equals baseline, pretrain on catalogue must improve or we fail"
   end
 
-  defp build_eval_stub_state do
-    token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
-    trie = RecGPT.Trie.build(token_id_list)
-
-    params = %{
-      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.weight" =>
-        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
-      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    }
-
-    get_logits_fn = fn token_list ->
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      seq_len = length(token_list)
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      RecGPT.Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
-    end
-
-    %Serve{
-      params: params,
-      trie: trie,
-      token_id_list: token_id_list,
-      item_text: %{},
-      num_items: 2,
-      get_logits_fn: get_logits_fn
-    }
-  end
 end

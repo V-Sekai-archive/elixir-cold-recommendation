@@ -1,4 +1,4 @@
-﻿# Proposal: Infrastructure and serving
+# Proposal: Infrastructure and serving
 
 Sub-proposal of the [documentation index](README.md). How to run and scale the recommendation server.
 
@@ -49,7 +49,10 @@ The catalog (item id and title for display names) is stored as JSON: shape `{"nu
 - **Ra** ([ra](https://hex.pm/packages/ra)) — Raft consensus library. You implement a **state machine** (via `ra_machine` behaviour); Ra replicates it across a cluster. Used by RabbitMQ for quorum queues, streams, and by Khepri as its engine. Use Ra when you need custom replicated state and are willing to implement the machine.
 - **Khepri** ([khepri](https://hex.pm/packages/khepri)) — Tree-like replicated on-disk store **built on Ra**. It is the state machine that Ra replicates; you get a ready-made API: put/get/delete by path (e.g. `[:recgpt, :catalog]` → catalog blob). Use Khepri when you want a replicated key/path store without implementing Ra yourself.
 
-For catalog storage, **Khepri** is the right fit (put one path, get at serve time). **Ra** is the lower-level layer; you'd only use it directly for a custom replicated store. 
+#### Khepri vs Ra (summary)
+
+For catalog storage, **Khepri** is the right fit (put one path, get at serve time). **Ra** is the lower-level layer; you'd only use it directly for a custom replicated store.
+
 ---
 
 ## Sub-proposals
@@ -59,4 +62,8 @@ For catalog storage, **Khepri** is the right fit (put one path, get at serve tim
 
 ---
 
-**See also:** [docs README](README.md), [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md).
+## See also
+
+- [Documentation index](README.md)
+- [02 Pipeline overview](02_pipeline_overview.md)
+- [03 Pipeline steps](03_pipeline_steps.md)
