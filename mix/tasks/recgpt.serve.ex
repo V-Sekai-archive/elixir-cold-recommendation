@@ -28,19 +28,29 @@ defmodule Mix.Tasks.Recgpt.Serve do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [grpc_port: :integer, health_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
+        switches: [
+          grpc_port: :integer,
+          health_port: :integer,
+          fixture: :string,
+          ckpt: :string,
+          catalog: :string
+        ]
       )
 
-    grpc_port = opts[:grpc_port] || 50051
+    grpc_port = opts[:grpc_port] || 50_051
+
     health_port =
       opts[:health_port] ||
-        (case System.get_env("RECGPT_HEALTH_PORT") do
-           nil -> nil
-           s -> case Integer.parse(s) do
-                  {n, _} -> n
-                  :error -> nil
-                end
-         end)
+        case System.get_env("RECGPT_HEALTH_PORT") do
+          nil ->
+            nil
+
+          s ->
+            case Integer.parse(s) do
+              {n, _} -> n
+              :error -> nil
+            end
+        end
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
@@ -62,16 +72,19 @@ defmodule Mix.Tasks.Recgpt.Serve do
         Mix.shell().info("gRPC: 0.0.0.0:#{grpc_port} (recgpt.v1.PredictionService/Predict)")
 
         children = [
-          {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
+          {GRPC.Server.Supervisor,
+           endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
         ]
+
         children =
           if is_integer(health_port) and health_port == 0 do
             children
           else
-            port = if is_integer(health_port) and health_port > 0, do: health_port, else: 50052
+            port = if is_integer(health_port) and health_port > 0, do: health_port, else: 50_052
             Mix.shell().info("Health: 0.0.0.0:#{port} GET /")
             [{RecGPT.HealthServer, port} | children]
           end
+
         {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
         Process.sleep(:infinity)
 

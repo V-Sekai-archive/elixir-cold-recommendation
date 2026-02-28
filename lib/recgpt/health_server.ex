@@ -10,15 +10,23 @@ defmodule RecGPT.HealthServer do
 
   defp accept_loop(port) do
     case :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true]) do
-      {:ok, listen_socket} -> do_accept(listen_socket)
-      {:error, _} = err -> require Logger; Logger.warning("Health server failed to listen on #{port}: #{inspect(err)}")
+      {:ok, listen_socket} ->
+        do_accept(listen_socket)
+
+      {:error, _} = err ->
+        require Logger
+        Logger.warning("Health server failed to listen on #{port}: #{inspect(err)}")
     end
   end
 
   defp do_accept(listen_socket) do
     case :gen_tcp.accept(listen_socket) do
-      {:ok, socket} -> spawn(fn -> handle(socket) end); do_accept(listen_socket)
-      _ -> do_accept(listen_socket)
+      {:ok, socket} ->
+        spawn(fn -> handle(socket) end)
+        do_accept(listen_socket)
+
+      _ ->
+        do_accept(listen_socket)
     end
   end
 
@@ -26,7 +34,10 @@ defmodule RecGPT.HealthServer do
     _ = :gen_tcp.recv(socket, 0, 5000)
     status = if Application.get_env(:recgpt, :serve_state), do: 200, else: 503
     body = if status == 200, do: "OK", else: "Service Unavailable"
-    resp = "HTTP/1.1 #{status} #{body}\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n#{body}"
+
+    resp =
+      "HTTP/1.1 #{status} #{body}\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n#{body}"
+
     :gen_tcp.send(socket, resp)
     :gen_tcp.close(socket)
   end

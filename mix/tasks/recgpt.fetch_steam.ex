@@ -23,7 +23,9 @@ defmodule Mix.Tasks.Recgpt.FetchSteam do
 
     case RecGPT.Steam.Fetch.run(out_dir) do
       :ok ->
-        Mix.shell().info("Done. Next: mix recgpt.build_fixture --items #{out_dir}/items.json --out #{out_dir}/fixture.json --ckpt data/recgpt_ckpt_export, then pretrain and eval.")
+        Mix.shell().info(
+          "Done. Next: mix recgpt.build_fixture --items #{out_dir}/items.json --out #{out_dir}/fixture.json --ckpt data/recgpt_ckpt_export, then pretrain and eval."
+        )
 
       {:error, reason} ->
         Mix.raise("Steam fetch failed: #{inspect(reason)}")

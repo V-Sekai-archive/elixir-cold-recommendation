@@ -39,8 +39,10 @@ defmodule RecGPT.Steam.Fetch do
       {:ok, %{status: 200, body: body}} ->
         File.write!(path, body)
         :ok
+
       {:ok, %{status: code}} ->
         {:error, "HTTP #{code} for #{url}"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -64,6 +66,7 @@ defmodule RecGPT.Steam.Fetch do
       end
     end
   end
+
   defp unwrap_object(other), do: other
 
   defp build_item_map(dir) do
@@ -77,12 +80,14 @@ defmodule RecGPT.Steam.Fetch do
   end
 
   defp sort_key(x) when is_integer(x), do: {0, x}
+
   defp sort_key(x) when is_binary(x) do
     case Integer.parse(x) do
       {n, _} -> {0, n}
       :error -> {1, x}
     end
   end
+
   defp sort_key(x), do: {2, inspect(x)}
 
   defp to_map(%Unpickler.Object{} = o), do: unwrap_object(o)
@@ -111,9 +116,14 @@ defmodule RecGPT.Steam.Fetch do
       raw = load_pkl(path)
       seqs = to_list_of_lists(raw)
       mapped = Enum.map(seqs, fn seq -> map_sequence(seq, old_to_new) end)
-      out_name = fname |> String.replace(".pkl", "_sequences") |> then(& &1 <> ".json")
+      out_name = fname |> String.replace(".pkl", "_sequences") |> then(&(&1 <> ".json"))
       out_path = Path.join(dir, out_name)
-      File.write!(out_path, Jason.encode!(%{"sequences" => mapped, "num_items" => num_items}, pretty: true))
+
+      File.write!(
+        out_path,
+        Jason.encode!(%{"sequences" => mapped, "num_items" => num_items}, pretty: true)
+      )
+
       Mix.shell().info("Wrote #{out_path} (#{length(mapped)} sequences)")
     end
 
@@ -123,9 +133,16 @@ defmodule RecGPT.Steam.Fetch do
       raw = load_pkl(path)
       seqs = to_list_of_lists(raw)
       test_cases = Enum.map(seqs, fn seq -> seq_to_test_case(map_sequence(seq, old_to_new)) end)
-      out_name = fname |> String.replace(".pkl", "_sequences") |> then(& &1 <> ".json")
+      out_name = fname |> String.replace(".pkl", "_sequences") |> then(&(&1 <> ".json"))
       out_path = Path.join(dir, out_name)
-      File.write!(out_path, Jason.encode!(%{"test_cases" => test_cases, "num_items" => map_size(old_to_new)}, pretty: true))
+
+      File.write!(
+        out_path,
+        Jason.encode!(%{"test_cases" => test_cases, "num_items" => map_size(old_to_new)},
+          pretty: true
+        )
+      )
+
       Mix.shell().info("Wrote #{out_path} (#{length(test_cases)} test cases)")
     end
 
@@ -146,6 +163,7 @@ defmodule RecGPT.Steam.Fetch do
     unwrapped = unwrap_object(o)
     if is_map(unwrapped), do: Map.values(unwrapped), else: List.wrap(unwrapped)
   end
+
   defp to_list_of_lists(m) when is_map(m), do: Map.values(m)
   defp to_list_of_lists(l) when is_list(l), do: l
   defp to_list_of_lists(_), do: []
@@ -153,10 +171,12 @@ defmodule RecGPT.Steam.Fetch do
   defp map_sequence(seq, old_to_new) when is_list(seq) do
     Enum.map(seq, fn x -> Map.get(old_to_new, x, x) end)
   end
+
   defp map_sequence(_, _), do: []
 
   defp seq_to_test_case([]), do: %{"context" => [], "next_item" => 0}
   defp seq_to_test_case([single]), do: %{"context" => [], "next_item" => single}
+
   defp seq_to_test_case(seq) do
     context = seq |> Enum.drop(-1) |> Enum.take(-@max_context)
     next_item = List.last(seq)

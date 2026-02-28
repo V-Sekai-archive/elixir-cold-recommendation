@@ -7,6 +7,7 @@ defmodule RecGPT.Catalog do
   def write!(path, content) when is_map(content) do
     write!(path, Jason.encode!(content, pretty: true))
   end
+
   def write!(path, content) when is_binary(content) do
     tmp = path <> ".tmp"
     File.mkdir_p!(Path.dirname(path))

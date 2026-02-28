@@ -75,13 +75,16 @@ defmodule Mix.Tasks.Recgpt.Eval do
             Mix.shell().info("")
             Mix.shell().info("Cold test")
             Mix.shell().info("  n = #{cold_metrics.n}")
+
             Mix.shell().info(
               "  Hit@1  = #{format(cold_metrics.hit_at_1)}  (random baseline #{format(cold_metrics.random_hit_at_1)})"
             )
+
             Mix.shell().info("  Hit@5  = #{format(cold_metrics.hit_at_5)}")
             Mix.shell().info("  Hit@10 = #{format(cold_metrics.hit_at_10)}")
             Mix.shell().info("  MRR    = #{format(cold_metrics.mrr)}")
             Mix.shell().info("  catalog_size = #{cold_metrics.catalog_size}")
+
             Mix.shell().info(
               "  Reject null (Hit@1 > random): #{if cold_metrics.rejects_null, do: "yes", else: "no"}"
             )

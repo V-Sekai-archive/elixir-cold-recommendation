@@ -115,7 +115,11 @@ defmodule RecGPT.Serve do
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
   """
-  @spec item_ids_to_context_token_ids([non_neg_integer()], [[non_neg_integer()]], non_neg_integer()) ::
+  @spec item_ids_to_context_token_ids(
+          [non_neg_integer()],
+          [[non_neg_integer()]],
+          non_neg_integer()
+        ) ::
           [integer()]
   def item_ids_to_context_token_ids(item_ids, token_id_list, padding_id \\ @padding_id) do
     seq = Enum.take(item_ids, -@max_length)
@@ -144,5 +148,4 @@ defmodule RecGPT.Serve do
       end
     end
   end
-
 end

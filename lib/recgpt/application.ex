@@ -21,30 +21,49 @@ defmodule RecGPT.ReleaseTasks do
     Application.ensure_all_started(:nx)
     fixture_path = System.get_env("RECGPT_FIXTURE")
     ckpt_dir = System.get_env("RECGPT_CKPT_EXPORT")
+
     if not (fixture_path && fixture_path != "" && ckpt_dir && ckpt_dir != "") do
       raise "RECGPT_FIXTURE and RECGPT_CKPT_EXPORT must be set"
     end
-    grpc_port = env_port("RECGPT_GRPC_PORT", 50051)
-    health_port = env_port("RECGPT_HEALTH_PORT", 50052)
+
+    grpc_port = env_port("RECGPT_GRPC_PORT", 50_051)
+    health_port = env_port("RECGPT_HEALTH_PORT", 50_052)
     catalog_path = System.get_env("RECGPT_CATALOG")
+
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
-        children = [{GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}]
-        children = if is_integer(health_port) and health_port > 0, do: [{RecGPT.HealthServer, health_port} | children], else: children
+
+        children = [
+          {GRPC.Server.Supervisor,
+           endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
+        ]
+
+        children =
+          if is_integer(health_port) and health_port > 0 do
+            [{RecGPT.HealthServer, health_port} | children]
+          else
+            children
+          end
+
         {:ok, _} = Supervisor.start_link(children, strategy: :one_for_one)
         Process.sleep(:infinity)
+
       {:error, reason} ->
         raise "Failed to load state: #{inspect(reason)}"
     end
   end
+
   defp env_port(name, default) do
     case System.get_env(name) do
-      nil -> default
-      s -> case Integer.parse(s) do
-             {n, _} -> n
-             :error -> default
-           end
+      nil ->
+        default
+
+      s ->
+        case Integer.parse(s) do
+          {n, _} -> n
+          :error -> default
+        end
     end
   end
 end

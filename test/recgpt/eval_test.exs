@@ -50,9 +50,7 @@ defmodule RecGPT.EvalTest do
     path = Path.join(File.cwd!(), "data/steam/test_sequences.json")
 
     unless File.regular?(path) do
-      flunk(
-        "Run mix recgpt.fetch_steam data/steam to build data/steam/test_sequences.json"
-      )
+      flunk("Run mix recgpt.fetch_steam data/steam to build data/steam/test_sequences.json")
     end
 
     assert {:ok, cases} = Eval.load_test_cases(path)
@@ -74,6 +72,7 @@ defmodule RecGPT.EvalTest do
   @tag :eval
   test "load_test_cases loads test_sequences JSON" do
     num_items = 20
+
     test_cases =
       for i <- 0..14 do
         %{"context" => [rem(i, num_items)], "next_item" => rem(i + 1, num_items)}

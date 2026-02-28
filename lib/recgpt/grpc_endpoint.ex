@@ -4,5 +4,5 @@ defmodule RecGPT.GRPCEndpoint do
   """
   use GRPC.Endpoint
 
-  run Recgpt.V1.PredictionService.Server
+  run(Recgpt.V1.PredictionService.Server)
 end

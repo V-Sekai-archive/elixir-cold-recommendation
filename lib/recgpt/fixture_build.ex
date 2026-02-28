@@ -19,7 +19,9 @@ defmodule RecGPT.FixtureBuild do
   - Encodes embeddings to token_id_list via FSQEncoder.encode_embeddings_to_token_id_list/3.
   - Returns %{"num_items" => n, "token_id_list" => token_id_list}.
   """
-  @spec build(String.t(), String.t()) :: %{String.t() => non_neg_integer() | [[non_neg_integer()]]}
+  @spec build(String.t(), String.t()) :: %{
+          String.t() => non_neg_integer() | [[non_neg_integer()]]
+        }
   def build(items_path, ckpt_dir) do
     item_text_dict = load_item_text_dict(items_path)
     embeddings = Embedding.encode_item_text_dict(item_text_dict)

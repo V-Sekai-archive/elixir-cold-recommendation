@@ -19,6 +19,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
       response = Server.predict(request, nil)
       assert is_list(response.item_ids)
       assert length(response.items) == length(response.item_ids)
+
       Enum.zip(response.item_ids, response.items)
       |> Enum.each(fn {id, item} ->
         assert item.item_id == id
@@ -28,6 +29,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
 
     test "empty context_item_ids raises INVALID_ARGUMENT" do
       request = %PredictRequest{context_item_ids: [], max_results: 5}
+
       try do
         Server.predict(request, nil)
       rescue
@@ -38,6 +40,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
     test "nil serve_state raises UNAVAILABLE" do
       Application.put_env(:recgpt, :serve_state, nil)
       request = %PredictRequest{context_item_ids: [0], max_results: 5}
+
       try do
         try do
           Server.predict(request, nil)
@@ -58,6 +61,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
 
     test "max_results 21 raises INVALID_ARGUMENT" do
       request = %PredictRequest{context_item_ids: [0], max_results: 21}
+
       try do
         Server.predict(request, nil)
       rescue
@@ -79,6 +83,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
       try do
         num_items = 2
         token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
+
         File.write!(
           fixture_path,
           Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
@@ -94,7 +99,11 @@ defmodule Recgpt.V1.PredictionServiceTest do
 
         assert is_list(response.item_ids)
         assert length(response.items) == length(response.item_ids)
-        assert Enum.all?(response.item_ids, fn id -> is_integer(id) and id >= 0 and id < num_items end)
+
+        assert Enum.all?(response.item_ids, fn id ->
+                 is_integer(id) and id >= 0 and id < num_items
+               end)
+
         Enum.zip(response.item_ids, response.items)
         |> Enum.each(fn {id, item} ->
           assert item.item_id == id
@@ -139,12 +148,14 @@ defmodule Recgpt.V1.PredictionServiceTest do
 
   defp write_stub_ckpt!(dir) do
     File.mkdir_p!(dir)
+
     params = %{
       "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
       "pred_head.weight" =>
         Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
       "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     }
+
     RecGPT.CheckpointExport.write_export(params, dir)
   end
 end

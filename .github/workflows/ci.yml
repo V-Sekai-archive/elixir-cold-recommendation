@@ -44,6 +44,12 @@ jobs:
       - name: Compile
         run: mix compile --warnings-as-errors
 
+      - name: Format
+        run: mix format --check-formatted
+
+      - name: Credo
+        run: mix credo
+
       - name: Unit tests (no download)
         run: mix test --no-start --exclude integration --exclude eval
 

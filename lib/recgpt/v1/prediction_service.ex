@@ -2,7 +2,7 @@ defmodule Recgpt.V1.PredictionService.Service do
   @moduledoc false
   use GRPC.Service, name: "recgpt.v1.PredictionService"
 
-  rpc :Predict, Recgpt.V1.PredictRequest, Recgpt.V1.PredictResponse
+  rpc(:Predict, Recgpt.V1.PredictRequest, Recgpt.V1.PredictResponse)
 end
 
 defmodule Recgpt.V1.PredictionService.Server do
@@ -20,12 +20,17 @@ defmodule Recgpt.V1.PredictionService.Server do
     context_ids = request.context_item_ids || []
     raw_max = request.max_results || 0
     max_results = if raw_max in 1..20, do: raw_max, else: 5
+
     if raw_max != 0 and (raw_max < 1 or raw_max > 20) do
-      raise GRPC.RPCError, status: :invalid_argument, message: "max_results must be between 1 and 20"
+      raise GRPC.RPCError,
+        status: :invalid_argument,
+        message: "max_results must be between 1 and 20"
     end
 
     if context_ids == [] do
-      raise GRPC.RPCError, status: :invalid_argument, message: "context_item_ids must not be empty"
+      raise GRPC.RPCError,
+        status: :invalid_argument,
+        message: "context_item_ids must not be empty"
     end
 
     case RecGPT.Serve.recommend(state, context_ids, max_results) do
