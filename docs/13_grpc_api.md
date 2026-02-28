@@ -11,7 +11,7 @@ The recommendation API is **gRPC-only**. The authoritative contract is [recommen
 | **Predict** | `PredictRequest`  | `PredictResponse`  |
 
 - **Full name:** `recgpt.v1.PredictionService/Predict`
-- **Optional REST:** `POST /v1/catalog:recommend` (body: JSON matching request fields) when transcoding is enabled.
+- This repo serves gRPC only; no REST server. External transcoding (e.g., grpc-gateway) could expose `POST /v1/catalog:recommend` elsewhere.
 
 ---
 

@@ -16,9 +16,9 @@ See also: [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) 
 
 **Goal:** Produce items and train/test/cold sequences.
 
-**Command:** `mix recgpt.clickstream` (or `mix recgpt.clickstream data/clickstream`).
+**Command:** `mix recgpt.fetch_steam data/steam` (or another output dir).
 
-**Programmatic:** `RecGPT.Clickstream.Fetch.run("data/clickstream", max_train_sessions_for_cold: 2)`.
+**Programmatic:** `RecGPT.Steam.Fetch.run("data/steam")`.
 
 **Outputs (under the data dir):**
 
@@ -30,7 +30,7 @@ See also: [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) 
 | `cold_test_sequences.json`  | Same shape as test; only cases where `next_item` is cold (≤ K sessions in train). |
 | `cold_train_sequences.json` | Train sequences that contain at least one cold item.                              |
 
-Cold threshold K defaults to 2; override with `:max_train_sessions_for_cold` in `run/2` opts.
+Cold files are produced by Steam Fetch from the dataset.
 
 ---
 
@@ -41,7 +41,7 @@ Cold threshold K defaults to 2; override with `:max_train_sessions_for_cold` in 
 **Command:**
 
 ```bash
-mix recgpt.build_fixture --items data/clickstream/items.json --out data/clickstream/fixture.json --ckpt data/recgpt_ckpt_export
+mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export
 ```
 
 If the checkpoint does not contain FSQ params (e.g., `project_in/kernel` or `fsq.project_in.weight`), add `--fsq path/to/fsq_export`.
@@ -57,7 +57,7 @@ If the checkpoint does not contain FSQ params (e.g., `project_in/kernel` or `fsq
 **Command:**
 
 ```bash
-mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/clickstream/fixture.json --train data/clickstream/train_sequences.json --items data/clickstream/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50
+mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50
 ```
 
 Optional: `--embeddings path/to/embeddings.nx` for precomputed embeddings.
@@ -73,7 +73,7 @@ Optional: `--embeddings path/to/embeddings.nx` for precomputed embeddings.
 **Command:**
 
 ```bash
-mix recgpt.eval --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain --test data/clickstream/test_sequences.json --cold-test data/clickstream/cold_test_sequences.json
+mix recgpt.eval --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain --test data/steam/test_sequences.json --cold-test data/steam/cold_test_sequences.json
 ```
 
 **Requirements:** Fixture and checkpoint must exist and load. **Both** `--test` and `--cold-test` are required; if `cold_test_sequences.json` is missing, the task fails and prompts you to run Fetch first.
@@ -87,7 +87,7 @@ mix recgpt.eval --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_p
 After pretrain (and optionally eval):
 
 ```bash
-mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
+mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
 ```
 
 gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [13_grpc_api.md](13_grpc_api.md).
@@ -115,7 +115,7 @@ data/
 │   ├── manifest.json
 │   └── *.npy
 ├── recgpt_layer_3_weight.pt     # Optional; from fetch_ckpt
-├── clickstream/
+├── steam/
 │   ├── items.json
 │   ├── train_sequences.json
 │   ├── test_sequences.json

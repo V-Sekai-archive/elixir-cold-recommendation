@@ -40,8 +40,6 @@ defmodule RecGPT.MixProject do
       {:npy, "~> 0.1.2"},
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
-      {:plug_cowboy, "~> 2.6"},
-      {:ecto_sqlite3, "~> 0.14"},
       {:req, "~> 0.5"},
       {:rdf, "~> 2.0"},
       {:json_ld, "~> 1.0"},

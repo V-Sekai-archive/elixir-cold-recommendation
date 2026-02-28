@@ -8,9 +8,9 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
 
   ## Options
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
-    * `--fixture` - Fixture JSON path (default: data/clickstream/fixture.json)
-    * `--train` - train_sequences.json path (default: data/clickstream/train_sequences.json)
-    * `--items` - items.json for building embeddings (default: data/clickstream/items.json); ignored if --embeddings given
+    * `--fixture` - Fixture JSON path (default: data/steam/fixture.json)
+    * `--train` - train_sequences.json path (default: data/steam/train_sequences.json)
+    * `--items` - items.json for building embeddings (default: data/steam/items.json); ignored if --embeddings given
     * `--embeddings` - Optional path to precomputed embeddings (Nx.serialize); overrides --items
     * `--out` - Output export dir (required)
     * `--iterations` - Max training steps (default: 100)
@@ -39,9 +39,9 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       )
 
     ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
-    fixture_path = opts[:fixture] || resolve("data/clickstream/fixture.json")
-    train_path = opts[:train] || resolve("data/clickstream/train_sequences.json")
-    items_path = opts[:items] || resolve("data/clickstream/items.json")
+    fixture_path = opts[:fixture] || resolve("data/steam/fixture.json")
+    train_path = opts[:train] || resolve("data/steam/train_sequences.json")
+    items_path = opts[:items] || resolve("data/steam/items.json")
     embeddings_path = opts[:embeddings]
     out_dir = opts[:out]
     iterations = opts[:iterations] || 100
@@ -64,7 +64,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     end
 
     unless File.regular?(train_path) do
-      Mix.raise("train sequences not found: #{train_path}. Run Fetch first.")
+      Mix.raise("train sequences not found: #{train_path}. Run mix recgpt.fetch_steam first.")
     end
 
     Application.ensure_all_started(:nx)

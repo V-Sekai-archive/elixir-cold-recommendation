@@ -9,7 +9,7 @@ Documentation for the RecGPT Elixir library: modules, pipeline, evaluation, and 
 ```mermaid
 flowchart LR
   subgraph gen [1. Generate data]
-    Fetch[Clickstream.Fetch.run]
+    Fetch[Steam.Fetch.run]
     Fetch --> items[items.json]
     Fetch --> train[train_sequences.json]
     Fetch --> test[test_sequences.json]

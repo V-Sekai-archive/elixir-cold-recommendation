@@ -24,9 +24,8 @@ defmodule RecGPT.Steam.Fetch do
 
     with :ok <- ensure_item_text_dict(dir),
          {:ok, item_ids, old_to_new, title_map} <- build_item_map(dir),
-         :ok <- write_items_json(dir, item_ids, title_map),
-         :ok <- write_sequence_jsons(dir, old_to_new) do
-      :ok
+         :ok <- write_items_json(dir, item_ids, title_map) do
+      write_sequence_jsons(dir, old_to_new)
     end
   end
 

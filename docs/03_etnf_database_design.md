@@ -1,6 +1,6 @@
 # ETNF database design
 
-Essential Tuple Normal Form (ETNF) and how it guides the Clickstream schema. For the concrete schema and Dublin Core usage in this repo, see [04 FOSS datasets and Dublin Core](04_foss_datasets_etnf_dublin_core_xmp.md).
+Essential Tuple Normal Form (ETNF) and how it guides catalog/event schema. For Dublin Core usage in this repo, see [04 FOSS datasets and Dublin Core](04_foss_datasets_etnf_dublin_core_xmp.md).
 
 ---
 
@@ -25,4 +25,4 @@ Essential Tuple Normal Form (ETNF) and how it guides the Clickstream schema. For
 ## See also
 
 - [04 FOSS datasets and Dublin Core](04_foss_datasets_etnf_dublin_core_xmp.md) — Schema and Dublin Core/XMP in this repo.
-- [00 RecGPT library](00_recgpt_library.md) — Clickstream.Fetch and Repo.
+- [00 RecGPT library](00_recgpt_library.md) — Steam.Fetch, Xmp.

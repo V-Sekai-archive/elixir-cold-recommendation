@@ -11,7 +11,7 @@ defmodule Recgpt.V1.PredictionService.Server do
   """
   use GRPC.Server, service: Recgpt.V1.PredictionService.Service
 
-  alias Recgpt.V1.{PredictRequest, PredictResponse, ItemSummary}
+  alias Recgpt.V1.{ItemSummary, PredictRequest, PredictResponse}
 
   @impl true
   def predict(request, _stream) do

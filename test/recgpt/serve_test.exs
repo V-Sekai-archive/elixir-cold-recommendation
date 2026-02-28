@@ -1,11 +1,7 @@
 defmodule RecGPT.ServeTest do
   use ExUnit.Case, async: false
 
-  import Plug.Conn
-  import Plug.Test
-
   alias RecGPT.Serve
-  alias RecGPT.Serve.Plug
 
   describe "item_ids_to_context_token_ids/3" do
     test "left-pads to seq_token_capacity 1024" do
@@ -193,76 +189,6 @@ defmodule RecGPT.ServeTest do
     }
 
     RecGPT.CheckpointExport.write_export(params, dir)
-  end
-
-  describe "Plug (REST API)" do
-    test "returns 503 with error body when serve_state not set" do
-      Application.delete_env(:recgpt, :serve_state)
-      conn = conn(:get, "/v1/health") |> Plug.call([])
-      assert conn.status == 503
-      body = Jason.decode!(conn.resp_body)
-      assert body["error"]["code"] == 503
-      assert body["error"]["status"] == "UNAVAILABLE"
-    end
-
-    test "GET /v1/health returns 200 when state set" do
-      Application.put_env(:recgpt, :serve_state, build_stub_state())
-      conn = conn(:get, "/v1/health") |> Plug.call([])
-      assert conn.status == 200
-      assert Jason.decode!(conn.resp_body)["status"] == "ok"
-    end
-
-    test "GET /v1/catalog/items returns items with display_name" do
-      state = %{build_stub_state() | item_text: %{0 => "Test game"}}
-      Application.put_env(:recgpt, :serve_state, state)
-      conn = conn(:get, "/v1/catalog/items?q=test") |> Plug.call([])
-      assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
-      assert Map.has_key?(body, "items")
-      assert is_list(body["items"])
-    end
-
-    test "POST /v1/catalog:recommend returns item_ids and items" do
-      Application.put_env(:recgpt, :serve_state, build_stub_state())
-
-      conn =
-        conn(
-          :post,
-          "/v1/catalog:recommend",
-          Jason.encode!(%{"context_item_ids" => [0], "max_results" => 5})
-        )
-        |> put_req_header("content-type", "application/json")
-        |> Plug.call([])
-
-      assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
-      assert Map.has_key?(body, "item_ids")
-      assert Map.has_key?(body, "items")
-      assert is_list(body["item_ids"])
-      assert is_list(body["items"])
-    end
-
-    test "POST /v1/catalog:recommend returns 400 with error body when context_item_ids missing" do
-      Application.put_env(:recgpt, :serve_state, build_stub_state())
-
-      conn =
-        conn(:post, "/v1/catalog:recommend", Jason.encode!(%{}))
-        |> put_req_header("content-type", "application/json")
-        |> Plug.call([])
-
-      assert conn.status == 400
-      body = Jason.decode!(conn.resp_body)
-      assert body["error"]["code"] == 400
-      assert body["error"]["status"] == "INVALID_ARGUMENT"
-    end
-
-    test "404 for unknown path with error body" do
-      Application.put_env(:recgpt, :serve_state, build_stub_state())
-      conn = conn(:get, "/v1/unknown") |> Plug.call([])
-      assert conn.status == 404
-      body = Jason.decode!(conn.resp_body)
-      assert body["error"]["code"] == 404
-    end
   end
 
   describe "safe_str/1" do

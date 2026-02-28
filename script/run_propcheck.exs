@@ -3,7 +3,7 @@
 Application.ensure_all_started(:nx)
 Application.ensure_all_started(:propcheck)
 
-ExUnit.start(exclude: [:embedding, :compare_python, :compare_embedding, :integration, :eval, :e2e_serve, :serve_parity, :pt_fixture])
+ExUnit.start(exclude: [:embedding, :integration, :eval, :e2e_serve, :serve_parity, :pt_fixture])
 
 src = Path.join([File.cwd!(), "test", "recgpt", "propcheck_test.exs.skip"])
 tmp_dir = Path.join(Mix.Project.build_path(), "tmp")

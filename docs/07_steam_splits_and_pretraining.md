@@ -32,7 +32,7 @@ Recommendation: Generate data with train, test, and cold. Pretrain on the train 
 
 ## Artifacts (this repo)
 
-After `RecGPT.Clickstream.Fetch.run/2` (or `mix recgpt.clickstream`):
+After `RecGPT.Steam.Fetch.run/2` (or `mix recgpt.fetch_steam data/steam`):
 
 | File                        | Shape                                                     | Use                                                                      |
 | --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |

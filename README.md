@@ -15,10 +15,10 @@ Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scala
    mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
    ```
 
-2. **Generate data and build the pipeline** (UCI Clickstream example):
+2. **Generate data and build the pipeline** (Steam example):
 
    ```bash
-   mix recgpt.clickstream                    # items, train/test/cold sequences
+   mix recgpt.fetch_steam data/steam        # items, train/test/cold sequences
    mix recgpt.build_fixture                  # items → fixture.json (Embedding + FSQ)
    mix recgpt.pretrain --out data/ckpt_out   # train on train_sequences, write updated checkpoint
    mix recgpt.eval                           # eval on test + cold_test (requires cold_test file)
@@ -27,7 +27,7 @@ Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scala
 3. **Serve recommendations** (optional):
 
    ```bash
-   mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_out
+   mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_out
    ```
 
 See [Pipeline](#pipeline) and [docs/08_pipeline_reference.md](docs/08_pipeline_reference.md) for the full sequence and options.
@@ -38,7 +38,7 @@ See [Pipeline](#pipeline) and [docs/08_pipeline_reference.md](docs/08_pipeline_r
 
 | Step | Command / API | Outputs |
 |------|----------------|---------|
-| **1. Data** | `mix recgpt.clickstream` or `RecGPT.Clickstream.Fetch.run/2` | `items.json`, `train_sequences.json`, `test_sequences.json`, `cold_test_sequences.json`, `cold_train_sequences.json` |
+| **1. Data** | `mix recgpt.fetch_steam data/steam` or `RecGPT.Steam.Fetch.run/2` | `items.json`, `train_sequences.json`, `test_sequences.json`, `cold_test_sequences.json`, `cold_train_sequences.json` |
 | **2. Fixture** | `mix recgpt.build_fixture` or `RecGPT.FixtureBuild.build/3` | `fixture.json` (`num_items`, `token_id_list`) |
 | **3. Pretrain** | `mix recgpt.pretrain` (uses `AxonTrain.stream_batches` + `run/3`) | Updated checkpoint in `--out` |
 | **4. Eval** | `mix recgpt.eval` (requires `--test` and `--cold-test` files) | Hit@k, MRR, cold-test metrics |
@@ -53,13 +53,13 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 |------|---------|
 | `mix recgpt.fetch_ckpt` | Download RecGPT PyTorch checkpoint from Hugging Face (hkuds/RecGPT_model). |
 | `mix recgpt.export_ckpt` | Export checkpoint to `manifest.json` + `.npy` (from `--from-pt` or `--from-export`). |
-| `mix recgpt.clickstream` | Fetch UCI Clickstream, run migrations, load SQLite; write items + train/test/cold sequences. |
+| `mix recgpt.fetch_steam` | Fetch Steam test split from HuggingFace (hkuds/RecGPT_dataset); write items + train/test/cold sequences. |
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`, `--fsq`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
 | `mix recgpt.eval` | Run next-item eval (Hit@k, MRR) on test + cold-test sets. Requires fixture, checkpoint, and both test files. |
 | `mix recgpt.serve` | Start gRPC server (port 50051): recgpt.v1.PredictionService/Predict. |
 
-Paths default to `data/clickstream/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
+Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
 ---
 
@@ -79,7 +79,7 @@ Paths default to `data/clickstream/` and `data/recgpt_ckpt_export`; override wit
 | **RecGPT.Decode** | Beam search for next-item from logits + trie. |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
-| **RecGPT.Clickstream.Fetch** | UCI Clickstream → SQLite + JSON artifacts; cold splits via `compute_cold_splits/4`. |
+| **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |
 
 Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 
@@ -91,8 +91,7 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 - **Bumblebee** (GitHub `main`) — MPNet text embeddings.
 - **Jason**, **Npy** — JSON and `.npy` checkpoint files.
 - **grpc** — gRPC server for `mix recgpt.serve`.
-- **Ecto + SQLite** — Clickstream data.
-- **Req** — HTTP (e.g. fetch_ckpt, Clickstream zip).
+- **Req** — HTTP (e.g. fetch_ckpt, fetch_steam).
 - **PropCheck** (dev/test) — Property-based tests.
 
 ---
@@ -103,7 +102,7 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 mix test --no-start
 ```
 
-- Excluded by default: `embedding` (loads HF model), `integration`, `eval`, `e2e_serve`, `compare_python`, `pt_fixture`.
+- Excluded by default: `embedding` (loads HF model), `integration`, `eval`, `e2e_serve`, `pt_fixture`.
 - **Include integration:** `mix test --include integration`
 - **Include embedding:** `mix test --include embedding` (long timeout)
 - **PropCheck:** `MIX_ENV=test mix run script/run_propcheck.exs`
@@ -115,7 +114,7 @@ See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [
 
 ## gRPC API (serve)
 
-Service is gRPC-only. Contract: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). [docs/13](docs/13_grpc_rest_api.md).
+Service is gRPC-only. Contract: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). [docs/13](docs/13_grpc_api.md).
 
 - **recgpt.v1.PredictionService/Predict** — Request: `context_item_ids`, `max_results`; response: `item_ids`, `items` (ItemSummary).
 

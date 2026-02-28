@@ -53,15 +53,12 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 
 ### Data pipeline
 
-| Module                             | Purpose                                                                                                                                               |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RecGPT.Clickstream.Fetch**       | UCI Clickstream → SQLite; writes items and train/test/cold sequences. `run/2` (opts: `:max_train_sessions_for_cold`). `compute_cold_splits/4` (pure). |
-| **RecGPT.Clickstream.CatalogItem** | Ecto schema for catalog items.                                                                                                                        |
-| **RecGPT.Clickstream.EtnfEvent**   | Ecto schema for events (session_id, ord, item_id).                                                                                                    |
-| **RecGPT.Xmp.DublinCore**          | Dublin Core IRIs and `context/0` for XMP JSON-LD.                                                                                                     |
-| **RecGPT.Xmp.CatalogItemSchema**   | Grax schema for catalog item (DC properties).                                                                                                        |
-| **RecGPT.Xmp.Jsonld**              | RDBMS → Grax → RDF → XMP JSON-LD. `from_catalog_item/1`, `validate_jsonld/1`, `to_xmp_jsonld_string/2`.                                               |
-| **RecGPT.Repo**                    | Ecto repo (SQLite).                                                                                                                                   |
+| Module                           | Purpose                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **RecGPT.Steam.Fetch**           | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/2`.               |
+| **RecGPT.Xmp.DublinCore**        | Dublin Core IRIs and `context/0` for XMP JSON-LD.                                                                             |
+| **RecGPT.Xmp.CatalogItemSchema** | Grax schema for catalog item (DC properties).                                                                                |
+| **RecGPT.Xmp.Jsonld**            | Catalog item → Grax → RDF → XMP JSON-LD. `from_catalog_item/1`, `validate_jsonld/1`, `to_xmp_jsonld_string/2`.                |
 
 ### HTTP and application
 
@@ -69,11 +66,9 @@ API: gRPC only ([13](13_grpc_api.md), proto in `priv/proto/recgpt/v1/`). Contrac
 
 | Module                 | Purpose                                                                             |
 | ---------------------- | ----------------------------------------------------------------------------------- |
-| **RecGPT.Serve.Plug**  | (Optional) REST router; not started by `mix recgpt.serve` (gRPC only).               |
-| **RecGPT.Serve.REST**  | Helpers for Plug; used only if REST is mounted elsewhere.                          |
 | **RecGPT.GRPCEndpoint** | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.                          |
 | **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; delegates to `RecGPT.Serve.recommend/3`.     |
-| **RecGPT.Application** | Starts RecGPT.Repo.                                                                 |
+| **RecGPT.Application** | Application callback (no supervised children).                                      |
 
 ---
 
@@ -88,8 +83,7 @@ API: gRPC only ([13](13_grpc_api.md), proto in `priv/proto/recgpt/v1/`). Contrac
 | RDF, JSON.LD, Grax        | XMP JSON-LD: Dublin Core struct mapping and validation (see [04](04_foss_datasets_etnf_dublin_core_xmp.md)). |
 | (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server.                                                        |
 | grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).                                                         |
-| Ecto, ecto_sqlite3        | Clickstream database.                                                                                        |
-| Req                       | HTTP (fetch_ckpt, Clickstream zip).                                                                          |
+| Req                       | HTTP (fetch_ckpt, fetch_steam).                                                                              |
 | Unpickler, Unzip          | PyTorch `.pt` loading.                                                                                       |
 | PropCheck (dev/test)      | Property-based tests.                                                                                        |
 
@@ -101,7 +95,7 @@ See [mix.exs](../mix.exs).
 
 | Scope                              | Command                                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Default                            | `mix test --no-start` (excludes embedding, integration, eval, e2e_serve, compare_python, pt_fixture). |
+| Default                            | `mix test --no-start` (excludes embedding, integration, eval, e2e_serve, pt_fixture). |
 | Integration                        | `mix test --include integration`.                                                                     |
 | Embedding                          | `mix test --include embedding` (downloads HF model; use long timeout).                                |
 | Eval (fixture + ckpt + test files) | `mix test test/recgpt/eval_test.exs --include eval --include integration`.                            |

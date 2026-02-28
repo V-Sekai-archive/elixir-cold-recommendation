@@ -1,5 +1,5 @@
 # Eval test: load_test_cases with synthetic data; evaluate with stub state; Fetch output (top-k).
-# Integration requires RECGPT_* env. To build data/clickstream: mix run -e "..." with Fetch.run().
+# Integration: build data/steam with mix recgpt.fetch_steam data/steam.
 defmodule RecGPT.EvalTest do
   use ExUnit.Case, async: false
 
@@ -47,11 +47,11 @@ defmodule RecGPT.EvalTest do
 
   @tag :eval
   test "Fetch output test_sequences.json fits top-k form (one next_item per case, k=10)" do
-    path = Path.join(File.cwd!(), "data/clickstream/test_sequences.json")
+    path = Path.join(File.cwd!(), "data/steam/test_sequences.json")
 
     if not File.regular?(path) do
       ExUnit.skip(
-        "Run RecGPT.Clickstream.Fetch.run() to build data/clickstream/test_sequences.json"
+        "Run mix recgpt.fetch_steam data/steam to build data/steam/test_sequences.json"
       )
     end
 

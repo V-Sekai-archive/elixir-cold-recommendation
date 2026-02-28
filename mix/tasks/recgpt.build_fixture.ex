@@ -6,8 +6,8 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   Required for eval and serve after Fetch. Pipeline: Fetch → build_fixture → pretrain → eval.
 
   ## Options
-    * `--items` - Path to items.json (default: data/clickstream/items.json)
-    * `--out` - Output fixture path (default: data/clickstream/fixture.json)
+    * `--items` - Path to items.json (default: data/steam/items.json)
+    * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--fsq` - FSQ params export dir (required if FSQ not in --ckpt)
   """
@@ -20,14 +20,14 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
         switches: [items: :string, out: :string, ckpt: :string, fsq: :string]
       )
 
-    items_path = opts[:items] || resolve("data/clickstream/items.json")
-    out_path = opts[:out] || resolve("data/clickstream/fixture.json")
+    items_path = opts[:items] || resolve("data/steam/items.json")
+    out_path = opts[:out] || resolve("data/steam/fixture.json")
     ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
     fsq_dir = opts[:fsq]
 
     unless File.regular?(items_path) do
       Mix.raise(
-        "items file not found: #{items_path}. Run Fetch first (e.g. mix recgpt.clickstream)."
+        "items file not found: #{items_path}. Run Fetch first (e.g. mix recgpt.fetch_steam data/steam)."
       )
     end
 

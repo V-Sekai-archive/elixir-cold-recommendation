@@ -2,7 +2,7 @@
 
 Task list for how close the **recgpt** Elixir package is to matching the [Python RecGPT](https://github.com/HKUDS/RecGPT) (HKUDS/RecGPT) pipeline and model. Reference: [RecGPT paper](https://arxiv.org/abs/2506.06270), [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model).
 
-**Note:** Python scripts (`compare_recgpt_fsq.py`, `inspect_recgpt_checkpoint.py`, `export_serve_e2e_fixture.py`, etc.) may live in the repo root or a parent/polymarket repo; this repo contains only the Elixir library.
+**Note:** This repo has no Python; parity is validated via PropCheck, parity_constants_test, and integration tests. External Python scripts (if any) are not in this codebase.
 
 ---
 
@@ -56,7 +56,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | codes_to_indices / indices_to_codes                       | ✅ Done | Round-trip and encode path covered by tests.                                                                                       |
 | Load params (project_in / project_out) from export        | ✅ Done | `load_params/1`; keys `project_in/kernel` or `fsq.project_in.weight`, transpose when shape {5,192}.                                |
 | **FSQ encode: 768-d → 4 token IDs**                       | ✅ Done | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`; matches Python `make_token_list.py` logic.                               |
-| **Python vs Elixir FSQ parity test**                      | ✅ Done | `compare_recgpt_fsq.py` → fixtures; `compare_test.exs` asserts token lists match. Run with real params/embeddings for full parity. |
+| **Python vs Elixir FSQ parity**                           | ✅ Done | Parity via `parity_constants_test.exs`, PropCheck, and pipeline integration tests. (Compare test removed; no Python in repo.)   |
 | Load embeddings from .npy                                 | ✅ Done | `FSQEncoder.load_embeddings_from_npy/1` (npy hex).                                                                                 |
 | **Property-based tests (PropCheck)**                      | ✅ Done | See [Property-based testing](#property-based-testing-propcheck) below.                                                             |
 
@@ -84,7 +84,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | project_out                | codes (batch,4,5) @ kernel (5,192) → (batch,4,192)                                                    | Nx.dot(codes, [2], kernel, [0]); kernel (5,192)                                  | Same                                                  |
 | Embeddings → token_id_list | Reshape (N,768)→(N,4,192); encode per batch                                                           | `FSQEncoder.encode_embeddings_to_token_id_list`: reshape, `FSQ.encode` per batch | Same                                                  |
 
-**Tests that validate the port:** (1) `compare_test.exs` (fixtures from `compare_recgpt_fsq.py`): Elixir token_id_list matches Python expected_tokens. (2) Serve E2E FSQ parity: `serve_e2e_test.exs` in **M:\\reflex-logic-other** (serve_e2e project) — Elixir token_id_list matches Python on `serve_e2e_parity.json`. (3) `parity_constants_test.exs`: basis, vocab_size, levels. Run compare + parity from recgpt; for Serve E2E run from reflex-logic-other.
+**Tests that validate the port:** (1) `parity_constants_test.exs`: basis, vocab_size, levels. (2) PropCheck and pipeline integration tests. (3) Serve E2E FSQ parity: `serve_e2e_test.exs` in an external serve_e2e project if used.
 
 **Batch format verification:** Elixir `RecGPT.Training.build_train_batch/4` and `encode_aux/3` were compared to [HKUDS/RecGPT `utils/data.py`](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) class `GPT2RecBatchTrainAuxData`. Same constants: `max_length=256`, `padding_id=15360`, token sequence length `1024`, `label_list` padded with `-100`; right-padding for training; `encode_aux` maps 256 item IDs to embeddings (256, 768) → reshape to (1024, 192) and mask (1024, 1). Parity constants test asserts shapes and padding; no runtime Python comparison required.
 
@@ -144,14 +144,14 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 
 | What                                               | Command                                                                                                                                                                                                                           |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit + PropCheck (no HF model)                     | `cd recgpt && mix test` (excludes embedding, compare_python, integration by default)                                                                                                                                              |
-| All tests (embedding, compare_python, integration) | `cd recgpt && mix test --include embedding --include compare_python --include integration`                                                                                                                                        |
+| Unit + PropCheck (no HF model)                     | `cd recgpt && mix test` (excludes embedding, integration by default)                                                                                                                                                             |
+| All tests (embedding, integration)                 | `cd recgpt && mix test --include embedding --include integration`                                                                                                                                                                |
 | PropCheck only                                     | `cd recgpt && MIX_ENV=test mix run script/run_propcheck.exs`                                                                                                                                                                      |
 | Parity constants (doc/code sync)                   | `cd recgpt && mix test test/recgpt/parity_constants_test.exs`                                                                                                                                                                     |
 | Loader + Inference                                 | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs`                                                                                                                                     |
 | **Real checkpoint load + forward + beam**          | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
 | Trie + Decode                                      | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs`                                                                                                                                                     |
-| FSQ vs Python (fixtures)                           | `uv run python scripts/compare_recgpt_fsq.py --output-dir data/recgpt_compare` then `cd recgpt && mix test test/recgpt/compare_test.exs` (run with `--include compare_python`)                                                    |
+| FSQ parity (constants + PropCheck)                 | `mix test test/recgpt/parity_constants_test.exs` and PropCheck / pipeline integration tests                                                                                                                                    |
 | Embedding (downloads model)                        | `cd recgpt && mix test --include embedding`                                                                                                                                                                                       |
 | MPNet vs Python (normalize_embeddings=False)       | From repo root: `uv run python scripts/export_mpnet_embeddings.py --output-dir data/recgpt_embedding` then `cd recgpt && mix test --include compare_embedding --include embedding`                                                |
 | Coverage                                           | `cd recgpt && mix test --exclude embedding --cover`                                                                                                                                                                               |

@@ -44,7 +44,7 @@ jobs:
         run: mix compile --warnings-as-errors
 
       - name: Unit tests (no download)
-        run: mix test --no-start --exclude embedding --exclude integration --exclude eval --exclude compare_python
+        run: mix test --no-start --exclude embedding --exclude integration --exclude eval
 
       - name: Prepare data dir
         run: mkdir -p data

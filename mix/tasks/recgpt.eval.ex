@@ -3,14 +3,14 @@ defmodule Mix.Tasks.Recgpt.Eval do
   @moduledoc """
   Loads fixture + checkpoint, runs RecGPT.Eval on a JSON test set, prints metrics.
 
-  Use with a standard FOSS dataset (e.g. UCI Clickstream) so numbers are comparable.
-  Prepare test data: run `mix run -e "Application.ensure_all_started(:recgpt); RecGPT.Clickstream.Fetch.run()"` to get data/clickstream/items.json and test_sequences.json; then build fixture from items (Embedding + FSQ).
+  Use with Steam or other FOSS dataset so numbers are comparable.
+  Prepare test data: run `mix recgpt.fetch_steam data/steam`, then `mix recgpt.build_fixture` to get fixture and sequences.
 
   ## Options
-    * `--fixture` - Path to fixture JSON (token_id_list; default: data/clickstream/fixture.json)
+    * `--fixture` - Path to fixture JSON (token_id_list; default: data/steam/fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
-    * `--test` - Path to test_sequences.json (default: data/clickstream/test_sequences.json)
-    * `--cold-test` - Path to cold_test_sequences.json (required; default: data/clickstream/cold_test_sequences.json)
+    * `--test` - Path to test_sequences.json (default: data/steam/test_sequences.json)
+    * `--cold-test` - Path to cold_test_sequences.json (required; default: data/steam/cold_test_sequences.json)
     * `--catalog` - Optional catalog JSON (for serve; not required for eval)
 
   ## Environment
@@ -36,7 +36,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
-        resolve_path("data/clickstream/fixture.json")
+        resolve_path("data/steam/fixture.json")
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
@@ -49,7 +49,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
     unless File.regular?(cold_test_path) do
       Mix.raise(
         "Cold test file required but not found: #{cold_test_path}. " <>
-          "Produce it by running Fetch (e.g. mix recgpt.clickstream); it writes cold_test_sequences.json."
+          "Produce it by running mix recgpt.fetch_steam data/steam."
       )
     end
 

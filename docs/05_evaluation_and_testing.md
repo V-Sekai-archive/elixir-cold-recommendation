@@ -32,7 +32,7 @@ Eval must use **data that was not used for training**.
 - **Train:** e.g., full sessions or context-only sequences. Use only this for training.
 - **Test:** e.g., last-item-out per session — one test case per session: `context` = all but last click, `next_item` = last. Those last-item labels are never used as input during training.
 
-In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out. `RecGPT.Clickstream.Fetch` builds them from last-item-out per session; training uses only the train split.
+In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out. `RecGPT.Steam.Fetch` (or the dataset source) produces them; training uses only the train split.
 
 ---
 
@@ -41,7 +41,7 @@ In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out.
 - **Eval (zero-shot or trained):**  
   `mix recgpt.eval --fixture <path> --ckpt <export_dir> --test <test_sequences.json> --cold-test <cold_test_sequences.json>`
 
-Both `--test` and `--cold-test` are required. Default paths: `data/clickstream/fixture.json`, `data/clickstream/test_sequences.json`, `data/clickstream/cold_test_sequences.json`. Override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, or env vars `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
+Both `--test` and `--cold-test` are required. Default paths: `data/steam/fixture.json`, `data/steam/test_sequences.json`, `data/steam/cold_test_sequences.json`. Override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, or env vars `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
 ---
 

@@ -3,7 +3,7 @@ defmodule RecGPT.Eval do
   Next-item evaluation: Hit@k and MRR vs a standard test set.
 
   Test format (JSON): `{"test_cases": [{"context": [id, ...], "next_item": id}, ...]}`.
-  Item IDs are 0-based catalog indices. Use with a standard FOSS dataset (e.g. UCI Clickstream)
+  Item IDs are 0-based catalog indices. Use with Steam or other FOSS datasets.
   so numbers are comparable across runs and papers.
 
   ## Metrics
