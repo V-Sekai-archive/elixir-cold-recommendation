@@ -78,21 +78,7 @@ Maintain a **parity progress** doc: at-a-glance table, Python ↔ Elixir mapping
 | Loss: shifted CE over FSQ vocab                                | ✅ Done     | `loss_shifted_ce/2`; ignore -100, mean over valid positions.                                                                                                                                                      |
 | Same batch shape / format as Python RecGPT                     | ✅ Verified | Matches HKUDS/RecGPT `utils/data.py` `GPT2RecBatchTrainAuxData`: max_length=256, padding_id=15360, seq_token_capacity=1024, label_ignore=-100, right-padding; aux (256 items → 1024×192) and mask (1024×1) match. |
 
-**Python ↔ Elixir FSQ port verification:** The encode path (embeddings → token_id_list) is ported from Python and validated as follows.
-
-| Step                       | Python (compare_recgpt_fsq.py / export_serve_e2e_fixture.py)                                          | Elixir (RecGPT.FSQ, FSQEncoder)                                                  | Check                          |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------ |
-| Constants                  | LEVELS [8,8,8,6,5], VOCAB_SIZE 15360, BASIS [1,8,64,512,3072]                                         | `@level_list`, `@vocab_size`, `basis()`                                          | Same logic                     |
-| bound(z)                   | half_l = (levels-1)*(1-ε)/2; offset = 0.5 if even else 0; tanh(z+tanh(offset/half_l))*half_l - offset | Same formula in `FSQ.bound/2`                                                    | Same logic                     |
-| quantize(z)                | bound → round → divide by levels/2                                                                    | bound → round_ste → divide by levels/2 (round_ste forward = round)               | Same numeric output            |
-| codes_to_indices(codes)    | zhat = codes*half_width+half_width; round(sum(zhat*basis)); clip 0..vocab_size-1                      | `scale_and_shift` then multiply by basis, sum, round, clip                       | Same; `scale_and_shift` = zhat |
-| project_in                 | z_4_192 @ kernel (192,5) → (batch,4,5)                                                                | Nx.dot(z, [2], kernel, [0]); kernel (192,5)                                      | Same                           |
-| project_out                | codes (batch,4,5) @ kernel (5,192) → (batch,4,192)                                                    | Nx.dot(codes, [2], kernel, [0]); kernel (5,192)                                  | Same                           |
-| Embeddings → token_id_list | Reshape (N,768)→(N,4,192); encode per batch                                                           | `FSQEncoder.encode_embeddings_to_token_id_list`: reshape, `FSQ.encode` per batch | Same                           |
-
-**Tests that validate the port:** Unit tests and pipeline integration tests. Serve E2E FSQ parity: `serve_e2e_test.exs` in an external serve_e2e project if used.
-
-**Batch format verification:** Elixir `RecGPT.Training.build_train_batch/4` and `encode_aux/3` were compared to [HKUDS/RecGPT `utils/data.py`](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) class `GPT2RecBatchTrainAuxData`. Same constants: `max_length=256`, `padding_id=15360`, token sequence length `1024`, `label_list` padded with `-100`; right-padding for training; `encode_aux` maps 256 item IDs to embeddings (256, 768) → reshape to (1024, 192) and mask (1024, 1).
+**FSQ and batch verification:** Encode path and batch format match Python (unit and pipeline integration tests). Batch constants: max_length=256, padding_id=15360, seq_token_capacity=1024; see [HKUDS/RecGPT utils/data.py](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) `GPT2RecBatchTrainAuxData`.
 
 ---
 
@@ -146,16 +132,12 @@ Maintain a **parity progress** doc: at-a-glance table, Python ↔ Elixir mapping
 
 ## How to validate
 
-From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to chain commands (e.g., `cd recgpt; mix test ...`).
-
-| What                                      | Command                                                                                                                                                                                                               |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit tests (no HF model)                  | `cd recgpt && mix test` (excludes integration by default)                                                                                                                                                             |
-| All tests (integration)                   | `cd recgpt && mix test --include integration`                                                                                                                                                                         |
-| Loader + Inference                        | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs`                                                                                                                         |
-| **Real checkpoint load + forward + beam** | Export checkpoint with `mix recgpt.export_ckpt --from-pt <path> --out data/recgpt_ckpt_export`, then `mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
-| Trie + Decode                             | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs`                                                                                                                                         |
-| Coverage                                  | `cd recgpt && mix test --cover`                                                                                                                                                                                       |
+| What                         | Command |
+| ---------------------------- | ------- |
+| Unit tests (default)        | `mix test` (excludes integration) |
+| With integration            | `mix test --include integration` |
+| Checkpoint + inference     | Export ckpt then `mix test test/recgpt/inference_test.exs --include integration` |
+| Trie + Decode              | `mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs` |
 
 ---
 

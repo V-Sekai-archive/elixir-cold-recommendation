@@ -1,4 +1,4 @@
-# RecGPT.PtLoader: load .pt (zip or legacy pickle) in pure Elixir (Unzip + Unpickler).
+# RecGPT.PtLoader: load zip-based .pt in pure Elixir (Unzip + Unpickler).
 defmodule RecGPT.PtLoaderTest do
   use ExUnit.Case, async: true
 

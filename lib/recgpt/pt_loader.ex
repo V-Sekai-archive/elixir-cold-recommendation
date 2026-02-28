@@ -2,17 +2,13 @@ defmodule RecGPT.PtLoader do
   @moduledoc """
   Load PyTorch .pt checkpoint in pure Elixir using Unzip + Unpickler.
 
-  Supports:
-  - **Zip-based** (PyTorch 1.6+): unzips the .pt, reads `data.pkl`, resolves storage from `data/0`, `data/1`, ...
-  - **Legacy** (single pickle): treats the whole file as a pickle stream; storage from persistent_id is provided via placeholder so structure and tensor shapes load correctly.
+  Supports **zip-based** .pt (PyTorch 1.6+): unzips the file, reads `data.pkl`, resolves storage from `data/0`, `data/1`, ... Raises if the file is not zip format (e.g. legacy single-pickle .pt is not supported).
   """
 
   @zip_magic <<0x50, 0x4B, 0x03, 0x04>>
 
   @doc """
-  Loads a .pt file and returns %{key => Nx.Tensor} (state_dict).
-
-  Accepts zip-based .pt (PyTorch 1.6+) or legacy (single pickle) format.
+  Loads a .pt file and returns %{key => Nx.Tensor} (state_dict). Expects zip-based .pt (PyTorch 1.6+).
   """
   def load!(path) when is_binary(path) do
     binary = File.read!(path)
@@ -20,7 +16,7 @@ defmodule RecGPT.PtLoader do
     if binary_starts_with?(binary, @zip_magic) do
       load_zip!(binary)
     else
-      load_legacy!(binary)
+      raise "Unsupported .pt format: expected zip (PyTorch 1.6+), got non-zip file"
     end
   end
 
@@ -52,38 +48,6 @@ defmodule RecGPT.PtLoader do
 
     state_dict(root)
   end
-
-  defp load_legacy!(binary) do
-    persistent_id_resolver = fn id -> resolve_legacy_persistent_id(id) end
-    object_resolver = fn obj -> resolve_tensor_object(obj) end
-
-    {root, _rest} =
-      Unpickler.load!(binary,
-        persistent_id_resolver: persistent_id_resolver,
-        object_resolver: object_resolver
-      )
-
-    state_dict(root)
-  end
-
-  defp resolve_legacy_persistent_id(id) when is_tuple(id) do
-    case Tuple.to_list(id) do
-      ["storage", storage_type, storage_key, _location, storage_numel] ->
-        key = to_string(storage_key)
-        dtype = storage_type_to_nx(storage_type)
-        num_bytes = storage_numel * nx_dtype_to_bytes(dtype)
-        data = <<0::size(num_bytes)-unit(8)>>
-        %{data: data, dtype: dtype, key: key}
-
-      ["module", _mod, _source_file, _source] ->
-        %{__module: true}
-
-      _ ->
-        raise "Unsupported persistent_id in legacy .pt: #{inspect(id)}"
-    end
-  end
-
-  defp resolve_legacy_persistent_id(id), do: raise("Unexpected persistent_id: #{inspect(id)}")
 
   defp find_data_pkl(entries) do
     Enum.find(entries, fn p ->

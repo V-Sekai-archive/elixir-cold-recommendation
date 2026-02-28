@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Recgpt.ExportCkpt do
       mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
 
   ## Options
-    * `--from-pt` - Path to PyTorch .pt checkpoint (zip or legacy pickle format)
+    * `--from-pt` - Path to PyTorch .pt checkpoint (zip format, PyTorch 1.6+)
     * `--out` - Output export directory (required)
   """
   use Mix.Task
