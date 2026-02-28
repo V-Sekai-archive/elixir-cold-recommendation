@@ -65,12 +65,12 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 
 ### HTTP and application
 
-API: gRPC ([13](13_grpc_rest_api.md), proto in `priv/proto/recgpt/v1/`) and REST; contract and REST mapping in [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto).
+API: gRPC only ([13](13_grpc_rest_api.md), proto in `priv/proto/recgpt/v1/`). Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto).
 
 | Module                 | Purpose                                                                             |
 | ---------------------- | ----------------------------------------------------------------------------------- |
-| **RecGPT.Serve.Plug**  | REST API router: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health. |
-| **RecGPT.Serve.REST**  | Request/response helpers and Google-style error body for the REST API.              |
+| **RecGPT.Serve.Plug**  | (Optional) REST router; not started by `mix recgpt.serve` (gRPC only).               |
+| **RecGPT.Serve.REST**  | Helpers for Plug; used only if REST is mounted elsewhere.                          |
 | **RecGPT.GRPCEndpoint** | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.                          |
 | **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; delegates to `RecGPT.Serve.recommend/3`.     |
 | **RecGPT.Application** | Starts RecGPT.Repo.                                                                 |
@@ -86,7 +86,7 @@ API: gRPC ([13](13_grpc_rest_api.md), proto in `priv/proto/recgpt/v1/`) and REST
 | Bumblebee (GitHub `main`) | MPNet text embeddings.                                                                                       |
 | Jason, Npy                | JSON; checkpoint `.npy` load/save.                                                                           |
 | RDF, JSON.LD, Grax        | XMP JSON-LD: Dublin Core struct mapping and validation (see [04](04_foss_datasets_etnf_dublin_core_xmp.md)). |
-| Plug.Cowboy               | HTTP server (REST).                                                                                            |
+| (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server.                                                         |
 | grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).                                                          |
 | Ecto, ecto_sqlite3        | Clickstream database.                                                                                        |
 | Req                       | HTTP (fetch_ckpt, Clickstream zip).                                                                          |
@@ -130,5 +130,5 @@ Tests live in `test/recgpt/*_test.exs` and `test/support/recgpt/`.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Zero-shot vs trained, null hypothesis, held-out eval.
 - [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Train/test/cold splits, pretrain-first.
 - [08 Pipeline reference](08_pipeline_reference.md) — Commands and file layout.
-- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — API contract and REST mapping (endpoints, request/response).
+- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — gRPC API contract.
 - [RecGPT paper](https://arxiv.org/abs/2506.06270) · [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) · [hkuds/RecGPT_dataset](https://huggingface.co/datasets/hkuds/RecGPT_dataset)

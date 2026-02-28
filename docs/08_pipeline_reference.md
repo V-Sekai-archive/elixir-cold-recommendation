@@ -87,10 +87,10 @@ mix recgpt.eval --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_p
 After pretrain (and optionally eval):
 
 ```bash
-mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain --port 8000
+mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
 ```
 
-Endpoints: **GET /v1/catalog/items**, **POST /v1/catalog:recommend**, **GET /v1/health**. Contract and REST mapping: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). gRPC: [13](13_grpc_rest_api.md).
+gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). [13](13_grpc_rest_api.md).
 
 ---
 
@@ -145,6 +145,6 @@ Command-line options override these.
 - [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Splits and artifact semantics.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Eval metrics and null hypothesis.
 - [06 Eval data shapes](06_eval_data_shapes.md) — JSON shapes.
-- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — API contract and REST mapping (Serve endpoints and options).
+- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — gRPC API contract (Serve).
 - [13 gRPC REST API](13_grpc_rest_api.md) — gRPC + REST design; proto in `priv/proto/recgpt/v1/`.
 - [00 RecGPT library](00_recgpt_library.md) — Module reference.

@@ -61,7 +61,7 @@ Order: 1 → 2 → 3 → 4. See [08 Pipeline reference](08_pipeline_reference.md
 
 | Contract / doc | Description |
 | --------------- | ------------ |
-| [priv/proto/recgpt/v1/recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) | **Authoritative** API contract and REST mapping (endpoints, request/response, errors, embedding). |
+| [priv/proto/recgpt/v1/recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) | **Authoritative** gRPC API contract (PredictionService.Predict). |
 
 ### Checkpoint and model
 
@@ -97,7 +97,7 @@ gRPC + REST; both served by `mix recgpt.serve`. Read 10 → 16.
 | [10_architecture_introduction.md](10_architecture_introduction.md) | Why this design; pipeline (08).                           |
 | [11_recgpt_paradigm.md](11_recgpt_paradigm.md)                     | FSQ, attention, pipeline modules.                         |
 | [12_dynamic_state_ets.md](12_dynamic_state_ets.md)                 | Trie, beam search, optional ETS.                          |
-| [13_grpc_rest_api.md](13_grpc_rest_api.md)                         | gRPC + REST; proto in `priv/proto/recgpt/v1/`.            |
+| [13_grpc_rest_api.md](13_grpc_rest_api.md)                         | gRPC; proto in `priv/proto/recgpt/v1/`.                  |
 | [15_infrastructure_serving.md](15_infrastructure_serving.md)       | Run serve; optional Triton/edge.                          |
 | [16_architecture_conclusion.md](16_architecture_conclusion.md)     | Summary; pointers to 00, 08.                              |
 | [17_architecture_references.md](17_architecture_references.md)     | Works cited.                                              |
@@ -109,7 +109,7 @@ gRPC + REST; both served by `mix recgpt.serve`. Read 10 → 16.
 | I want to…                                               | See                                                                                         |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Run the full pipeline (data → fixture → pretrain → eval) | [08_pipeline_reference.md](08_pipeline_reference.md), [../README.md](../README.md#pipeline) |
-| Call the recommendation API                              | [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) (contract + REST mapping) |
+| Call the recommendation API (gRPC)                       | [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto)                            |
 | Understand cold vs regular splits                        | [07_steam_splits_and_pretraining.md](07_steam_splits_and_pretraining.md)                    |
 | Find a module’s purpose and API                          | [00_recgpt_library.md](00_recgpt_library.md)                                                |
 | Export or load a checkpoint                              | [02_recgpt_checkpoint_layout.md](02_recgpt_checkpoint_layout.md)                            |

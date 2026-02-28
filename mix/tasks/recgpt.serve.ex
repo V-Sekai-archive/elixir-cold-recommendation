@@ -1,26 +1,24 @@
 defmodule Mix.Tasks.Recgpt.Serve do
-  @shortdoc "Start RecGPT recommendation HTTP server (port of serve.py)"
+  @shortdoc "Start RecGPT gRPC recommendation server"
   @moduledoc """
-  Start the RecGPT REST and gRPC API server.
+  Start the RecGPT gRPC API server (no REST).
 
   Loads checkpoint and fixture once. Serves:
-  - REST: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health
-  - gRPC: recgpt.v1.PredictionService/Predict on a separate port
+  - gRPC: recgpt.v1.PredictionService/Predict on port 50051 (default)
 
   ## Options
-    * `--port` - REST port (default: 8000)
     * `--grpc-port` - gRPC port (default: 50051)
     * `--fixture` - Path to fixture JSON (default: data/serve_e2e_fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--catalog` - Optional path to catalog JSON (item_id -> text)
 
   ## Environment
-    * RECGPT_FIXTURE - override fixture path (e.g. path to fixture from M:\\reflex-logic-other\\data)
+    * RECGPT_FIXTURE - override fixture path
     * RECGPT_CKPT_EXPORT - override checkpoint export dir
 
   ## Examples
       mix recgpt.serve
-      mix recgpt.serve --port 8080
+      mix recgpt.serve --grpc-port 50052
   """
   use Mix.Task
 
@@ -28,10 +26,9 @@ defmodule Mix.Tasks.Recgpt.Serve do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [port: :integer, grpc_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
+        switches: [grpc_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
       )
 
-    port = opts[:port] || 8000
     grpc_port = opts[:grpc_port] || 50051
 
     fixture_path =
@@ -51,18 +48,9 @@ defmodule Mix.Tasks.Recgpt.Serve do
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
-        Mix.shell().info("REST API: http://0.0.0.0:#{port}/v1/")
-        Mix.shell().info("  GET  /v1/catalog/items?q=...&pageSize=20")
-
-        Mix.shell().info(
-          "  POST /v1/catalog:recommend  body: {\"context_item_ids\": [0,1], \"max_results\": 5}"
-        )
-
-        Mix.shell().info("  GET  /v1/health")
         Mix.shell().info("gRPC: 0.0.0.0:#{grpc_port} (recgpt.v1.PredictionService/Predict)")
 
         children = [
-          {Plug.Cowboy, scheme: :http, plug: RecGPT.Serve.Plug, options: [port: port]},
           {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
         ]
         {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)

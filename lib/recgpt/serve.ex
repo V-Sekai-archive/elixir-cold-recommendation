@@ -1,10 +1,9 @@
 defmodule RecGPT.Serve do
   @moduledoc """
-  Next-item recommendation and catalog search (backend for REST API).
+  Next-item recommendation and catalog search (backend for gRPC API).
 
-  Loads model + token_id_list + trie once. The HTTP surface is a RESTful API
-  (Google API Design Guide): see `RecGPT.Serve.Plug` and `RecGPT.Serve.REST`.
-  Run: mix recgpt.serve [--port 8000]. Requires fixture and checkpoint export dir.
+  Loads model + token_id_list + trie once. Served via gRPC (recgpt.v1.PredictionService).
+  Run: mix recgpt.serve [--grpc-port 50051]. Requires fixture and checkpoint export dir.
   """
 
   alias RecGPT.CheckpointLoader

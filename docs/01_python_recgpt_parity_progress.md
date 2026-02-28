@@ -33,7 +33,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | VAE `vae_len4_fsq88865_ep90.pt`                         | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1`           | Encoder logic in Elixir; weights from export.                                                          |
 | `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                                                           |
 | `pre_train.py` / `predict.py`                           | —                                                                          | Use our token_id_list + embeddings from Elixir pipeline.                                               |
-| **`serve.py`** (HTTP server)                            | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | REST API: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health (Google API Design Guide). |
+| **`serve.py`** (HTTP server)                            | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | gRPC only: recgpt.v1.PredictionService/Predict (see recommendation.proto). |
 
 ---
 

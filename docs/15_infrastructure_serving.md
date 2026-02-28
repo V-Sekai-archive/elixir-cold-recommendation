@@ -11,7 +11,7 @@ At startup, `RecGPT.Serve.load_state/4` loads the checkpoint (`RecGPT.Checkpoint
 **Run the server:**
 
 ```bash
-mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_out [--port 8000]
+mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_out [--grpc-port 50051]
 ```
 
 Nx can use the default backend (CPU) or Torchx if configured. For moderate traffic this is enough.

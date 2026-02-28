@@ -57,7 +57,7 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`, `--fsq`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
 | `mix recgpt.eval` | Run next-item eval (Hit@k, MRR) on test + cold-test sets. Requires fixture, checkpoint, and both test files. |
-| `mix recgpt.serve` | Start REST (port 8000) and gRPC (port 50051): catalog items, recommend, health; gRPC Predict. |
+| `mix recgpt.serve` | Start gRPC server (port 50051): recgpt.v1.PredictionService/Predict. |
 
 Paths default to `data/clickstream/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
@@ -90,7 +90,7 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 - **Nx**, **Axon** — Tensors and training.
 - **Bumblebee** (GitHub `main`) — MPNet text embeddings.
 - **Jason**, **Npy** — JSON and `.npy` checkpoint files.
-- **Plug.Cowboy** — HTTP server for `mix recgpt.serve`.
+- **grpc** — gRPC server for `mix recgpt.serve`.
 - **Ecto + SQLite** — Clickstream data.
 - **Req** — HTTP (e.g. fetch_ckpt, Clickstream zip).
 - **PropCheck** (dev/test) — Property-based tests.
@@ -113,15 +113,13 @@ See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [
 
 ---
 
-## REST API (serve)
+## gRPC API (serve)
 
-RESTful API following [Google API Design Guide](https://cloud.google.com/apis/design). gRPC (PredictionService/Predict) and REST: [docs/13](docs/13_grpc_rest_api.md). Authoritative contract and REST mapping: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). Only `/v1/` endpoints are served.
+Service is gRPC-only. Contract: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). [docs/13](docs/13_grpc_rest_api.md).
 
-- **GET /v1/catalog/items?q=...&pageSize=20** — List (search) catalog items; response: `{"items": [{"item_id", "display_name"}]}`.
-- **POST /v1/catalog:recommend** — Body: `{"context_item_ids": [0,1,2], "max_results": 5}` → `{"item_ids": [...], "items": [...]}`.
-- **GET /v1/health** — Readiness: `{"status": "ok"}`.
+- **recgpt.v1.PredictionService/Predict** — Request: `context_item_ids`, `max_results`; response: `item_ids`, `items` (ItemSummary).
 
-Errors return a JSON body with `error.code`, `error.message`, `error.status`. See [recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) (Errors section in file comment).
+Errors use gRPC status (e.g. INVALID_ARGUMENT, UNAVAILABLE). See [recommendation.proto](priv/proto/recgpt/v1/recommendation.proto).
 
 ---
 
@@ -139,7 +137,7 @@ Errors return a JSON body with `error.code`, `error.message`, `error.status`. Se
 | [docs/06_eval_data_shapes.md](docs/06_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
 | [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |
 | [docs/08_pipeline_reference.md](docs/08_pipeline_reference.md) | End-to-end pipeline: commands, options, file layout. |
-| [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) | API contract and REST mapping (endpoints, errors, embedding options). |
+| [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) | gRPC API contract (PredictionService.Predict). |
 
 ---
 
