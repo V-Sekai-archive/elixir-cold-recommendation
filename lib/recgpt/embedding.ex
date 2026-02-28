@@ -14,9 +14,6 @@ defmodule RecGPT.Embedding do
   """
 
   @model_id "sentence-transformers/all-mpnet-base-v2"
-  @embedding_size 768
-
-  def embedding_size, do: @embedding_size
 
   @doc "Loads the MPNet model and tokenizer, returns a text embedding serving. Cached in application env :recgpt."
   def serving do

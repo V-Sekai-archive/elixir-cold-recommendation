@@ -52,9 +52,9 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 | Task | Purpose |
 |------|---------|
 | `mix recgpt.fetch_ckpt` | Download RecGPT PyTorch checkpoint from Hugging Face (hkuds/RecGPT_model). |
-| `mix recgpt.export_ckpt` | Export checkpoint to `manifest.json` + `.npy` (from `--from-pt` or `--from-export`). |
+| `mix recgpt.export_ckpt` | Export checkpoint to `manifest.json` + `.npy` (from `--from-pt`). |
 | `mix recgpt.fetch_steam` | Fetch Steam test split from HuggingFace (hkuds/RecGPT_dataset); write items + train/test/cold sequences. |
-| `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`, `--fsq`. |
+| `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
 | `mix recgpt.eval` | Run next-item eval (Hit@k, MRR) on test + cold-test sets. Requires fixture, checkpoint, and both test files. |
 | `mix recgpt.serve` | Start gRPC server (port 50051): recgpt.v1.PredictionService/Predict. |
@@ -70,7 +70,7 @@ Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--f
 | **RecGPT.FSQ** | FSQ quantizer (levels [8,8,8,6,5], 4 tokens/item, vocab 15360). `load_params/1`, `encode/2`. |
 | **RecGPT.FSQEncoder** | Embeddings (num_items, 768) + FSQ params → `token_id_list` (list of 4-token lists). |
 | **RecGPT.Embedding** | Text → 768-d via Bumblebee (all-mpnet-base-v2). `encode_item_text_dict/1`, `encode_texts/1`. |
-| **RecGPT.FixtureBuild** | Build fixture from items.json. `build/3`, `write_fixture/2`. |
+| **RecGPT.FixtureBuild** | Build fixture from items.json. `build/2`, `write_fixture/2`. |
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. |
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
 | **RecGPT.Inference** | Forward pass: token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
@@ -92,7 +92,6 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 - **Jason**, **Npy** — JSON and `.npy` checkpoint files.
 - **grpc** — gRPC server for `mix recgpt.serve`.
 - **Req** — HTTP (e.g. fetch_ckpt, fetch_steam).
-- **PropCheck** (dev/test) — Property-based tests.
 
 ---
 

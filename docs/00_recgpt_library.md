@@ -34,7 +34,7 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | **RecGPT.Inference** | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
 | **RecGPT.Decode**    | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
 | **RecGPT.Trie**      | Build trie from token_id_list for beam search.                                                                                |
-| **RecGPT.Serve**     | `load_state/4`, `recommend/3`, `item_ids_to_context_token_ids/3`. |
+| **RecGPT.Serve**     | `load_state/3`, `recommend/3`, `item_ids_to_context_token_ids/3`. |
 
 ### Evaluation
 

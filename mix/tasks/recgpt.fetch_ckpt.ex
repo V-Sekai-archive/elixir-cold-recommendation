@@ -8,13 +8,11 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
   to produce the Elixir export (manifest.json + .npy). Load with `RecGPT.CheckpointLoader.load_from_export/1`.
 
   ## Options
-    * `--out` - Output path (default: data/recgpt_layer_3_weight.pt)
-    * `--base` - Base directory; file is written as base/recgpt_layer_3_weight.pt (overrides --out if set)
+    * `--out` - Output path (default: data/recgpt_layer_3_weight.pt). Use a full path, e.g. `--out thirdparty/RecGPT_model/recgpt_layer_3_weight.pt`.
 
   ## Examples
       mix recgpt.fetch_ckpt
       mix recgpt.fetch_ckpt --out thirdparty/RecGPT_model/recgpt_layer_3_weight.pt
-      mix recgpt.fetch_ckpt --base thirdparty/RecGPT_model
   """
   use Mix.Task
 
@@ -24,14 +22,9 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
   @impl true
   def run(args) do
     {opts, _, _} =
-      OptionParser.parse(args, switches: [out: :string, base: :string])
+      OptionParser.parse(args, switches: [out: :string])
 
-    out_path =
-      if base = opts[:base] do
-        Path.join(base, @filename)
-      else
-        opts[:out] || Path.join(File.cwd!(), "data/#{@filename}")
-      end
+    out_path = opts[:out] || Path.join(File.cwd!(), "data/#{@filename}")
 
     Application.ensure_all_started(:req)
     File.mkdir_p!(Path.dirname(out_path))

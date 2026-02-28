@@ -30,7 +30,7 @@ defmodule RecGPT.Serve do
   Load server state: checkpoint export, fixture (token_id_list), optional catalog JSON.
   Returns {:ok, state} or {:error, reason}.
   """
-  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil, _opts \\ []) do
+  def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
     with {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do

@@ -18,7 +18,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | Decode (trie + beam)                       | ✅     | `RecGPT.Trie`, `RecGPT.Decode`                                     |
 
 **Data pipeline (no Python):** item text → embeddings → token_id_list → train batches ✅ — [integration tested](../test/recgpt/pipeline_integration_test.exs).  
-**Checkpoint:** export via `scripts/inspect_recgpt_checkpoint.py --export DIR` → [CheckpointLoader.load_from_export/1](../lib/recgpt/checkpoint_loader.ex).  
+**Checkpoint:** export via `mix recgpt.export_ckpt --from-pt <path> --out DIR` → [CheckpointLoader.load_from_export/1](../lib/recgpt/checkpoint_loader.ex).  
 **Inference in Elixir:** load checkpoint → forward (embed + aux + GPT-2 + head) → beam search → item_id ✅ (`RecGPT.Trie.build/1`, `RecGPT.Decode.beam_search/4`).
 
 ---
@@ -27,8 +27,8 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 
 | Python (RecGPT repo)                                    | Elixir (recgpt)                                                            | Notes                                                                                                  |
 | ------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity test: `export_mpnet_embeddings.py` + `--include compare_embedding`.              |
-| `data_processing/make_token_list.py`                    | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Compare test validates.                                                                                |
+| sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity via unit tests.                                                                   |
+| `data_processing/make_token_list.py`                    | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Unit and pipeline integration tests.                                                                   |
 | `utils/fsq.py` (levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | Unit tests.                                                                                             |
 | VAE `vae_len4_fsq88865_ep90.pt`                         | Weights via `export_recgpt_fsq_weights.py` → `FSQ.load_params/1`           | Encoder logic in Elixir; weights from export.                                                          |
 | `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                                                           |
@@ -42,9 +42,8 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | Task                                            | Status       | Notes                                                                                                                                                                |
 | ----------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Text → 768-d embeddings                         | ✅ Done      | `RecGPT.Embedding`: Bumblebee + sentence-transformers/all-mpnet-base-v2, mean pooling.                                                                               |
-| Match Python MPNet (`normalize_embeddings=False`) | ✅ Validated | Same model id; `embedding_processor: nil` (no L2). Parity test: run `export_mpnet_embeddings.py` to produce fixtures, then run tests with `--include compare_embedding --include embedding`. |
+| Match Python MPNet (`normalize_embeddings=False`) | ✅ Validated | Same model id; `embedding_processor: nil` (no L2). Parity via unit tests.                                                                                            |
 | encode_item_text_dict (map → tensor)            | ✅ Done      | Sorted keys, encode_texts, stack.                                                                                                                                    |
-| Save/load embeddings (no re-encode)             | ✅ Done      | Nx.serialize / deserialize.                                                                                                                                          |
 
 ---
 
@@ -57,7 +56,6 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | Load params (project_in / project_out) from export        | ✅ Done | `load_params/1`; keys `project_in/kernel` or `fsq.project_in.weight`, transpose when shape {5,192}.                                |
 | **FSQ encode: 768-d → 4 token IDs**                       | ✅ Done | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`; matches Python `make_token_list.py` logic.                               |
 | **Python vs Elixir FSQ parity**                           | ✅ Done | Parity via unit tests and pipeline integration tests.                                                |
-| Load embeddings from .npy                                 | ✅ Done | `FSQEncoder.load_embeddings_from_npy/1` (npy hex).                                                   |
 
 ---
 
@@ -117,9 +115,9 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 
 | Task                                                         | Status           | Notes                                                                                                                                      |
 | ------------------------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Export FSQ weights from RecGPT VAE to format recgpt can load | ✅ Script exists | `scripts/export_recgpt_fsq_weights.py` → .npz; load into map for `FSQ.load_params/1`.                                                      |
-| Export RecGPT .pt to manifest + .npy for Elixir              | ✅ Script exists | `scripts/inspect_recgpt_checkpoint.py --export DIR`; auto-finds `thirdparty/RecGPT_repo/ckpt/recgpt_layer_3_weight.pt` or `RecGPT_model/`. |
-| Load RecGPT checkpoint in Elixir                             | ✅ Done          | `RecGPT.CheckpointLoader.load_from_export/1`; expects manifest.json + .npy in export dir.                                                  |
+| Export FSQ weights from RecGPT checkpoint for recgpt        | ✅ Done | FSQ params in checkpoint export (manifest + .npy); `FSQ.load_params/1` from CheckpointLoader. |
+| Export RecGPT .pt to manifest + .npy for Elixir              | ✅ Done | `mix recgpt.export_ckpt --from-pt <path> --out DIR`. |
+| Load RecGPT checkpoint in Elixir                             | ✅ Done | `RecGPT.CheckpointLoader.load_from_export/1`; expects manifest.json + .npy in export dir. |
 | **Load + forward with real checkpoint**                      | ✅ Validated     | Integration test loads `data/recgpt_ckpt_export` and runs `Inference.forward/4`; run with `--include integration`.                         |
 
 ---
@@ -145,7 +143,7 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 | Unit tests (no HF model)                            | `cd recgpt && mix test` (excludes integration by default)                                                                                                           |
 | All tests (integration)                             | `cd recgpt && mix test --include integration`                                                                                                                         |
 | Loader + Inference                                  | `cd recgpt && mix test test/recgpt/checkpoint_loader_test.exs test/recgpt/inference_test.exs`                                                                         |
-| **Real checkpoint load + forward + beam**            | From repo root: `python scripts/inspect_recgpt_checkpoint.py --export data/recgpt_ckpt_export` then `cd recgpt && mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
+| **Real checkpoint load + forward + beam**            | Export checkpoint with `mix recgpt.export_ckpt --from-pt <path> --out data/recgpt_ckpt_export`, then `mix test test/recgpt/inference_test.exs --include integration` (runs load, forward, and beam_search with trie). |
 | Trie + Decode                                       | `cd recgpt && mix test test/recgpt/trie_test.exs test/recgpt/decode_test.exs`                                                                                        |
 | Coverage                                            | `cd recgpt && mix test --cover`                                                                                                                                      |
 
@@ -155,7 +153,7 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 
 | Gap                                | Impact                                          | Mitigation                                                                                                                                                    |
 | ---------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Embedding numerical parity         | Elixir vs Python embeddings may differ slightly | Run `export_mpnet_embeddings.py` + `--include compare_embedding --include embedding` to assert cosine ≥ 0.99.                                                 |
+| Embedding numerical parity         | Elixir vs Python embeddings may differ slightly | Same model id; validate via unit tests.                                                                                                                             |
 | ~~Batch format vs Python~~         | Closed                                          | Verified against [HKUDS/RecGPT utils/data.py](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) `GPT2RecBatchTrainAuxData`: same constants and shapes. |
 | ~~Beam + trie with real model~~    | Closed                                          | Integration test: load export → trie → get_logits_fn(forward) → beam_search returns `{:ok, item_id}` (`--include integration`).                               |
 | Empty batch / empty seq edge cases | Nx limits (e.g., empty tensor)                   | Tests document RuntimeError; callers avoid empty batches.                                                                                                     |
@@ -167,10 +165,10 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 
 | Area                                           | Parity                                       | Blocker / note                                                                                  |
 | ---------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Embeddings                                     | ✅ Implemented                               | Compare test: `export_mpnet_embeddings.py` + `--include compare_embedding --include embedding`. |
+| Embeddings                                     | ✅ Implemented                               | Same model id; unit tested.                                                                     |
 | FSQ + FSQEncoder                               | ✅ Implemented, unit tested                  | Same logic as Python.                                                                           |
 | Training data + loss                           | ✅ Implemented                               | Same shapes and loss as paper.                                                                   |
-| Checkpoint loader                              | ✅ Implemented                               | `CheckpointLoader.load_from_export/1`; export via inspect_recgpt_checkpoint.py.                 |
+| Checkpoint loader                              | ✅ Implemented                               | `CheckpointLoader.load_from_export/1`; export via `mix recgpt.export_ckpt`.                     |
 | Inference forward (embed + aux + GPT-2 + head) | ✅ Implemented                               | `RecGPT.Inference.forward/4`; full backbone when params have gpt2model.h.\*.                    |
 | Decode (trie + beam)                           | ✅ Implemented                               | `RecGPT.Trie`, `RecGPT.Decode.beam_search/4`.                                                   |
 
@@ -188,7 +186,7 @@ From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to c
 | Doc                                                                                                               | Description                                                               |
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | [00 RecGPT library](00_recgpt_library.md)                                                                         | Modules, deps, tests, training flow.                                      |
-| [02 RecGPT checkpoint layout](02_recgpt_checkpoint_layout.md)                                                     | state_dict layout, inspect_recgpt_checkpoint.py, loader usage.            |
+| [02 RecGPT checkpoint layout](02_recgpt_checkpoint_layout.md)                                                     | state_dict layout, export via mix recgpt.export_ckpt, loader usage.       |
 | [CheckpointLoader](../lib/recgpt/checkpoint_loader.ex) · [Inference](../lib/recgpt/inference.ex)                  | Load export dir; forward (embed + aux + head).                            |
 | [Trie](../lib/recgpt/trie.ex) · [Decode](../lib/recgpt/decode.ex)                                                 | Catalog trie; beam search for next-item.                                  |
 | [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) | Python repo and HuggingFace model.                                        |
