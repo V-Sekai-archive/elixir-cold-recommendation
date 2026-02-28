@@ -18,8 +18,11 @@ defmodule Recgpt.V1.PredictionService.Server do
     if is_nil(state), do: raise(GRPC.RPCError, status: :unavailable, message: "Service not ready")
 
     context_ids = request.context_item_ids || []
-    max_results = request.max_results || 5
-    max_results = max(1, min(20, max_results))
+    raw_max = request.max_results || 0
+    max_results = if raw_max in 1..20, do: raw_max, else: 5
+    if raw_max != 0 and (raw_max < 1 or raw_max > 20) do
+      raise GRPC.RPCError, status: :invalid_argument, message: "max_results must be between 1 and 20"
+    end
 
     if context_ids == [] do
       raise GRPC.RPCError, status: :invalid_argument, message: "context_item_ids must not be empty"

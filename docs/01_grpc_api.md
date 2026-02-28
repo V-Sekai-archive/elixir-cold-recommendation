@@ -42,13 +42,13 @@ mix recgpt.serve --fixture <path> --ckpt <path> [--grpc-port 50051]
 
 Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` → `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both fixture and checkpoint export directory are required.
 
----
+### Quick test
 
-## Sub-proposals
+With the server running (e.g. `mix recgpt.serve`):
 
-- **Predict RPC** (above) — Request/response; item_ids and ItemSummary.
-- **Errors** (above) — INVALID_ARGUMENT, UNAVAILABLE.
-- **Run the server** (above) — `mix recgpt.serve`, env vars.
+```bash
+grpcurl -plaintext -d '{"context_item_ids":[0,1], "max_results":5}' localhost:50051 recgpt.v1.PredictionService/Predict
+```
 
 ---
 
