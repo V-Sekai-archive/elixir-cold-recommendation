@@ -1,4 +1,4 @@
-﻿# Quality assurance
+# Quality assurance
 
 Sub-proposal of the [documentation index](README.md). How to run the quality-assurance checklist so the codebase stays lint-clean, type-checked, and tested.
 
@@ -43,7 +43,7 @@ Step 6 requires the pipeline to have been run (fetch_steam, build_fixture, pretr
 
 ## CI
 
-The same steps run in [GitHub Actions](../.github/workflows/ci.yml) on push/PR. See the workflow for the full sequence (including integration and pipeline).
+The same steps run in [GitHub Actions](../.github/workflows/ci.yml) on push/PR. See the workflow for the full sequence (including integration and pipeline). CI uses Elixir 1.18.4 and OTP 27.
 
 ## One-shot QA (local)
 

@@ -81,7 +81,7 @@ This codebase ties the four requirements together in one specification and imple
 
 ### How to validate (backwards from 23)
 
-To validate that the **library works when you use it**, run the QA checklist ([23](23_quality_assurance.md)). Steps 1–5 (compile, format, Credo, unit tests, Dialyzer) need no pipeline; they confirm the codebase builds and passes tests. Step 6 (Steam top-k) requires running the pipeline (fetch*steam, build_fixture, pretrain) and setting RECGPT*\* env; when it passes, the library behaves correctly with real data. That checklist is the single pass/fail gate for use.
+To validate that the **library works when you use it**, run the QA checklist ([23](23_quality_assurance.md)). Steps 1–5 (compile, format, Credo, unit tests, Dialyzer) need no pipeline; they confirm the codebase builds and passes tests. Step 6 (Steam top-k) requires running the pipeline (fetch_steam, build_fixture, pretrain) and setting RECGPT_* env; when it passes, the library behaves correctly with real data. That checklist is the single pass/fail gate for use.
 
 Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` and call Predict (e.g. via grpcurl per [01](01_grpc_api.md#quick-test)), or run eval with your own fixture and checkpoints — all of these exercise the library in use.
 
