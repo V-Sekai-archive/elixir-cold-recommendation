@@ -40,6 +40,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     fixture_path = opts[:fixture] || resolve("data/steam/fixture.json")
     train_path = opts[:train] || resolve("data/steam/train_sequences.json")
     items_path = opts[:items] || resolve("data/steam/items.json")
+
     out_dir =
       case opts[:out] do
         nil -> Mix.raise("--out DIR is required")
