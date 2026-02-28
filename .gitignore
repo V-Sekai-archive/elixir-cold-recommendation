@@ -51,3 +51,6 @@ fdb_build/
 foundationdb-*.msi
 foundationdb7-*/
 data/recgpt_ckpt_export/*
+
+# Pipeline / runtime data (Steam, checkpoints, fixture, exports)
+data/

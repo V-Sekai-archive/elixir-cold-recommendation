@@ -14,6 +14,21 @@ Document steps 2-4, optional serve, checkpoint setup, and file layout. Overview 
 
 ---
 
+## Run the whole thing (pretrain → catalogue → recommend)
+
+Run these in order to go from nothing to a running server that returns recommendations:
+
+1. **Data:** `mix recgpt.fetch_steam data/steam`
+2. **Checkpoint:** `mix recgpt.fetch_ckpt` then `mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`
+3. **Fixture (catalogue):** `mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export`
+4. **Pretrain:** `mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50`
+5. **Serve:** `mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain`
+6. **Recommend:** Call the gRPC Predict endpoint (e.g. with grpcurl per [01 gRPC API](01_grpc_api.md#quick-test)) with a context of item IDs; the server returns top-k next-item recommendations.
+
+The catalogue is the fixture (items + token_id_list) plus the model; after pretrain, the server uses the trained checkpoint and the same fixture to answer Predict requests.
+
+---
+
 ## Step 2: Build fixture
 
 **Goal:** Turn `items.json` into `fixture.json` (num_items, token_id_list) via Embedding + FSQ.

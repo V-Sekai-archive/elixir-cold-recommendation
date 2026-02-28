@@ -1,4 +1,4 @@
-﻿# Proposal: Checkpoint layout
+# Proposal: Checkpoint layout
 
 Sub-proposal of the [documentation index](README.md). How RecGPT checkpoints are structured and loaded in Elixir.
 
@@ -34,6 +34,8 @@ Define a **checkpoint layout**: components (GPT-2, FSQ embedding, aux encoder, h
 ---
 
 ## Export (manifest + .npy)
+
+The loader expects **zip-based** .pt (PyTorch 1.6+). If `data.pkl` inside the zip has a bad CRC (e.g. some Hugging Face or CDN downloads), the loader falls back to reading that entry without CRC check so export still succeeds. Shape mismatches in the pickle are corrected from the actual byte size so tensors load reliably.
 
 To load in Elixir, export to a directory with `manifest.json` and one `.npy` file per tensor:
 

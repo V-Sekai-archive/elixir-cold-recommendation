@@ -9,7 +9,7 @@ This codebase is **one proposal**: an Elixir library for RecGPT-style sequential
 ## Before you start
 
 - **Project overview:** [../README.md](../README.md) — Quick start, pipeline summary, mix tasks, tests.
-- **Pipeline order:** 1 → 2 → 3 → 4 (Fetch → build_fixture → pretrain → eval). Fixture and checkpoint are required for pretrain and eval.
+- **Pipeline order:** 1 → 2 → 3 → 4 (Fetch → build_fixture → pretrain → eval). Fixture and checkpoint are required for pretrain and eval. To run the full flow (pretrain → catalogue → recommend), see [03 Pipeline steps — Run the whole thing](03_pipeline_steps.md#run-the-whole-thing-pretrain--catalogue--recommend).
 - **Module reference:** [04 RecGPT library](04_recgpt_library.md) — Modules, dependencies, test tags.
 
 ### Pipeline overview

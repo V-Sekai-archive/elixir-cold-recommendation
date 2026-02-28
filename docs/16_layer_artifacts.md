@@ -14,7 +14,7 @@ External artifacts (Steam JSON, .pt, export dir) must be read and written in a d
 
 Document Layer 1 (Artifacts): responsibility, public surface, and how to test. No RecGPT business logic beyond file layout.
 
-Read and write external artifacts: HuggingFace/Steam JSON, PyTorch .pt (zip), and the export directory (manifest.json + .npy). **Public surface:** Steam.Fetch.run/1, RecGPT.PtLoader, RecGPT.CheckpointLoader.load_from_export/1, RecGPT.CheckpointExport.write_export/2. **How to test:** Unit tests with temporary directories and fixture files; no dependency on other RecGPT layers.
+Read and write external artifacts: HuggingFace/Steam JSON, PyTorch .pt (zip), and the export directory (manifest.json + .npy). **PtLoader** loads zip-based .pt and, when `data.pkl` has a bad CRC, falls back to reading that entry raw; pickle shapes are normalized to the actual tensor size. **Public surface:** Steam.Fetch.run/1, RecGPT.PtLoader, RecGPT.CheckpointLoader.load_from_export/1, RecGPT.CheckpointExport.write_export/2. **How to test:** Unit tests with temporary directories and fixture files; no dependency on other RecGPT layers.
 
 ---
 
