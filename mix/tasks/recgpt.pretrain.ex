@@ -16,6 +16,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)
     * `--log` - Log every N batches (default: 50; 0 to disable)
+    * `--timeout` - Max seconds to run (default: 86400)
   """
   use Mix.Task
 
@@ -32,7 +33,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           iterations: :integer,
           batch_size: :integer,
           learning_rate: :float,
-          log: :integer
+          log: :integer,
+          timeout: :integer
         ]
       )
 
@@ -52,6 +54,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     batch_size = opts[:batch_size] || 8
     learning_rate = opts[:learning_rate] || 1.0e-4
     log_every = opts[:log] || 50
+    timeout_ms = (opts[:timeout] || 86_400) * 1000
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
       Mix.raise("checkpoint not found: #{ckpt_dir}")
@@ -90,38 +93,49 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
         Mix.raise("items not found: #{items_path}")
       end
 
-      Mix.shell().info("Encoding item text from #{items_path}...")
-      raw = File.read!(items_path) |> Jason.decode!()
-      items = raw["items"] || []
-      n = raw["num_items"] || length(items)
+      Mix.shell().info(
+        "Pretrain (timeout: #{div(timeout_ms, 1000)}s, up to #{iterations} steps)..."
+      )
 
-      item_text_dict =
-        items
-        |> Enum.take(n)
-        |> Enum.with_index()
-        |> Map.new(fn {item, idx} -> {idx, item["title"] || item["text"] || ""} end)
+      task =
+        Task.async(fn ->
+          raw = File.read!(items_path) |> Jason.decode!()
+          items = raw["items"] || []
+          n = raw["num_items"] || length(items)
 
-      item_embeddings = RecGPT.Embedding.encode_item_text_dict(item_text_dict)
+          item_text_dict =
+            items
+            |> Enum.take(n)
+            |> Enum.with_index()
+            |> Map.new(fn {item, idx} -> {idx, item["title"] || item["text"] || ""} end)
 
-      stream =
-        RecGPT.AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
-          batch_size: batch_size,
-          epochs: 1,
-          shuffle: true
-        )
+          item_embeddings = RecGPT.Embedding.encode_item_text_dict(item_text_dict)
 
-      Mix.shell().info("Training for up to #{iterations} steps (batch_size=#{batch_size})...")
+          stream =
+            RecGPT.AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
+              batch_size: batch_size,
+              epochs: 1,
+              shuffle: true
+            )
 
-      trained =
-        RecGPT.AxonTrain.run(stream, params,
-          iterations: iterations,
-          log: log_every,
-          learning_rate: learning_rate
-        )
+          trained =
+            RecGPT.AxonTrain.run(stream, params,
+              iterations: iterations,
+              log: log_every,
+              learning_rate: learning_rate
+            )
 
-      Mix.shell().info("Writing export to #{out_dir}...")
-      RecGPT.CheckpointExport.write_export(trained, out_dir)
-      Mix.shell().info("Done.")
+          RecGPT.CheckpointExport.write_export(trained, out_dir)
+          :ok
+        end)
+
+      try do
+        Task.await(task, timeout_ms)
+        Mix.shell().info("Done.")
+      rescue
+        e in [Task.TimeoutError] ->
+          Mix.raise("Pretrain timed out after #{div(timeout_ms, 1000)}s")
+      end
     end
 
     :ok
