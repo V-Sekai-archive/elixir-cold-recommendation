@@ -1,6 +1,6 @@
 # Infrastructure and Serving
 
-**Current:** Single BEAM process; inference runs in-process with Nx. **Optional:** external inference (e.g. Triton) for GPU batching; multi-region/edge for lower latency.
+**Current:** Single BEAM process; inference runs in-process with Nx. **Optional:** external inference (e.g., Triton) for GPU batching; multi-region/edge for lower latency.
 
 ---
 
@@ -11,8 +11,10 @@ At startup, `RecGPT.Serve.load_state/4` loads the checkpoint (`RecGPT.Checkpoint
 **Run the server:**
 
 ```bash
-mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_out [--grpc-port 50051]
+mix recgpt.serve --fixture <path> --ckpt <path> [--grpc-port 50051]
 ```
+
+Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` → `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both the fixture and checkpoint export directory are required. See [13_grpc_api.md](13_grpc_api.md).
 
 Nx can use the default backend (CPU) or Torchx if configured. For moderate traffic this is enough.
 

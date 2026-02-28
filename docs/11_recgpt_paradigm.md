@@ -6,7 +6,7 @@ Zero-shot recommendation here is reframed as text-driven, autoregressive token g
 
 ## Finite Scalar Quantization (FSQ) and Semantic Tokenization
 
-Continuous embeddings are rich but not directly usable for discrete token-by-token decoding. FSQ gives a fixed-length discrete token sequence per item (e.g. 4 tokens, vocab 15 360).
+Continuous embeddings are rich but not directly usable for discrete token-by-token decoding. FSQ gives a fixed-length discrete token sequence per item (e.g., 4 tokens, vocab 15 360).
 
 - **Text → vector:** `RecGPT.Embedding` (Bumblebee, **sentence-transformers/all-mpnet-base-v2**) produces 768-d vectors from item text. All runs in the BEAM VM.
 - **Vector → tokens:** `RecGPT.FSQ` and `RecGPT.FSQEncoder` project embeddings into token IDs. Quantization is set up so gradients flow correctly during training.

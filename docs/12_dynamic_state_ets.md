@@ -20,6 +20,6 @@ The trie is currently an **in-memory map**. For very high read concurrency or **
 - ETS table with `read_concurrency: true` and `write_concurrency: true`.
 - A **singleton GenServer** owns the table; writes go through it, inference reads directly from ETS in parallel. ETS gives atomic per-object updates, so readers never see torn state. Incremental updates are O(_L_) in sequence length.
 
-The codebase does not use ETS today; this is the recommended path from “load fixture at startup” to “update catalog at runtime” (IURS-style). A future **CatalogService** (live catalog updates) would extend the gRPC API ([13](13_grpc_rest_api.md)).
+The codebase does not use ETS today; this is the recommended path from “load fixture at startup” to “update catalog at runtime” (IURS-style). A future **CatalogService** (live catalog updates) would extend the gRPC API ([13](13_grpc_api.md)).
 
-**Next:** [13_grpc_rest_api.md](13_grpc_rest_api.md).
+**Next:** [13_grpc_api.md](13_grpc_api.md).

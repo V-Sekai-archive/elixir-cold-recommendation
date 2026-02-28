@@ -1,6 +1,6 @@
 # Checkpoint layout
 
-How RecGPT checkpoints (e.g. [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) or a local `recgpt_layer_3_weight.pt`) are structured and loaded in Elixir.
+How RecGPT checkpoints (e.g., [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) or a local `recgpt_layer_3_weight.pt`) are structured and loaded in Elixir.
 
 ---
 

@@ -6,7 +6,7 @@ Essential Tuple Normal Form (ETNF) and how it guides the Clickstream schema. For
 
 ## What is ETNF?
 
-**Essential Tuple Normal Form** (Darwen, Date, Fagin, 2012) sits strictly between 4NF and 5NF. A relation is in ETNF iff it is in **BCNF** and **every explicitly declared join dependency has a component that is a superkey**. ETNF removes tuple redundancy as effectively as 5NF.
+**Essential Tuple Normal Form** (Darwen, Date, Fagin, 2012) sits strictly between 4NF and 5NF. A relation is in ETNF if and only if it is in **BCNF** and **every explicitly declared join dependency has a component that is a superkey**. ETNF removes tuple redundancy as effectively as 5NF.
 
 ---
 
@@ -14,7 +14,7 @@ Essential Tuple Normal Form (ETNF) and how it guides the Clickstream schema. For
 
 1. **BCNF** — Start from Boyce-Codd Normal Form: every determinant is a superkey; no partial or transitive dependency anomalies.
 
-2. **Join dependencies** — Identify attribute groups that are always used together (e.g. from SELECT/UPDATE/INSERT patterns).
+2. **Join dependencies** — Identify attribute groups that are always used together (e.g., from SELECT/UPDATE/INSERT patterns).
 
 3. **ETNF** — Split relations by access and update patterns so that every declared join dependency has a superkey component; no redundant tuples.
 

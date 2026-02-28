@@ -59,9 +59,10 @@ Order: 1 → 2 → 3 → 4. See [08 Pipeline reference](08_pipeline_reference.md
 
 ### API
 
-| Contract / doc | Description |
+| Contract or doc | Description |
 | --------------- | ------------ |
 | [priv/proto/recgpt/v1/recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) | **Authoritative** gRPC API contract (PredictionService.Predict). |
+| [13_grpc_api.md](13_grpc_api.md) | gRPC messages, errors, and serve command. |
 
 ### Checkpoint and model
 
@@ -90,17 +91,16 @@ Order: 1 → 2 → 3 → 4. See [08 Pipeline reference](08_pipeline_reference.md
 
 ### Architecture (production recommender)
 
-gRPC + REST; both served by `mix recgpt.serve`. Read 10 → 16.
+gRPC-only; served by `mix recgpt.serve`. Read 11 → 17.
 
 | Document                                                           | Description                                               |
 | ------------------------------------------------------------------ | --------------------------------------------------------- |
-| [10_architecture_introduction.md](10_architecture_introduction.md) | Why this design; pipeline (08).                           |
 | [11_recgpt_paradigm.md](11_recgpt_paradigm.md)                     | FSQ, attention, pipeline modules.                         |
 | [12_dynamic_state_ets.md](12_dynamic_state_ets.md)                 | Trie, beam search, optional ETS.                          |
-| [13_grpc_rest_api.md](13_grpc_rest_api.md)                         | gRPC; proto in `priv/proto/recgpt/v1/`.                  |
+| [13_grpc_api.md](13_grpc_api.md)                                   | gRPC API: Predict, messages, errors, serve.               |
 | [15_infrastructure_serving.md](15_infrastructure_serving.md)       | Run serve; optional Triton/edge.                          |
 | [16_architecture_conclusion.md](16_architecture_conclusion.md)     | Summary; pointers to 00, 08.                              |
-| [17_architecture_references.md](17_architecture_references.md)     | Works cited.                                              |
+| [17_architecture_references.md](17_architecture_references.md)    | Works cited.                                              |
 
 ---
 
@@ -109,11 +109,11 @@ gRPC + REST; both served by `mix recgpt.serve`. Read 10 → 16.
 | I want to…                                               | See                                                                                         |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Run the full pipeline (data → fixture → pretrain → eval) | [08_pipeline_reference.md](08_pipeline_reference.md), [../README.md](../README.md#pipeline) |
-| Call the recommendation API (gRPC)                       | [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto)                            |
+| Call the recommendation API (gRPC)                       | [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto), [13_grpc_api.md](13_grpc_api.md) |
 | Understand cold vs regular splits                        | [07_steam_splits_and_pretraining.md](07_steam_splits_and_pretraining.md)                    |
 | Find a module’s purpose and API                          | [00_recgpt_library.md](00_recgpt_library.md)                                                |
 | Export or load a checkpoint                              | [02_recgpt_checkpoint_layout.md](02_recgpt_checkpoint_layout.md)                            |
 | Run eval and interpret metrics                           | [05_evaluation_and_testing.md](05_evaluation_and_testing.md)                                |
 | Generate or use test/fixture JSON                        | [06_eval_data_shapes.md](06_eval_data_shapes.md)                                            |
 | Enforce or validate XMP JSON-LD (RDF/Grax)               | [04_foss_datasets_etnf_dublin_core_xmp.md](04_foss_datasets_etnf_dublin_core_xmp.md)        |
-| Read the architecture blueprint                          | [10_architecture_introduction.md](10_architecture_introduction.md)                          |
+| Read the architecture blueprint                          | [11_recgpt_paradigm.md](11_recgpt_paradigm.md), [16_architecture_conclusion.md](16_architecture_conclusion.md) |

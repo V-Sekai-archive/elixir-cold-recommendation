@@ -1,6 +1,6 @@
 # Eval data shapes
 
-Canonical JSON shapes for eval inputs so tests and tools can generate or consume data without a real dataset. All IDs are 0-based and in `0 .. num_items-1` unless noted.
+Canonical JSON shapes for eval inputs so tests and tools can generate or consume data without a real dataset. All IDs are 0-based and in `0..num_items-1` unless noted.
 
 ---
 
@@ -13,7 +13,7 @@ Next-item prediction test set: one case per sequence; last item is the target. U
 | `num_items`  | int  | Catalog size.                                                             |
 | `test_cases` | list | Each element: `context` (list of item_ids), `next_item` (single item_id). |
 
-`context` is typically length 1..64; `next_item` is the ground-truth next item. Eval uses `context` as input and checks whether `next_item` appears in the model’s top-k.
+`context` is typically length 1–64; `next_item` is the ground-truth next item. Eval uses `context` as input and checks whether `next_item` appears in the model’s top-k.
 
 **Example:** See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) and [08 Pipeline reference](08_pipeline_reference.md).
 
@@ -60,7 +60,7 @@ Full sequences for pretraining (no last-item-out). Same catalog as test; session
 | `num_items` | int           | Catalog size.                                            |
 | `sequences` | list of lists | Each inner list is a full sequence of item_ids in order. |
 
-Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g. 80% sessions → train, 20% → test last-item-out). See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md).
+Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g., 80% sessions → train, 20% → test last-item-out). See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md).
 
 ---
 

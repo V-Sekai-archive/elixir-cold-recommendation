@@ -59,13 +59,13 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | **RecGPT.Clickstream.CatalogItem** | Ecto schema for catalog items.                                                                                                                        |
 | **RecGPT.Clickstream.EtnfEvent**   | Ecto schema for events (session_id, ord, item_id).                                                                                                    |
 | **RecGPT.Xmp.DublinCore**          | Dublin Core IRIs and `context/0` for XMP JSON-LD.                                                                                                     |
-| **RecGPT.Xmp.CatalogItemSchema**   | Grax schema for catalog item (DC properties).                                                                                                         |
+| **RecGPT.Xmp.CatalogItemSchema**   | Grax schema for catalog item (DC properties).                                                                                                        |
 | **RecGPT.Xmp.Jsonld**              | RDBMS → Grax → RDF → XMP JSON-LD. `from_catalog_item/1`, `validate_jsonld/1`, `to_xmp_jsonld_string/2`.                                               |
 | **RecGPT.Repo**                    | Ecto repo (SQLite).                                                                                                                                   |
 
 ### HTTP and application
 
-API: gRPC only ([13](13_grpc_rest_api.md), proto in `priv/proto/recgpt/v1/`). Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto).
+API: gRPC only ([13](13_grpc_api.md), proto in `priv/proto/recgpt/v1/`). Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto).
 
 | Module                 | Purpose                                                                             |
 | ---------------------- | ----------------------------------------------------------------------------------- |
@@ -86,8 +86,8 @@ API: gRPC only ([13](13_grpc_rest_api.md), proto in `priv/proto/recgpt/v1/`). Co
 | Bumblebee (GitHub `main`) | MPNet text embeddings.                                                                                       |
 | Jason, Npy                | JSON; checkpoint `.npy` load/save.                                                                           |
 | RDF, JSON.LD, Grax        | XMP JSON-LD: Dublin Core struct mapping and validation (see [04](04_foss_datasets_etnf_dublin_core_xmp.md)). |
-| (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server.                                                         |
-| grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).                                                          |
+| (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server.                                                        |
+| grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).                                                         |
 | Ecto, ecto_sqlite3        | Clickstream database.                                                                                        |
 | Req                       | HTTP (fetch_ckpt, Clickstream zip).                                                                          |
 | Unpickler, Unzip          | PyTorch `.pt` loading.                                                                                       |

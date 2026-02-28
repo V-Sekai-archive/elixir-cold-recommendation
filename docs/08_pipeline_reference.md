@@ -44,7 +44,7 @@ Cold threshold K defaults to 2; override with `:max_train_sessions_for_cold` in 
 mix recgpt.build_fixture --items data/clickstream/items.json --out data/clickstream/fixture.json --ckpt data/recgpt_ckpt_export
 ```
 
-If the checkpoint does not contain FSQ params (e.g. `project_in/kernel` or `fsq.project_in.weight`), add `--fsq path/to/fsq_export`.
+If the checkpoint does not contain FSQ params (e.g., `project_in/kernel` or `fsq.project_in.weight`), add `--fsq path/to/fsq_export`.
 
 **Output:** `fixture.json` with `num_items` and `token_id_list`. Same format as expected by Serve and the eval task.
 
@@ -62,7 +62,7 @@ mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/clickstream/fi
 
 Optional: `--embeddings path/to/embeddings.nx` for precomputed embeddings.
 
-**Output:** New export dir (e.g. `data/ckpt_after_pretrain`) with `manifest.json` and `.npy` files. Use this dir as `--ckpt` for eval and serve.
+**Output:** New export dir (e.g., `data/ckpt_after_pretrain`) with `manifest.json` and `.npy` files. Use this dir as `--ckpt` for eval and serve.
 
 ---
 
@@ -90,7 +90,7 @@ After pretrain (and optionally eval):
 mix recgpt.serve --fixture data/clickstream/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
 ```
 
-gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). [13](13_grpc_rest_api.md).
+gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [13_grpc_api.md](13_grpc_api.md).
 
 ---
 
@@ -146,5 +146,5 @@ Command-line options override these.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Eval metrics and null hypothesis.
 - [06 Eval data shapes](06_eval_data_shapes.md) — JSON shapes.
 - [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — gRPC API contract (Serve).
-- [13 gRPC REST API](13_grpc_rest_api.md) — gRPC + REST design; proto in `priv/proto/recgpt/v1/`.
+- [13_grpc_api.md](13_grpc_api.md) — gRPC messages, errors, and serve command.
 - [00 RecGPT library](00_recgpt_library.md) — Module reference.

@@ -1,6 +1,6 @@
 # Steam splits and pretraining
 
-Data layout and evaluation strategy aligned with the RecGPT Steam dataset ([hkuds/RecGPT_dataset/test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam)): train/test and cold splits. **For best quality, pretrain on the train split then evaluate;** zero-shot is a baseline only.
+Data layout and evaluation strategy aligned with the RecGPT Steam dataset ([hkuds/RecGPT_dataset/test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam)): train/test and cold splits. **For best quality, pretrain on the train split, then evaluate;** zero-shot is a baseline only.
 
 ---
 
@@ -13,7 +13,7 @@ Data layout and evaluation strategy aligned with the RecGPT Steam dataset ([hkud
 
 - **Regular train:** Full sequences (list of item_ids per session) for pretraining. No overlap with test.
 - **Regular test:** Last-item-out: `context` = all but last click, `next_item` = last. Same item set as train.
-- **Cold test:** Same shape as test; target items are “cold” (e.g. appear in ≤ K sessions in train). Measures recommendation for new or rare items.
+- **Cold test:** Same shape as test; target items are “cold” (e.g., appear in ≤ K sessions in train). Measures recommendation for new or rare items.
 
 Canonical Steam layout: `train.pkl`, `test.pkl`, `item_text_dict.pkl`, optional `cold_train.pkl`, `cold_test.pkl`. In this repo: JSON export as below.
 
@@ -23,8 +23,8 @@ Canonical Steam layout: `train.pkl`, `test.pkl`, `item_text_dict.pkl`, optional 
 
 | Approach               | When to use                                                                                    | Quality                                         |
 | ---------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **Pretrain then eval** | You have a train split and run training (e.g. `mix recgpt.pretrain` or Python `pre_train.py`). | Best; model adapts to catalog and sequences.    |
-| **Zero-shot**          | No training; pretrained checkpoint + fixture only.                                             | Baseline; often below random on small catalogs. |
+| **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain` or Python `pre_train.py`). | Best; model adapts to catalog and sequences.   |
+| **Zero-shot**          | No training; pretrained checkpoint + fixture only.                                              | Baseline; often below random on small catalogs. |
 
 Recommendation: Generate data with train, test, and cold. Pretrain on the train split, then run eval on test and cold_test. Use zero-shot only as a sanity check or when training is not available.
 
@@ -42,7 +42,7 @@ After `RecGPT.Clickstream.Fetch.run/2` (or `mix recgpt.clickstream`):
 | `cold_test_sequences.json`  | Same as test_sequences                                    | Eval; cold-start. **Required** for `mix recgpt.eval`. Produced by Fetch. |
 | `cold_train_sequences.json` | Same as train_sequences                                   | Train sequences containing at least one cold item.                       |
 
-**Train/test split:** e.g. 80% of sessions → train, 20% → test (last-item-out). **Cold split:** Items that appear in ≤ K sessions in train are “cold” (default K=2). Cold_test = test cases whose `next_item` is cold; cold_train = train sequences that contain at least one cold item. Fetch always writes both cold files. Override K via `run/2` opts: `:max_train_sessions_for_cold`.
+**Train/test split:** e.g., 80% of sessions → train, 20% → test (last-item-out). **Cold split:** Items that appear in ≤ K sessions in train are “cold” (default K=2). Cold_test = test cases whose `next_item` is cold; cold_train = train sequences that contain at least one cold item. Fetch always writes both cold files. Override K via `run/2` opts: `:max_train_sessions_for_cold`.
 
 ---
 

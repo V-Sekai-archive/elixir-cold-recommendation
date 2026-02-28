@@ -2,7 +2,7 @@
 
 Task list for how close the **recgpt** Elixir package is to matching the [Python RecGPT](https://github.com/HKUDS/RecGPT) (HKUDS/RecGPT) pipeline and model. Reference: [RecGPT paper](https://arxiv.org/abs/2506.06270), [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model).
 
-**Note:** Python scripts (`compare_recgpt_fsq.py`, `inspect_recgpt_checkpoint.py`, `export_serve_e2e_fixture.py`, etc.) may live in repo root or parent/polymarket repo; this repo contains only the Elixir library.
+**Note:** Python scripts (`compare_recgpt_fsq.py`, `inspect_recgpt_checkpoint.py`, `export_serve_e2e_fixture.py`, etc.) may live in the repo root or a parent/polymarket repo; this repo contains only the Elixir library.
 
 ---
 
@@ -42,7 +42,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 | Task                                            | Status       | Notes                                                                                                                                                                |
 | ----------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Text → 768-d embeddings                         | ✅ Done      | `RecGPT.Embedding`: Bumblebee + sentence-transformers/all-mpnet-base-v2, mean pooling.                                                                               |
-| Match Python MPNet / normalize_embeddings=False | ✅ Validated | Same model id; `embedding_processor: nil` (no L2). Parity test: `export_mpnet_embeddings.py` → fixtures; run with `--include compare_embedding --include embedding`. |
+| Match Python MPNet (`normalize_embeddings=False`) | ✅ Validated | Same model id; `embedding_processor: nil` (no L2). Parity test: run `export_mpnet_embeddings.py` to produce fixtures, then run tests with `--include compare_embedding --include embedding`. |
 | encode_item_text_dict (map → tensor)            | ✅ Done      | Sorted keys, encode_texts, stack.                                                                                                                                    |
 | Save/load embeddings (no re-encode)             | ✅ Done      | Nx.serialize / deserialize.                                                                                                                                          |
 
@@ -140,7 +140,7 @@ Task list for how close the **recgpt** Elixir package is to matching the [Python
 
 ## How to validate
 
-From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to chain commands (e.g. `cd recgpt; mix test ...`).
+From repo root or from `recgpt/`. On **PowerShell** use `;` instead of `&&` to chain commands (e.g., `cd recgpt; mix test ...`).
 
 | What                                               | Command                                                                                                                                                                                                                           |
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -183,8 +183,8 @@ Run: `MIX_ENV=test mix run script/run_propcheck.exs`.
 | Embedding numerical parity         | Elixir vs Python embeddings may differ slightly | Run `export_mpnet_embeddings.py` + `--include compare_embedding --include embedding` to assert cosine ≥ 0.99.                                                 |
 | ~~Batch format vs Python~~         | Closed                                          | Verified against [HKUDS/RecGPT utils/data.py](https://github.com/HKUDS/RecGPT/blob/main/utils/data.py) `GPT2RecBatchTrainAuxData`: same constants and shapes. |
 | ~~Beam + trie with real model~~    | Closed                                          | Integration test: load export → trie → get_logits_fn(forward) → beam_search returns `{:ok, item_id}` (`--include integration`).                               |
-| Empty batch / empty seq edge cases | Nx limits (e.g. empty tensor)                   | Tests document RuntimeError; callers avoid empty batches.                                                                                                     |
-| Empty item_text_dict               | encode_texts([]) fails (tokenizer)              | Test asserts Enum.EmptyError; doc: use non-empty dict.                                                                                                        |
+| Empty batch / empty seq edge cases | Nx limits (e.g., empty tensor)                   | Tests document RuntimeError; callers avoid empty batches.                                                                                                     |
+| Empty item_text_dict               | encode_texts([]) fails (tokenizer)                | Test asserts Enum.EmptyError; doc: use non-empty dict.                                                                                                        |
 
 ---
 

@@ -1,6 +1,6 @@
 # Evaluation and testing
 
-How to evaluate RecGPT (zero-shot and trained), keep eval on **held-out data only**, and reject the null hypothesis that the model has no predictive signal.
+How to evaluate RecGPT (zero-shot and trained), restrict evaluation to **held-out data only**, and reject the null hypothesis that the model has no predictive signal.
 
 For best quality, pretrain on the train split then evaluate (see [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md), [08 Pipeline reference](08_pipeline_reference.md)). Zero-shot is a baseline only.
 
@@ -10,8 +10,8 @@ For best quality, pretrain on the train split then evaluate (see [07 Steam split
 
 | Mode          | Checkpoint                                                                       | Fixture                                                     | Training on catalog?               |
 | ------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
-| **Zero-shot** | Pretrained (e.g. hkuds/RecGPT_model export)                                      | Built from item text only (Embedding → FSQ → token_id_list) | No.                                |
-| **Trained**   | Fine-tuned on this catalog (e.g. `mix recgpt.pretrain` or Python `pre_train.py`) | Same fixture, same catalog                                  | Yes; only checkpoint path differs. |
+| **Zero-shot** | Pretrained (e.g., hkuds/RecGPT_model export)                                      | Built from item text only (Embedding → FSQ → token_id_list) | No.                                |
+| **Trained**   | Fine-tuned on this catalog (e.g., `mix recgpt.pretrain` or Python `pre_train.py`) | Same fixture, same catalog                                  | Yes; only checkpoint path differs. |
 
 Run `mix recgpt.eval` twice: once with the pretrained checkpoint (zero-shot), once with the fine-tuned checkpoint (trained). Compare Hit@1, Hit@5, Hit@10, and MRR.
 
@@ -20,7 +20,7 @@ Run `mix recgpt.eval` twice: once with the pretrained checkpoint (zero-shot), on
 ## Null hypothesis
 
 - **Null (H0):** The model has no predictive signal — Hit@1 ≈ 1/N, MRR ≈ 1/N (N = catalog size).
-- **Reject H0** if **Hit@1 > random_hit_at_1** (where `random_hit_at_1 = 1/N`). Optionally require MRR > 1/N as well.
+- **Reject H0** if **Hit@1 > random_hit_at_1** (where `random_hit_at_1 = 1/N`). You may also require MRR > 1/N.
 - The eval task and `RecGPT.Eval.evaluate/3` report `random_hit_at_1` and print “Reject null (Hit@1 > random): yes/no”.
 
 ---
@@ -29,8 +29,8 @@ Run `mix recgpt.eval` twice: once with the pretrained checkpoint (zero-shot), on
 
 Eval must use **data that was not used for training**.
 
-- **Train:** e.g. full sessions or context-only sequences. Use only this for training.
-- **Test:** e.g. last-item-out per session — one test case per session: `context` = all but last click, `next_item` = last. Those last-item labels are never used as input during training.
+- **Train:** e.g., full sessions or context-only sequences. Use only this for training.
+- **Test:** e.g., last-item-out per session — one test case per session: `context` = all but last click, `next_item` = last. Those last-item labels are never used as input during training.
 
 In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out. `RecGPT.Clickstream.Fetch` builds them from last-item-out per session; training uses only the train split.
 
@@ -41,7 +41,7 @@ In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out.
 - **Eval (zero-shot or trained):**  
   `mix recgpt.eval --fixture <path> --ckpt <export_dir> --test <test_sequences.json> --cold-test <cold_test_sequences.json>`
 
-Both `--test` and `--cold-test` are required. Default paths: `data/clickstream/fixture.json`, `data/clickstream/test_sequences.json`, `data/clickstream/cold_test_sequences.json`. Override with `--fixture`, `--ckpt`, `--test`, `--cold-test` or env `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
+Both `--test` and `--cold-test` are required. Default paths: `data/clickstream/fixture.json`, `data/clickstream/test_sequences.json`, `data/clickstream/cold_test_sequences.json`. Override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, or env vars `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
 ---
 
