@@ -18,11 +18,4 @@ Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `
 
 Nx can use the default backend (CPU) or Torchx if configured. For moderate traffic this is enough.
 
----
-
-## Optional: external inference and edge
-
-- **Triton (or similar):** Offload the transformer to an external server; Elixir keeps trie and beam search and sends/receives logits. Not implemented in this repo; would require a client and config.
-- **Edge:** Run `mix recgpt.serve` in multiple regions or edge locations; replicate fixture and checkpoint to each node (or load from shared storage at startup). No specific cloud or provider is prescribed.
-
 **Next:** [16_architecture_conclusion.md](16_architecture_conclusion.md).

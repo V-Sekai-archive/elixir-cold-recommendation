@@ -13,7 +13,7 @@ The trie is built once at startup and held in `RecGPT.Serve` state. Beam search 
 
 ---
 
-## Optional ETS scaling
+## Future ETS scaling
 
 The trie is currently an **in-memory map**. For very high read concurrency or **live catalog updates** without restart, move it to **Erlang Term Storage (ETS)**:
 
