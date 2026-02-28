@@ -128,6 +128,14 @@ jobs:
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
+      - name: Steam top-k correctness (pretrained on catalogue vs zero-shot; reject null, no regress)
+        env:
+          RECGPT_FIXTURE: data/steam/fixture.json
+          RECGPT_CKPT_ZEROSHOT: data/recgpt_ckpt_export
+          RECGPT_CKPT_EXPORT: data/ckpt_after_pretrain
+          RECGPT_TEST_SEQUENCES: data/steam/test_sequences.json
+        run: mix test test/recgpt/eval_test.exs --include eval --include integration --no-start
+
       - name: Save checkpoint cache
         uses: actions/cache/save@v4
         if: steps.restore_ckpt.outputs.cache-hit != 'true'

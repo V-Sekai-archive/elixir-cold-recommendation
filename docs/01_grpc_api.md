@@ -12,7 +12,7 @@ Recommendation must be exposed via a stable, implementable contract. Without a s
 
 ## Proposed improvement
 
-**gRPC-only** API. Authoritative contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). One RPC: **Predict** (PredictRequest → PredictResponse). Run the server with `mix recgpt.serve`; fixture and checkpoint export dir are required.
+**gRPC-only** API. Authoritative contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). One RPC: **Predict** (PredictRequest â†’ PredictResponse). Run the server with `mix recgpt.serve`; fixture and checkpoint export dir are required.
 
 ---
 
@@ -40,7 +40,7 @@ Recommendation must be exposed via a stable, implementable contract. Without a s
 mix recgpt.serve --fixture <path> --ckpt <path> [--grpc-port 50051]
 ```
 
-Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` → `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both fixture and checkpoint export directory are required.
+Defaults: `--fixture` â†’ `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` â†’ `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both fixture and checkpoint export directory are required.
 
 ### Quick test
 
@@ -54,6 +54,6 @@ grpcurl -plaintext -d '{"context_item_ids":[0,1], "max_results":5}' localhost:50
 
 ## See also
 
-- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — Authoritative proto.
-- [02 Pipeline reference](02_pipeline_reference.md) — How to produce fixture and checkpoint.
-- [03 RecGPT library](03_recgpt_library.md) — Module reference (Serve, GRPCEndpoint).
+- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) â€” Authoritative proto.
+- [02 Pipeline overview](02_pipeline_overview.md) â€” How to produce fixture and checkpoint.
+- [04 RecGPT library](04_recgpt_library.md) â€” Module reference (Serve, GRPCEndpoint).

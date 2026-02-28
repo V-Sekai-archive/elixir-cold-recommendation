@@ -22,7 +22,7 @@ Define a **checkpoint layout**: components (GPT-2, FSQ embedding, aux encoder, h
 | ----------------------- | ------------------- | ------------------------------------------- |
 | **GPT-2 backbone**      | Causal transformer  | `gpt2model.*` (or equivalent).              |
 | **FSQ token embedding** | (15361, 768) lookup | `wte` or GPT-2 `wte` resized to 15361 rows. |
-| **Auxiliary encoder**   | 192→768, LayerNorm  | `ae.*` or `linear*`, `norm*`.               |
+| **Auxiliary encoder**   | 192â†’768, LayerNorm  | `ae.*` or `linear*`, `norm*`.               |
 | **Prediction head**     | Linear(768, 15361)  | `pred_head.weight`, `pred_head.bias`.       |
 
 ---
@@ -52,7 +52,7 @@ Inspect `manifest.json` in the export dir for exact keys and shapes.
 | Export key    | Elixir use                                                                 |
 | ------------- | -------------------------------------------------------------------------- |
 | `wte`         | FSQ token embedding table; shape `{15361, 768}`; Nx.gather by token ids.   |
-| `ae.*`        | Aux linear 192→768 + LayerNorm; applied to `Training.encode_aux/3` output. |
+| `ae.*`        | Aux linear 192â†’768 + LayerNorm; applied to `Training.encode_aux/3` output. |
 | `gpt2model.*` | GPT-2 blocks; naming may be mapped in the loader.                          |
 | `pred_head.*` | Linear layer; logits (batch, 15361).                                       |
 
@@ -62,14 +62,14 @@ Inspect `manifest.json` in the export dir for exact keys and shapes.
 
 ## Sub-proposals
 
-- **Components** (above) — GPT-2, FSQ embedding, aux encoder, head.
-- **Export** (above) — manifest + .npy; `export_ckpt --from-pt` or `write_export/2`.
-- **Mapping to inference** (above) — Export key → Elixir use.
+- **Components** (above) â€” GPT-2, FSQ embedding, aux encoder, head.
+- **Export** (above) â€” manifest + .npy; `export_ckpt --from-pt` or `write_export/2`.
+- **Mapping to inference** (above) â€” Export key â†’ Elixir use.
 
 ---
 
 ## See also
 
-- [03 RecGPT library](03_recgpt_library.md) — Module reference.
-- [02 Pipeline reference](02_pipeline_reference.md) — Checkpoint in the pipeline.
-- [08 Python parity progress](08_python_recgpt_parity_progress.md) — Checkpoint key compatibility.
+- [04 RecGPT library](04_recgpt_library.md) â€” Module reference.
+- [02 Pipeline overview](02_pipeline_overview.md) â€” Checkpoint in the pipeline.
+- [09 Parity overview](09_parity_overview.md) â€” Checkpoint key compatibility.

@@ -1,4 +1,4 @@
-# Proposal: RecGPT library (module reference)
+﻿# Proposal: RecGPT library (module reference)
 
 Sub-proposal of the [documentation index](README.md). One place to look up modules, dependencies, and tests.
 
@@ -23,8 +23,8 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | Module                | Purpose                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **RecGPT.FSQ**        | Finite Scalar Quantization: levels [8,8,8,6,5], 4 tokens per item, vocab 15360 + padding. `load_params/1`, `encode/2`, `codes_to_indices/1`, `indices_to_codes/2`. |
-| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: embeddings + FSQ params → list of 4-token lists.                                                                           |
-| **RecGPT.Embedding**  | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_item_text_dict/1`.                                                      |
+| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: embeddings + FSQ params Ã¢â€ â€™ list of 4-token lists.                                                                           |
+| **RecGPT.Embedding**  | Text Ã¢â€ â€™ 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_item_text_dict/1`.                                                      |
 
 ### Fixture and training data
 
@@ -44,7 +44,7 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | Module               | Purpose                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.Inference** | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
-| **RecGPT.Decode**    | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
+| **RecGPT.Decode**    | `beam_search_top_k/4` Ã¢â€ â€™ `{:ok, item_ids}` or `:not_found`.                                                                    |
 | **RecGPT.Trie**      | Build trie from token_id_list for beam search.                                                                                |
 | **RecGPT.Serve**     | `load_state/3`, `recommend/3`, `item_ids_to_context_token_ids/3`.                                                             |
 
@@ -58,7 +58,7 @@ Maintain one **module reference** (this document) with overview tables by area, 
 
 | Module                      | Purpose                                                                                 |
 | --------------------------- | --------------------------------------------------------------------------------------- |
-| **RecGPT.CheckpointLoader** | `load_from_export/1` → `%{key => Nx.Tensor}`. Expects `manifest.json` and `.npy` files. |
+| **RecGPT.CheckpointLoader** | `load_from_export/1` Ã¢â€ â€™ `%{key => Nx.Tensor}`. Expects `manifest.json` and `.npy` files. |
 | **RecGPT.CheckpointExport** | `write_export/2`. Writes manifest and one `.npy` per key.                               |
 | **RecGPT.PtLoader**         | Load PyTorch `.pt` (zip format) for `mix recgpt.export_ckpt --from-pt`.                 |
 
@@ -110,30 +110,30 @@ Tests live in `test/recgpt/*_test.exs` and `test/support/recgpt/`.
 
 ## Training flow (summary)
 
-1. **Data** — Fetch → items, train/test/cold sequences (see [06](06_steam_splits_and_pretraining.md), [02](02_pipeline_reference.md)).
-2. **Fixture** — items → Embedding → FSQ → token_id_list → fixture.json (see [02](02_pipeline_reference.md)).
-3. **Pretrain** — train_sequences + fixture + checkpoint → AxonTrain → updated checkpoint (see [02](02_pipeline_reference.md)).
-4. **Eval** — fixture + checkpoint + test + cold_test → metrics (see [05](05_evaluation_and_testing.md), [02](02_pipeline_reference.md)).
+1. **Data** Ã¢â‚¬â€ Fetch Ã¢â€ â€™ items, train/test/cold sequences (see [07](07_steam_splits_and_pretraining.md), [02](02_pipeline_overview.md), [03](03_pipeline_steps.md)).
+2. **Fixture** Ã¢â‚¬â€ items Ã¢â€ â€™ Embedding Ã¢â€ â€™ FSQ Ã¢â€ â€™ token_id_list Ã¢â€ â€™ fixture.json (see [02](02_pipeline_overview.md)).
+3. **Pretrain** Ã¢â‚¬â€ train_sequences + fixture + checkpoint Ã¢â€ â€™ AxonTrain Ã¢â€ â€™ updated checkpoint (see [02](02_pipeline_overview.md)).
+4. **Eval** Ã¢â‚¬â€ fixture + checkpoint + test + cold_test Ã¢â€ â€™ metrics (see [06](06_evaluation_and_testing.md), [02](02_pipeline_overview.md), [03](03_pipeline_steps.md)).
 
-**Zero-shot:** Pretrained checkpoint + fixture only (no training). **Trained:** Checkpoint fine-tuned on train split; same fixture and test sets. See [05 Evaluation and testing](05_evaluation_and_testing.md).
+**Zero-shot:** Pretrained checkpoint + fixture only (no training). **Trained:** Checkpoint fine-tuned on train split; same fixture and test sets. See [06 Evaluation and testing](06_evaluation_and_testing.md).
 
 ---
 
 ## Sub-proposals
 
-- **Pipeline and data:** [06 Steam splits](06_steam_splits_and_pretraining.md), [02 Pipeline reference](02_pipeline_reference.md).
-- **Evaluation:** [05 Evaluation and testing](05_evaluation_and_testing.md).
-- **Checkpoint:** [07 Checkpoint layout](07_recgpt_checkpoint_layout.md).
+- **Pipeline and data:** [07 Steam splits](07_steam_splits_and_pretraining.md), [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md).
+- **Evaluation:** [06 Evaluation and testing](06_evaluation_and_testing.md).
+- **Checkpoint:** [08 Checkpoint layout](08_recgpt_checkpoint_layout.md).
 - **API:** [01 gRPC API](01_grpc_api.md).
-- **Layer boundaries and test strategy:** [13 Layers and testing](13_layers_and_testing.md) — Maps module areas to layers (e.g. Core: FSQ and embeddings → Layer 2: Representation).
+- **Layer boundaries and test strategy:** [15 Layers and testing](15_layers_overview.md) Ã¢â‚¬â€ Maps module areas to layers (e.g. Core: FSQ and embeddings Ã¢â€ â€™ Layer 2: Representation).
 
 ---
 
 ## See also
 
-- [Documentation index](README.md) — Root proposal and all sub-proposals.
-- [05 Evaluation and testing](05_evaluation_and_testing.md) — Zero-shot vs trained, null hypothesis, held-out eval.
-- [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) — Train/test/cold splits, pretrain-first.
-- [02 Pipeline reference](02_pipeline_reference.md) — Commands and file layout.
-- [01 gRPC API](01_grpc_api.md) — gRPC contract and serve.
-- [RecGPT paper](https://arxiv.org/abs/2506.06270) · [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) · [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) · [hkuds/RecGPT_dataset](https://huggingface.co/datasets/hkuds/RecGPT_dataset)
+- [Documentation index](README.md) Ã¢â‚¬â€ Root proposal and all sub-proposals.
+- [06 Evaluation and testing](06_evaluation_and_testing.md) Ã¢â‚¬â€ Zero-shot vs trained, null hypothesis, held-out eval.
+- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) Ã¢â‚¬â€ Train/test/cold splits, pretrain-first.
+- [02 Pipeline overview](02_pipeline_overview.md) Ã¢â‚¬â€ Commands and file layout.
+- [01 gRPC API](01_grpc_api.md) Ã¢â‚¬â€ gRPC contract and serve.
+- [RecGPT paper](https://arxiv.org/abs/2506.06270) Ã‚Â· [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT) Ã‚Â· [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) Ã‚Â· [hkuds/RecGPT_dataset](https://huggingface.co/datasets/hkuds/RecGPT_dataset)

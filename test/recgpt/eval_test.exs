@@ -147,6 +147,52 @@ defmodule RecGPT.EvalTest do
            "expected Hit@1 (#{metrics.hit_at_1}) > random_hit_at_1 (#{metrics.random_hit_at_1}) to reject null hypothesis"
   end
 
+  @tag :integration
+  @tag :eval
+  @tag timeout: 90_000
+  test "pretrained (on catalogue) does not regress vs zero-shot and rejects null (Steam top-k)" do
+    # Compare: zero-shot (base ckpt, no training on this catalogue) vs pretrained (ckpt after pretrain on this catalogue).
+    fixture = System.get_env("RECGPT_FIXTURE")
+    zero_shot_ckpt = System.get_env("RECGPT_CKPT_ZEROSHOT")
+    pretrained_ckpt = System.get_env("RECGPT_CKPT_EXPORT")
+    test_file = System.get_env("RECGPT_TEST_SEQUENCES")
+
+    unless is_binary(fixture) and fixture != "" and File.regular?(fixture) do
+      flunk("Set RECGPT_FIXTURE to path to fixture.json.")
+    end
+
+    unless is_binary(zero_shot_ckpt) and zero_shot_ckpt != "" and File.dir?(zero_shot_ckpt) and
+             File.regular?(Path.join(zero_shot_ckpt, "manifest.json")) do
+      flunk("Set RECGPT_CKPT_ZEROSHOT to zero-shot checkpoint (base model, no training on this catalogue).")
+    end
+
+    unless is_binary(pretrained_ckpt) and pretrained_ckpt != "" and File.dir?(pretrained_ckpt) and
+             File.regular?(Path.join(pretrained_ckpt, "manifest.json")) do
+      flunk("Set RECGPT_CKPT_EXPORT to pretrained checkpoint (after pretrain on this catalogue).")
+    end
+
+    unless is_binary(test_file) and test_file != "" and File.regular?(test_file) do
+      flunk("Set RECGPT_TEST_SEQUENCES to path to test_sequences.json.")
+    end
+
+    Application.ensure_all_started(:nx)
+
+    assert {:ok, zero_shot_state} = Serve.load_state(fixture, zero_shot_ckpt, nil)
+    assert {:ok, pretrained_state} = Serve.load_state(fixture, pretrained_ckpt, nil)
+    assert {:ok, test_cases} = Eval.load_test_cases(test_file)
+    assert test_cases != [], "need at least one test case"
+
+    zero_shot_metrics = Eval.evaluate(zero_shot_state, test_cases, top_k: @top_k)
+    pretrained_metrics = Eval.evaluate(pretrained_state, test_cases, top_k: @top_k)
+
+    assert pretrained_metrics.rejects_null,
+           "pretrained (on catalogue) Hit@1 (#{pretrained_metrics.hit_at_1}) must be > random (#{pretrained_metrics.random_hit_at_1})"
+
+    assert pretrained_metrics.hit_at_1 >= zero_shot_metrics.hit_at_1,
+           "pretrained (on catalogue) Hit@1 (#{pretrained_metrics.hit_at_1}) must be >= zero-shot Hit@1 (#{zero_shot_metrics.hit_at_1}); " <>
+             "when zero-shot equals baseline, pretrain on catalogue must improve or we fail"
+  end
+
   defp build_eval_stub_state do
     token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
     trie = RecGPT.Trie.build(token_id_list)
