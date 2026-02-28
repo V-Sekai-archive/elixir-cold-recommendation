@@ -40,17 +40,17 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     fixture_path = opts[:fixture] || resolve("data/steam/fixture.json")
     train_path = opts[:train] || resolve("data/steam/train_sequences.json")
     items_path = opts[:items] || resolve("data/steam/items.json")
-    out_dir = opts[:out]
+    out_dir =
+      case opts[:out] do
+        nil -> Mix.raise("--out DIR is required")
+        "" -> Mix.raise("--out DIR is required")
+        s -> resolve(s)
+      end
+
     iterations = opts[:iterations] || 100
     batch_size = opts[:batch_size] || 8
     learning_rate = opts[:learning_rate] || 1.0e-4
     log_every = opts[:log] || 50
-
-    if not out_dir or out_dir == "" do
-      Mix.raise("--out DIR is required")
-    end
-
-    out_dir = resolve(out_dir)
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
       Mix.raise("checkpoint not found: #{ckpt_dir}")
@@ -122,9 +122,11 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       RecGPT.CheckpointExport.write_export(trained, out_dir)
       Mix.shell().info("Done.")
     end
+
+    :ok
   end
 
-  defp resolve(path) do
+  defp resolve(path) when is_binary(path) do
     if absolute_path?(path), do: path, else: Path.expand(path, File.cwd!())
   end
 

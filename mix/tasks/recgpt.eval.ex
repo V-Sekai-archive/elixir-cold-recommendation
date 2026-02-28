@@ -95,9 +95,6 @@ defmodule Mix.Tasks.Recgpt.Eval do
         end
       end
     else
-      {:error, reason} when is_binary(reason) ->
-        Mix.raise("Eval failed: #{reason}")
-
       {:error, reason} ->
         Mix.raise("Eval failed: #{inspect(reason)}")
     end
