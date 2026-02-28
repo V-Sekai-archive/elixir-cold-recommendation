@@ -30,7 +30,7 @@ Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scala
    mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_out
    ```
 
-See [Pipeline](#pipeline) and [docs/08_pipeline_reference.md](docs/08_pipeline_reference.md) for the full sequence and options.
+See [Pipeline](#pipeline) and [docs/02_pipeline_reference.md](docs/02_pipeline_reference.md) for the full sequence and options.
 
 ---
 
@@ -43,7 +43,7 @@ See [Pipeline](#pipeline) and [docs/08_pipeline_reference.md](docs/08_pipeline_r
 | **3. Pretrain** | `mix recgpt.pretrain` (uses `AxonTrain.stream_batches` + `run/3`) | Updated checkpoint in `--out` |
 | **4. Eval** | `mix recgpt.eval` (requires `--test` and `--cold-test` files) | Hit@k, MRR, cold-test metrics |
 
-For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a baseline. See [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md).
+For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a baseline. See [docs/06_steam_splits_and_pretraining.md](docs/06_steam_splits_and_pretraining.md).
 
 ---
 
@@ -81,7 +81,7 @@ Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--f
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
 | **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |
 
-Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
+Full list and details: [docs/03_recgpt_library.md](docs/03_recgpt_library.md).
 
 ---
 
@@ -105,7 +105,7 @@ mix test --no-start
 - **Include integration:** `mix test --include integration`
 - **Eval (fixture + ckpt + test file):** `mix test test/recgpt/eval_test.exs --include eval --include integration`
 
-See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
+See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [docs/03_recgpt_library.md](docs/03_recgpt_library.md).
 
 ---
 
@@ -124,13 +124,13 @@ Errors use gRPC status (e.g. INVALID_ARGUMENT, UNAVAILABLE). See [recommendation
 | Doc | Content |
 |-----|---------|
 | [docs/README.md](docs/README.md) | **Documentation index** — all docs by topic and quick reference. |
-| [docs/00_recgpt_library.md](docs/00_recgpt_library.md) | Full module reference, deps, tests. |
-| [docs/01_python_recgpt_parity_progress.md](docs/01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation. |
-| [docs/02_recgpt_checkpoint_layout.md](docs/02_recgpt_checkpoint_layout.md) | Checkpoint state_dict, export, loader. |
+| [docs/03_recgpt_library.md](docs/03_recgpt_library.md) | Full module reference, deps, tests. |
+| [docs/08_python_recgpt_parity_progress.md](docs/08_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation. |
+| [docs/07_recgpt_checkpoint_layout.md](docs/07_recgpt_checkpoint_layout.md) | Checkpoint state_dict, export, loader. |
 | [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) | Zero-shot vs trained, null hypothesis, held-out eval. |
-| [docs/06_eval_data_shapes.md](docs/06_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
-| [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |
-| [docs/08_pipeline_reference.md](docs/08_pipeline_reference.md) | End-to-end pipeline: commands, options, file layout. |
+| [docs/04_eval_data_shapes.md](docs/04_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
+| [docs/06_steam_splits_and_pretraining.md](docs/06_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |
+| [docs/02_pipeline_reference.md](docs/02_pipeline_reference.md) | End-to-end pipeline: commands, options, file layout. |
 | [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) | gRPC API contract (PredictionService.Predict). |
 
 ---

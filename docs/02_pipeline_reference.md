@@ -1,8 +1,18 @@
-# Pipeline reference
+# Proposal: Pipeline reference
 
-Single reference for the recommended pipeline: **Fetch → build_fixture → pretrain → eval**. Commands, options, and file layout.
+Sub-proposal of the [documentation index](README.md). Single reference for the recommended pipeline: **Fetch → build_fixture → pretrain → eval**.
 
-See also: [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) (concepts and artifact table), [00 RecGPT library](00_recgpt_library.md) (modules).
+---
+
+## Problem or limitation
+
+We need one reproducible path from raw data to trained model and metrics. Without a single pipeline specification (order, commands, options, file layout), users and automation invent ad-hoc sequences and results are not comparable.
+
+---
+
+## Proposed improvement
+
+Define the **pipeline** as four steps with commands, options, and outputs. Both standard test and cold-test files are required for eval. Diagram: [Documentation index](README.md#pipeline-overview). Concepts: [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md); modules: [03 RecGPT library](03_recgpt_library.md).
 
 ---
 
@@ -44,8 +54,6 @@ Cold files are produced by Steam Fetch from the dataset.
 mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export
 ```
 
-If the checkpoint does not contain FSQ params (e.g., `project_in/kernel` or `fsq.project_in.weight`), add `--fsq path/to/fsq_export`.
-
 **Output:** `fixture.json` with `num_items` and `token_id_list`. Same format as expected by Serve and the eval task.
 
 ---
@@ -59,8 +67,6 @@ If the checkpoint does not contain FSQ params (e.g., `project_in/kernel` or `fsq
 ```bash
 mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50
 ```
-
-Optional: `--embeddings path/to/embeddings.nx` for precomputed embeddings.
 
 **Output:** New export dir (e.g., `data/ckpt_after_pretrain`) with `manifest.json` and `.npy` files. Use this dir as `--ckpt` for eval and serve.
 
@@ -78,7 +84,7 @@ mix recgpt.eval --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrai
 
 **Requirements:** Fixture and checkpoint must exist and load. **Both** `--test` and `--cold-test` are required; if `cold_test_sequences.json` is missing, the task fails and prompts you to run Fetch first.
 
-**Output:** Two blocks of metrics: “Evaluation (standard test set)” and “Cold test”.
+**Output:** Two blocks of metrics: "Evaluation (standard test set)" and "Cold test".
 
 ---
 
@@ -90,7 +96,7 @@ After pretrain (and optionally eval):
 mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
 ```
 
-gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [13_grpc_api.md](13_grpc_api.md).
+gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [01 gRPC API](01_grpc_api.md).
 
 ---
 
@@ -140,11 +146,19 @@ Command-line options override these.
 
 ---
 
+## Sub-proposals
+
+- [Step 1: Generate data](#step-1-generate-data) — Fetch; outputs.
+- [Step 2: Build fixture](#step-2-build-fixture) — build_fixture; fixture.json.
+- [Step 3: Pretrain](#step-3-pretrain) — pretrain; updated checkpoint.
+- [Step 4: Eval](#step-4-eval) — eval; metrics.
+
+---
+
 ## See also
 
-- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Splits and artifact semantics.
+- [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) — Splits and artifact semantics.
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Eval metrics and null hypothesis.
-- [06 Eval data shapes](06_eval_data_shapes.md) — JSON shapes.
-- [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) — gRPC API contract (Serve).
-- [13_grpc_api.md](13_grpc_api.md) — gRPC messages, errors, and serve command.
-- [00 RecGPT library](00_recgpt_library.md) — Module reference.
+- [04 Eval data shapes](04_eval_data_shapes.md) — JSON shapes.
+- [01 gRPC API](01_grpc_api.md) — gRPC contract and serve.
+- [03 RecGPT library](03_recgpt_library.md) — Module reference.

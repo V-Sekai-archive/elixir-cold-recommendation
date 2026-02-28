@@ -1,6 +1,18 @@
-# Eval data shapes
+# Proposal: Eval data shapes
 
-Canonical JSON shapes for eval inputs so tests and tools can generate or consume data without a real dataset. All IDs are 0-based and in `0..num_items-1` unless noted.
+Sub-proposal of the [documentation index](README.md). Canonical JSON shapes for pipeline and eval artifacts.
+
+---
+
+## Problem or limitation
+
+Tests and tools need canonical JSON shapes for test_sequences, items, fixture, train_sequences, and cold files so they can generate or consume data without a real dataset. Ad-hoc shapes cause parse errors and incompatibility across steps.
+
+---
+
+## Proposed improvement
+
+Define **one shape per artifact**: keys, types, and semantics. All IDs are 0-based and in `0..num_items-1` unless noted. Implementations (e.g. `Eval.load_test_cases/1`, `FixtureBuild`) follow these shapes.
 
 ---
 
@@ -15,7 +27,7 @@ Next-item prediction test set: one case per sequence; last item is the target. U
 
 `context` is typically length 1–64; `next_item` is the ground-truth next item. Eval uses `context` as input and checks whether `next_item` appears in the model’s top-k.
 
-**Example:** See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) and [08 Pipeline reference](08_pipeline_reference.md).
+**Example:** See [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) and [02 Pipeline reference](02_pipeline_reference.md).
 
 ---
 
@@ -60,7 +72,7 @@ Full sequences for pretraining (no last-item-out). Same catalog as test; session
 | `num_items` | int           | Catalog size.                                            |
 | `sequences` | list of lists | Each inner list is a full sequence of item_ids in order. |
 
-Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g., 80% sessions → train, 20% → test last-item-out). See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md).
+Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g., 80% sessions → train, 20% → test last-item-out). See [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md).
 
 ---
 
@@ -70,19 +82,19 @@ Same shape as `train_sequences.json`. Train sequences that contain at least one 
 
 ---
 
-## Synthetic generators (test/support)
+## Sub-proposals
 
-`RecGPT.EvalFixtures` in tests:
-
-- **test_cases** — `generate_test_cases(num_items, n_cases, opts)` → list of `%{"context" => [...], "next_item" => id}`.
-- **test_sequences payload** — `generate_test_sequences_json(num_items, n_cases, opts)` → map suitable for `Jason.encode!/1` and `Eval.load_test_cases(path)` after writing to a file.
-
-Use these for property and integration tests without a real dataset.
+- **test_sequences.json** (above) — Test set shape for `Eval.load_test_cases/1`.
+- **cold_test_sequences.json** (above) — Same shape; cold items only.
+- **items.json** (above) — Catalog for fixture building.
+- **fixture.json** (above) — Tokenized catalog for Serve and Eval.
+- **train_sequences.json** (above) — Pretraining sequences.
+- **cold_train_sequences.json** (above) — Train sequences containing cold items.
 
 ---
 
 ## See also
 
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Eval commands and null hypothesis.
-- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Artifact layout and cold split.
-- [08 Pipeline reference](08_pipeline_reference.md) — File layout and pipeline.
+- [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) — Artifact layout and cold split.
+- [02 Pipeline reference](02_pipeline_reference.md) — File layout and pipeline.

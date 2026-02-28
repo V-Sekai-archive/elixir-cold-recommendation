@@ -1,4 +1,22 @@
-# Works Cited (Architecture Doc)
+# Proposal: Architecture references (works cited)
+
+Sub-proposal of the [documentation index](README.md). Works cited for the architecture docs.
+
+---
+
+## Problem or limitation
+
+Claims and design (RecGPT paradigm, trie/beam, ETS, gRPC) must be citable so readers can verify and extend. Without references, the rationale is opaque.
+
+---
+
+## Proposed improvement
+
+Maintain a **works cited** list: RecGPT paper and repo, beam/trie decoding, ETS and incremental update, gRPC. Each entry is linked and dated where applicable.
+
+---
+
+## Works cited
 
 1. RecGPT: A Foundation Model for Sequential Recommendation — arXiv, accessed February 27, 2026, https://arxiv.org/pdf/2506.06270
 2. RecGPT: Foundation Model for Sequential Recommendation — Emergent Mind, accessed February 27, 2026, https://www.emergentmind.com/papers/2506.06270

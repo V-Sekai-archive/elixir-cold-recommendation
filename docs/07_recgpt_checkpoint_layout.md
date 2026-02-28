@@ -1,6 +1,18 @@
-# Checkpoint layout
+# Proposal: Checkpoint layout
 
-How RecGPT checkpoints (e.g., [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model) or a local `recgpt_layer_3_weight.pt`) are structured and loaded in Elixir.
+Sub-proposal of the [documentation index](README.md). How RecGPT checkpoints are structured and loaded in Elixir.
+
+---
+
+## Problem or limitation
+
+RecGPT weights are distributed as PyTorch checkpoints (e.g. [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model)). Elixir needs a well-defined export format and loader contract so inference and training can use the same params without ad-hoc conversion.
+
+---
+
+## Proposed improvement
+
+Define a **checkpoint layout**: components (GPT-2, FSQ embedding, aux encoder, head), how to obtain and export (manifest + .npy), and mapping from export keys to inference. All export and load paths are specified so implementers can add tooling without guessing.
 
 ---
 
@@ -17,9 +29,7 @@ How RecGPT checkpoints (e.g., [hkuds/RecGPT_model](https://huggingface.co/hkuds/
 
 ## Obtaining a checkpoint
 
-**Download:** `mix recgpt.fetch_ckpt` downloads the model to `data/recgpt_layer_3_weight.pt` (or use `--out` / `--base`).
-
-**Resolve path:** The task checks, in order: env `RECGPT_CKPT`; `thirdparty/RecGPT_repo/ckpt/recgpt_layer_3_weight.pt`; `thirdparty/RecGPT_model/recgpt_layer_3_weight.pt`. Or pass the path explicitly.
+**Download:** `mix recgpt.fetch_ckpt` downloads the model to `data/recgpt_layer_3_weight.pt` (or `--out <path>`).
 
 ---
 
@@ -50,8 +60,16 @@ Inspect `manifest.json` in the export dir for exact keys and shapes.
 
 ---
 
+## Sub-proposals
+
+- **Components** (above) — GPT-2, FSQ embedding, aux encoder, head.
+- **Export** (above) — manifest + .npy; `export_ckpt --from-pt` or `write_export/2`.
+- **Mapping to inference** (above) — Export key → Elixir use.
+
+---
+
 ## See also
 
-- [00 RecGPT library](00_recgpt_library.md) — Module reference.
-- [08 Pipeline reference](08_pipeline_reference.md) — Checkpoint setup in the pipeline.
-- [01 Python parity progress](01_python_recgpt_parity_progress.md) — Checkpoint key compatibility.
+- [03 RecGPT library](03_recgpt_library.md) — Module reference.
+- [02 Pipeline reference](02_pipeline_reference.md) — Checkpoint in the pipeline.
+- [08 Python parity progress](08_python_recgpt_parity_progress.md) — Checkpoint key compatibility.

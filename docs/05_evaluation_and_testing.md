@@ -1,15 +1,25 @@
-# Evaluation and testing
+# Proposal: Evaluation and testing
 
-How to evaluate RecGPT (zero-shot and trained), restrict evaluation to **held-out data only**, and reject the null hypothesis that the model has no predictive signal.
+Sub-proposal of the [documentation index](README.md). How to evaluate RecGPT and reject the null baseline.
 
-For best quality, pretrain on the train split then evaluate (see [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md), [08 Pipeline reference](08_pipeline_reference.md)). Zero-shot is a baseline only.
+---
+
+## Problem or limitation
+
+We need to measure next-item accuracy (Hit@k, MRR) and to reject the null hypothesis that the model has no predictive signal (Hit@1 ≈ 1/N). Evaluation must use held-out data only and support both zero-shot and trained checkpoints so results are comparable.
+
+---
+
+## Proposed improvement
+
+Define **evaluation protocol**: zero-shot vs trained modes, null hypothesis and rejection criterion, held-out data rules, and concrete commands. All metrics and test commands are specified so runs are reproducible.
 
 ---
 
 ## Zero-shot vs trained
 
-| Mode          | Checkpoint                                                                       | Fixture                                                     | Training on catalog?               |
-| ------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| Mode          | Checkpoint                                                                        | Fixture                                                     | Training on catalog?               |
+| ------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
 | **Zero-shot** | Pretrained (e.g., hkuds/RecGPT_model export)                                      | Built from item text only (Embedding → FSQ → token_id_list) | No.                                |
 | **Trained**   | Fine-tuned on this catalog (e.g., `mix recgpt.pretrain` or Python `pre_train.py`) | Same fixture, same catalog                                  | Yes; only checkpoint path differs. |
 
@@ -53,13 +63,22 @@ Both `--test` and `--cold-test` are required. Default paths: `data/steam/fixture
 mix test test/recgpt/eval_test.exs --include eval --include integration
 ```
 
+---
+
+## Sub-proposals
+
+- **Zero-shot vs trained** (above) — Checkpoint and fixture usage.
+- **Null hypothesis** (above) — Reject H0 when Hit@1 > random_hit_at_1.
+- **Held-out eval** (above) — Train vs test split; no test labels in training.
+- **Commands** (above) — `mix recgpt.eval`; test tags.
+
 For zero-shot vs trained in CI: run once with `RECGPT_CKPT_EXPORT` pointing to the pretrained export, then again with the fine-tuned export.
 
 ---
 
 ## See also
 
-- [00 RecGPT library](00_recgpt_library.md) — Module reference.
-- [06 Eval data shapes](06_eval_data_shapes.md) — JSON format for test files.
-- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Train/test/cold splits.
-- [08 Pipeline reference](08_pipeline_reference.md) — Eval step in the pipeline.
+- [03 RecGPT library](03_recgpt_library.md) — Module reference.
+- [04 Eval data shapes](04_eval_data_shapes.md) — JSON format for test files.
+- [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) — Train/test/cold splits.
+- [02 Pipeline reference](02_pipeline_reference.md) — Eval step in the pipeline.

@@ -120,14 +120,14 @@ defmodule RecGPT.EvalTest do
     unless is_binary(ckpt) and ckpt != "" and File.dir?(ckpt) and
              File.regular?(Path.join(ckpt, "manifest.json")) do
       flunk("""
-      Skipped (missing data): Set RECGPT_CKPT_EXPORT to checkpoint export dir. See docs/02_recgpt_checkpoint_layout.md.
+      Skipped (missing data): Set RECGPT_CKPT_EXPORT to checkpoint export dir. See docs/07_recgpt_checkpoint_layout.md.
       """)
     end
 
     unless is_binary(test_file) and test_file != "" and File.regular?(test_file) do
       flunk("""
       Skipped (missing data): Set RECGPT_TEST_SEQUENCES to path to test_sequences.json (test_cases + num_items).
-      See docs/06_eval_data_shapes.md for test_sequences.json format.
+      See docs/04_eval_data_shapes.md for test_sequences.json format.
       """)
     end
 

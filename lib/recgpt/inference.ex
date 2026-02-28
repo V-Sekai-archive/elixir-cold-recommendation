@@ -3,7 +3,7 @@ defmodule RecGPT.Inference do
   RecGPT inference: token embed + aux fusion + GPT-2 body + prediction head.
 
   Params from RecGPT.CheckpointLoader.load_from_export/1. Expected keys
-  (see docs/02_recgpt_checkpoint_layout.md):
+  (see docs/07_recgpt_checkpoint_layout.md):
   - wte or gpt2model.wte: (15_361, 768) token embedding table
   - gpt2model.wpe (optional): position embeddings; added to hidden if present
   - gpt2model.h.{i}.attn.*, ln_1, mlp.*, ln_2: transformer blocks (when present)

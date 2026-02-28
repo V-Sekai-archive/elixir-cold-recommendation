@@ -1,6 +1,18 @@
-# Steam splits and pretraining
+# Proposal: Steam splits and pretraining
 
-Data layout and evaluation strategy aligned with the RecGPT Steam dataset ([hkuds/RecGPT_dataset/test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam)): train/test and cold splits. **For best quality, pretrain on the train split, then evaluate;** zero-shot is a baseline only.
+Sub-proposal of the [documentation index](README.md). Data layout and evaluation strategy for train/test and cold splits.
+
+---
+
+## Problem or limitation
+
+Train/test/cold semantics and artifact layout must be clear so evaluation is comparable and pretrain-then-eval is reproducible. Without a single definition of “cold” and which files are required for eval, pipelines diverge.
+
+---
+
+## Proposed improvement
+
+Define **splits and artifact layout** aligned with the RecGPT Steam dataset ([hkuds/RecGPT_dataset/test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam)): regular vs cold, pretrain vs zero-shot, and the artifact table. For best quality, pretrain on the train split then evaluate; zero-shot is a baseline only.
 
 ---
 
@@ -21,9 +33,9 @@ Canonical Steam layout: `train.pkl`, `test.pkl`, `item_text_dict.pkl`, optional 
 
 ## Pretraining vs zero-shot
 
-| Approach               | When to use                                                                                    | Quality                                         |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain` or Python `pre_train.py`). | Best; model adapts to catalog and sequences.   |
+| Approach               | When to use                                                                                     | Quality                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain` or Python `pre_train.py`). | Best; model adapts to catalog and sequences.    |
 | **Zero-shot**          | No training; pretrained checkpoint + fixture only.                                              | Baseline; often below random on small catalogs. |
 
 Recommendation: Generate data with train, test, and cold. Pretrain on the train split, then run eval on test and cold_test. Use zero-shot only as a sanity check or when training is not available.
@@ -50,7 +62,16 @@ After `RecGPT.Steam.Fetch.run/1` (or `mix recgpt.fetch_steam data/steam`):
 
 **Order:** Fetch → build_fixture → pretrain → eval (with both `--test` and `--cold-test`).
 
-For full commands, options, and file layout, see [08 Pipeline reference](08_pipeline_reference.md).
+For full commands, options, and file layout, see [02 Pipeline reference](02_pipeline_reference.md).
+
+---
+
+## Sub-proposals
+
+- **Regular vs cold splits** (above) — Definitions and content.
+- **Pretraining vs zero-shot** (above) — When to use each.
+- **Artifacts (this repo)** (above) — File table and shapes.
+- **Pipeline order** (above) — Fetch → build_fixture → pretrain → eval.
 
 ---
 
@@ -64,5 +85,5 @@ For full commands, options, and file layout, see [08 Pipeline reference](08_pipe
 ## See also
 
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Zero-shot vs trained, null hypothesis.
-- [06 Eval data shapes](06_eval_data_shapes.md) — JSON shapes for these artifacts.
-- [08 Pipeline reference](08_pipeline_reference.md) — End-to-end commands and layout.
+- [04 Eval data shapes](04_eval_data_shapes.md) — JSON shapes for these artifacts.
+- [02 Pipeline reference](02_pipeline_reference.md) — End-to-end commands and layout.

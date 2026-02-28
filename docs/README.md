@@ -1,10 +1,16 @@
-# RecGPT documentation
+# Proposal: RecGPT Elixir library
 
-Documentation for the RecGPT Elixir library: modules, pipeline, evaluation, and data formats.
+This codebase is **one proposal**: an Elixir library for RecGPT-style sequential recommendation (FSQ, embeddings, training, inference, gRPC serving). Docs are in **user-facing order**: **gRPC API first**, then pipeline, library, data, eval, checkpoint, parity, and architecture. Each doc is a sub-proposal (problem → proposed improvement → sub-proposals). Start here, then follow links recursively.
 
 ---
 
-## Pipeline overview
+## Before you start
+
+- **Project overview:** [../README.md](../README.md) — Quick start, pipeline summary, mix tasks, tests.
+- **Pipeline order:** 1 → 2 → 3 → 4 (Fetch → build_fixture → pretrain → eval). Fixture and checkpoint are required for pretrain and eval.
+- **Module reference:** [03 RecGPT library](03_recgpt_library.md) — Modules, dependencies, test tags.
+
+### Pipeline overview
 
 ```mermaid
 flowchart LR
@@ -36,76 +42,56 @@ flowchart LR
   end
 ```
 
-Order: 1 → 2 → 3 → 4. See [08 Pipeline reference](08_pipeline_reference.md) for commands and options.
+---
+
+## Problem or limitation
+
+Sequential recommendation needs a **production-ready implementation** that: (1) matches the RecGPT paradigm (FSQ, hybrid attention, text-driven items); (2) runs entirely in Elixir/BEAM without Python at runtime; (3) provides a single reproducible pipeline from data to trained model and metrics; (4) exposes recommendations via a stable, implementable API (gRPC). Without a single specification and codebase that ties these together, implementations drift and evaluation is not comparable.
 
 ---
 
-## Start here
+## Proposed improvement
 
-- **[../README.md](../README.md)** — Project overview, quick start, pipeline summary, mix tasks, tests.
-- **[00_recgpt_library.md](00_recgpt_library.md)** — Module reference, dependencies, tests.
+Deliver one **RecGPT Elixir library** that:
 
----
+- **API (first):** gRPC-only; `PredictionService.Predict` (PredictRequest → PredictResponse). Authoritative contract in `recommendation.proto`; serve via `mix recgpt.serve`.
+- **Pipeline:** Fetch (Steam) → build fixture (Embedding + FSQ) → pretrain (AxonTrain) → eval (Hit@k, MRR, cold). All steps have commands and options; artifact layout is defined.
+- **Checkpoint:** PyTorch `.pt` or in-memory params → export (manifest + .npy) → `CheckpointLoader` → `Inference`. Key mapping and loader contract are specified.
+- **Evaluation:** Held-out test and cold-test; null hypothesis rejection (Hit@1 > random); zero-shot vs trained comparison.
+- **Architecture:** In-process inference; trie + beam search; optional ETS path for scaling. No Python in-repo; parity validated by tests.
 
-## By topic
-
-### Pipeline and data
-
-| Document                                                                 | Description                                                                                       |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| [08_pipeline_reference.md](08_pipeline_reference.md)                     | **End-to-end pipeline:** Fetch → build_fixture → pretrain → eval. Commands, options, file layout. |
-| [07_steam_splits_and_pretraining.md](07_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first for best quality, artifact layout.                         |
-| [06_eval_data_shapes.md](06_eval_data_shapes.md)                         | JSON shapes: test_sequences, items, fixture, train_sequences, cold.                               |
-
-### API
-
-| Contract or doc | Description |
-| --------------- | ------------ |
-| [priv/proto/recgpt/v1/recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto) | **Authoritative** gRPC API contract (PredictionService.Predict). |
-| [13_grpc_api.md](13_grpc_api.md) | gRPC messages, errors, and serve command. |
-
-### Checkpoint and model
-
-| Document                                                         | Description                                                                    |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [02_recgpt_checkpoint_layout.md](02_recgpt_checkpoint_layout.md) | Checkpoint state_dict, export (manifest + .npy), loader, mapping to inference. |
-
-### Evaluation and testing
-
-| Document                                                     | Description                                                                    |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [05_evaluation_and_testing.md](05_evaluation_and_testing.md) | Zero-shot vs trained, null hypothesis rejection, held-out eval, test commands. |
-
-### Parity and progress
-
-| Document                                                                   | Description                                                              |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [01_python_recgpt_parity_progress.md](01_python_recgpt_parity_progress.md) | Python RecGPT parity: task list, validation, integration tests.         |
-
-### Architecture (production recommender)
-
-gRPC-only; served by `mix recgpt.serve`. Read 11 → 17.
-
-| Document                                                           | Description                                               |
-| ------------------------------------------------------------------ | --------------------------------------------------------- |
-| [11_recgpt_paradigm.md](11_recgpt_paradigm.md)                     | FSQ, attention, pipeline modules.                         |
-| [12_dynamic_state_ets.md](12_dynamic_state_ets.md)                 | Trie, beam search, optional ETS.                          |
-| [13_grpc_api.md](13_grpc_api.md)                                   | gRPC API: Predict, messages, errors, serve.               |
-| [15_infrastructure_serving.md](15_infrastructure_serving.md)       | Run serve; optional Triton/edge.                          |
-| [16_architecture_conclusion.md](16_architecture_conclusion.md)     | Summary; pointers to 00, 08.                              |
-| [17_architecture_references.md](17_architecture_references.md)    | Works cited.                                              |
+Design is **specific and actionable**: each sub-proposal below can be implemented or extended from the doc alone.
 
 ---
 
-## Quick reference
+## Sub-proposals (user-facing order)
 
-| I want to…                                               | See                                                                                         |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Run the full pipeline (data → fixture → pretrain → eval) | [08_pipeline_reference.md](08_pipeline_reference.md), [../README.md](../README.md#pipeline) |
-| Call the recommendation API (gRPC)                       | [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto), [13_grpc_api.md](13_grpc_api.md) |
-| Understand cold vs regular splits                        | [07_steam_splits_and_pretraining.md](07_steam_splits_and_pretraining.md)                    |
-| Find a module’s purpose and API                          | [00_recgpt_library.md](00_recgpt_library.md)                                                |
-| Export or load a checkpoint                              | [02_recgpt_checkpoint_layout.md](02_recgpt_checkpoint_layout.md)                            |
-| Run eval and interpret metrics                           | [05_evaluation_and_testing.md](05_evaluation_and_testing.md)                                |
-| Generate or use test/fixture JSON                        | [06_eval_data_shapes.md](06_eval_data_shapes.md)                                            |
-| Read the architecture blueprint                          | [11_recgpt_paradigm.md](11_recgpt_paradigm.md), [16_architecture_conclusion.md](16_architecture_conclusion.md) |
+| #   | Proposal                                                                   | Problem / limitation                                               | Sub-proposals                                                                     |
+| --- | -------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| 01  | [01_grpc_api.md](01_grpc_api.md)                                           | Recommendation must have a stable, implementable contract.         | Predict RPC; Errors; Run the server.                                              |
+| 02  | [02_pipeline_reference.md](02_pipeline_reference.md)                       | Need one reproducible path from data to metrics.                   | Step 1–4: Generate data, Build fixture, Pretrain, Eval.                           |
+| 03  | [03_recgpt_library.md](03_recgpt_library.md)                               | Need a single module/dependency reference for the package.         | By area: FSQ, Fixture, Training, Inference, Serve, Eval, Checkpoint, Data.        |
+| 04  | [04_eval_data_shapes.md](04_eval_data_shapes.md)                           | Tests and tools need canonical JSON shapes.                        | Per-file: test_sequences, cold_test, items, fixture, train_sequences, cold_train. |
+| 05  | [05_evaluation_and_testing.md](05_evaluation_and_testing.md)               | Need to measure accuracy and reject the null baseline.             | Zero-shot vs trained; Null hypothesis; Held-out eval; Commands.                   |
+| 06  | [06_steam_splits_and_pretraining.md](06_steam_splits_and_pretraining.md)   | Train/test/cold semantics and artifact layout must be clear.       | Artifact table; cold split definition.                                            |
+| 07  | [07_recgpt_checkpoint_layout.md](07_recgpt_checkpoint_layout.md)           | RecGPT weights are PyTorch; Elixir needs export layout and loader. | Components; Export; Mapping to inference.                                         |
+| 08  | [08_python_recgpt_parity_progress.md](08_python_recgpt_parity_progress.md) | Track implementation vs. Python RecGPT without Python in-repo.     | By layer: Embeddings, FSQ, Training, Forward, Decode, Checkpoint, E2E.            |
+| 09  | [09_recgpt_paradigm.md](09_recgpt_paradigm.md)                             | Algorithmic foundations must be documented.                        | FSQ and semantic tokenization; Hybrid attention; Pipeline and modules.            |
+| 10  | [10_dynamic_state_ets.md](10_dynamic_state_ets.md)                         | Decoding must be catalog-aware; scaling may need ETS.              | Trie; Beam search; Future ETS.                                                    |
+| 11  | [11_infrastructure_serving.md](11_infrastructure_serving.md)               | Serving and deployment must be specified.                          | In-process inference; Run serve; Optional Triton/edge.                            |
+| 12  | [12_architecture_references.md](12_architecture_references.md)             | Claims and design must be citable.                                 | Works cited (RecGPT, beam/trie, ETS, gRPC).                                       |
+
+---
+
+## Quick reference (actionable)
+
+| I want to…                             | See                                                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Call the recommendation API (gRPC)** | [01 gRPC API](01_grpc_api.md), [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto), `mix recgpt.serve`              |
+| Run the full pipeline                  | [02 Pipeline reference](02_pipeline_reference.md), [../README.md](../README.md#pipeline)                                             |
+| Find a module's purpose and API        | [03 RecGPT library](03_recgpt_library.md)                                                                                            |
+| Generate or use test/fixture JSON      | [04 Eval data shapes](04_eval_data_shapes.md)                                                                                        |
+| Run eval and interpret metrics         | [05 Evaluation and testing](05_evaluation_and_testing.md)                                                                            |
+| Understand cold vs regular splits      | [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md)                                                                |
+| Export or load a checkpoint            | [07 Checkpoint layout](07_recgpt_checkpoint_layout.md)                                                                               |
+| Read the architecture blueprint        | [09 Paradigm](09_recgpt_paradigm.md), [10 Dynamic state](10_dynamic_state_ets.md), [11 Infrastructure](11_infrastructure_serving.md) |
