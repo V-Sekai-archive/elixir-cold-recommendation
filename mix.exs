@@ -15,6 +15,10 @@ defmodule RecGPT.MixProject do
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
+      dialyzer: [
+        plt_add_apps: [:mix],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      ],
       description:
         "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee."
     ]
@@ -43,7 +47,10 @@ defmodule RecGPT.MixProject do
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
       {:req, "~> 0.5"},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 0.6", only: :test},
+      {:benchee, "~> 1.3", only: :dev}
     ]
   end
 end

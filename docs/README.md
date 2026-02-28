@@ -96,6 +96,7 @@ This codebase ties the four requirements together in one specification and imple
 | 11  | [11_infrastructure_serving.md](11_infrastructure_serving.md)               | Serving and deployment must be specified.                          | In-process inference; Run serve; Optional Triton/edge.                            |
 | 12  | [12_architecture_references.md](12_architecture_references.md)             | Claims and design must be citable.                                 | Works cited (RecGPT, beam/trie, ETS, gRPC).                                       |
 | 13  | [13_layers_and_testing.md](13_layers_and_testing.md)                     | Layer boundaries and test strategy must be documented.              | Six layers (Artifacts → Application); dependency rule; test strategy per layer.    |
+| 14  | [14_top_tier_recommendations.md](14_top_tier_recommendations.md)           | Elevate the library to production-grade quality.                    | Typespecs/Dialyzer; integration test; health; property tests; benchmarks; release. |
 ---
 
 ## Quick reference (actionable)
@@ -111,4 +112,5 @@ This codebase ties the four requirements together in one specification and imple
 | Export or load a checkpoint            | [07 Checkpoint layout](07_recgpt_checkpoint_layout.md)                                                                               |
 | Use SQLite/Ecto for catalog storage   | [11 Infrastructure](11_infrastructure_serving.md#catalog-storage-object-store-semantics)                                                       |
 | Understand layers and test strategy   | [13 Layers and testing](13_layers_and_testing.md)                                                                                  |
+| Make the library top tier              | [14 Top-tier recommendations](14_top_tier_recommendations.md)                                                                      |
 | Read the architecture blueprint        | [09 Paradigm](09_recgpt_paradigm.md), [10 Dynamic state](10_dynamic_state_ets.md), [11 Infrastructure](11_infrastructure_serving.md) |

@@ -33,6 +33,7 @@ jobs:
           path: |
             deps
             _build
+            priv/plts
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-
@@ -45,6 +46,9 @@ jobs:
 
       - name: Unit tests (no download)
         run: mix test --no-start --exclude integration --exclude eval
+
+      - name: Dialyzer
+        run: mix dialyzer --format short
 
       - name: Prepare data dir
         run: mkdir -p data

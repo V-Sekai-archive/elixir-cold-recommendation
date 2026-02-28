@@ -30,6 +30,8 @@ defmodule RecGPT.Serve do
   Load server state: checkpoint export, fixture (token_id_list), optional catalog JSON.
   Returns {:ok, state} or {:error, reason}.
   """
+  @spec load_state(String.t(), String.t(), String.t() | nil) ::
+          {:ok, state()} | {:error, String.t()}
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
     with {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
@@ -113,6 +115,8 @@ defmodule RecGPT.Serve do
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
   """
+  @spec item_ids_to_context_token_ids([non_neg_integer()], [[non_neg_integer()]], non_neg_integer()) ::
+          [integer()]
   def item_ids_to_context_token_ids(item_ids, token_id_list, padding_id \\ @padding_id) do
     seq = Enum.take(item_ids, -@max_length)
     token_list = Enum.flat_map(seq, fn iid -> Enum.at(token_id_list, iid) || [0, 0, 0, 0] end)
@@ -124,6 +128,8 @@ defmodule RecGPT.Serve do
   @doc """
   Recommend next item(s) given context item_ids. Returns up to `top_k` item_ids (best first) from beam search.
   """
+  @spec recommend(state(), [non_neg_integer()], pos_integer()) ::
+          {:ok, [non_neg_integer()]} | {:error, String.t()}
   def recommend(state, item_ids, top_k \\ 5)
       when is_list(item_ids) and is_integer(top_k) and top_k >= 1 do
     if item_ids == [] do

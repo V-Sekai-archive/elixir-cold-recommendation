@@ -1,6 +1,7 @@
 # Elixir / Mix
 _build/
 deps/
+priv/plts/
 .elixir_ls/
 cover/
 .cover/
@@ -21,6 +22,7 @@ Thumbs.db
 *.log
 logs/
 serve_e2e_data/
+bench/output/
 
 # Migration backups (do not commit)
 priv/repo/migrations_old/

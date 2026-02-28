@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
 
   ## Options
     * `--grpc-port` - gRPC port (default: 50051)
+    * `--health-port` - HTTP health port for readiness (default: 50052); 0 to disable
     * `--fixture` - Path to fixture JSON (default: data/serve_e2e_fixture.json)
     * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--catalog` - Optional path to catalog JSON (item_id -> text)
@@ -15,6 +16,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
   ## Environment
     * RECGPT_FIXTURE - override fixture path
     * RECGPT_CKPT_EXPORT - override checkpoint export dir
+    * RECGPT_HEALTH_PORT - health HTTP port (default 50052); set to 0 to disable
 
   ## Examples
       mix recgpt.serve
@@ -26,10 +28,19 @@ defmodule Mix.Tasks.Recgpt.Serve do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [grpc_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
+        switches: [grpc_port: :integer, health_port: :integer, fixture: :string, ckpt: :string, catalog: :string]
       )
 
     grpc_port = opts[:grpc_port] || 50051
+    health_port =
+      opts[:health_port] ||
+        (case System.get_env("RECGPT_HEALTH_PORT") do
+           nil -> nil
+           s -> case Integer.parse(s) do
+                  {n, _} -> n
+                  :error -> nil
+                end
+         end)
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
@@ -53,6 +64,14 @@ defmodule Mix.Tasks.Recgpt.Serve do
         children = [
           {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
         ]
+        children =
+          if is_integer(health_port) and health_port == 0 do
+            children
+          else
+            port = if is_integer(health_port) and health_port > 0, do: health_port, else: 50052
+            Mix.shell().info("Health: 0.0.0.0:#{port} GET /")
+            [{RecGPT.HealthServer, port} | children]
+          end
         {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
         Process.sleep(:infinity)
 

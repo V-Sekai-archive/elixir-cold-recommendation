@@ -23,6 +23,12 @@ defmodule RecGPT.Decode do
 
   Returns `{:ok, item_id}` for the best candidate, or `:not_found` if no complete catalog match.
   """
+  @spec beam_search(
+          (list(non_neg_integer()) -> Nx.Tensor.t()),
+          map(),
+          [non_neg_integer()],
+          pos_integer()
+        ) :: {:ok, non_neg_integer()} | :not_found
   def beam_search(get_logits_fn, trie, context_token_ids, beam_width \\ 4)
       when is_function(get_logits_fn, 1) and is_map(trie) and beam_width >= 1 do
     # Beam: list of {token_list_for_current_item, log_sum_score}. Start with empty prefix.
@@ -58,6 +64,12 @@ defmodule RecGPT.Decode do
   Deduplicates by item_id (keeps highest-scoring). Uses `beam_width = max(4, top_k)` internally.
   Returns `{:ok, [item_id, ...]}` or `:not_found`.
   """
+  @spec beam_search_top_k(
+          (list(non_neg_integer()) -> Nx.Tensor.t()),
+          map(),
+          [non_neg_integer()],
+          pos_integer()
+        ) :: {:ok, [non_neg_integer()]} | :not_found
   def beam_search_top_k(get_logits_fn, trie, context_token_ids, top_k)
       when is_function(get_logits_fn, 1) and is_map(trie) and top_k >= 1 do
     beam_width = max(4, top_k)

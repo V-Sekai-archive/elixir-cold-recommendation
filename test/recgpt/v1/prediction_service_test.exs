@@ -65,6 +65,7 @@ defmodule Recgpt.V1.PredictionServiceTest do
       end
     end
 
+    # Satisfies full-flow integration test (docs/14_top_tier_recommendations.md).
     test "full flow: load_state then predict returns valid response" do
       Application.ensure_all_started(:nx)
 

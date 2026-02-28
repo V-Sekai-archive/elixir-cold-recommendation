@@ -133,7 +133,14 @@ Errors use gRPC status (e.g. INVALID_ARGUMENT, UNAVAILABLE). See [recommendation
 | [docs/04_eval_data_shapes.md](docs/04_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
 | [docs/06_steam_splits_and_pretraining.md](docs/06_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |
 | [docs/02_pipeline_reference.md](docs/02_pipeline_reference.md) | End-to-end pipeline: commands, options, file layout. |
+| [docs/14_top_tier_recommendations.md](docs/14_top_tier_recommendations.md) | Top-tier improvements: typespecs, Dialyzer, integration test, health, benchmarks. |
 | [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) | gRPC API contract (PredictionService.Predict). |
+
+---
+
+## Versioning
+
+See [CHANGELOG.md](CHANGELOG.md). Bump the version in `mix.exs` and tag releases (e.g. `v0.2.0`) for meaningful releases.
 
 ---
 

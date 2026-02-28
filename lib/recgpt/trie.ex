@@ -13,6 +13,7 @@ defmodule RecGPT.Trie do
   Build a trie from token_id_list. Each element is a list of 4 token IDs (0..vocab_size-1).
   Returns an opaque trie (nested map); use `lookup/2` and `valid_next_tokens/2`.
   """
+  @spec build([[non_neg_integer()]]) :: map()
   def build(token_id_list) when is_list(token_id_list) do
     Enum.reduce(Enum.with_index(token_id_list), %{}, fn {tokens, item_id}, acc ->
       case tokens do
@@ -36,6 +37,7 @@ defmodule RecGPT.Trie do
   @doc """
   Lookup item_id for a complete 4-token sequence. Returns `{:ok, item_id}` or `:not_found`.
   """
+  @spec lookup(map(), [non_neg_integer(), ...]) :: {:ok, non_neg_integer()} | :not_found
   def lookup(trie, [t0, t1, t2, t3]) when is_map(trie) do
     case get_in(trie, [t0, t1, t2, t3]) do
       nil -> :not_found
@@ -50,6 +52,7 @@ defmodule RecGPT.Trie do
   Return list of valid next token IDs that extend `prefix` to some catalog item.
   `prefix` is 0..3 tokens (e.g. [] for first token, [t0] for second, [t0,t1,t2] for fourth).
   """
+  @spec valid_next_tokens(map(), [] | [non_neg_integer(), ...]) :: [non_neg_integer()]
   def valid_next_tokens(trie, []) when is_map(trie), do: Map.keys(trie)
 
   def valid_next_tokens(trie, [h | t]) when is_map(trie) do
@@ -65,5 +68,6 @@ defmodule RecGPT.Trie do
   def valid_next_tokens(_, _), do: []
 
   @doc "Number of tokens per item (4)."
+  @spec seq_len() :: 4
   def seq_len, do: @seq_len
 end

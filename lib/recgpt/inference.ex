@@ -25,6 +25,7 @@ defmodule RecGPT.Inference do
   embed_mask: (batch, seq_len, 1), params: map from CheckpointLoader.
   Returns logits (batch, 15_361) for the last position.
   """
+  @spec forward(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map()) :: Nx.Tensor.t()
   def forward(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
     # Last position only: (batch, 768) -> (batch, 15_361)
@@ -37,6 +38,7 @@ defmodule RecGPT.Inference do
   Full-sequence forward for training. Same as forward/4 but returns logits for every position.
   Returns logits (batch, seq_len, 15_361) for use with Training.loss_shifted_ce/2.
   """
+  @spec forward_full_sequence(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map()) :: Nx.Tensor.t()
   def forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
     apply_head(hidden, params)

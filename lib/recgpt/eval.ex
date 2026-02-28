@@ -29,6 +29,7 @@ defmodule RecGPT.Eval do
   - `:random_hit_at_1` - 1/catalog_size (null baseline)
   - `:rejects_null` - true if Hit@1 > random_hit_at_1 (model beats random baseline)
   """
+  @spec evaluate(RecGPT.Serve.state(), [map()], keyword()) :: map()
   def evaluate(state, test_cases, opts \\ []) do
     top_k = Keyword.get(opts, :top_k, 10)
     top_k = min(top_k, 20)
@@ -83,6 +84,7 @@ defmodule RecGPT.Eval do
   Expected keys: `"test_cases"` (list of `{"context": [id, ...], "next_item": id}`).
   Returns `{:ok, list}` or `{:error, reason}`.
   """
+  @spec load_test_cases(String.t()) :: {:ok, [map()]} | {:error, String.t()}
   def load_test_cases(path) do
     if File.regular?(path) do
       raw = File.read!(path) |> Jason.decode!()
