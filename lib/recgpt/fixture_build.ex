@@ -67,7 +67,8 @@ defmodule RecGPT.FixtureBuild do
   end
 
   defp fsq_params_ok?(%{"project_in" => %{"kernel" => k}, "project_out" => %{"kernel" => o}})
-       when not is_nil(k) and not is_nil(o), do: true
+       when not is_nil(k) and not is_nil(o),
+       do: true
 
   defp fsq_params_ok?(_), do: false
 end
