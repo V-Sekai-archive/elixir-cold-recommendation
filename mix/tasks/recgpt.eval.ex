@@ -47,6 +47,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
     catalog_path = opts[:catalog]
 
     Application.ensure_all_started(:nx)
+    Application.ensure_all_started(:recgpt)
 
     with {:ok, state} <- RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path),
          {:ok, test_cases} <- RecGPT.Eval.load_test_cases(test_path) do

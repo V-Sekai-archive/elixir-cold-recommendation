@@ -15,7 +15,10 @@ defmodule Recgpt.V1.PredictionService.Server do
 
   def predict(request, _stream) do
     state = Application.get_env(:recgpt, :serve_state)
-    if is_nil(state), do: raise(GRPC.RPCError, status: :unavailable, message: "Service not ready")
+
+    unless state do
+      raise GRPC.RPCError, status: :unavailable, message: "Service not ready"
+    end
 
     context_ids = request.context_item_ids || []
     raw_max = request.max_results || 0
@@ -33,11 +36,14 @@ defmodule Recgpt.V1.PredictionService.Server do
         message: "context_item_ids must not be empty"
     end
 
-    case RecGPT.Serve.recommend(state, context_ids, max_results) do
+    result = RecGPT.Serve.recommend(state, context_ids, max_results)
+    item_text = state.item_text
+
+    case result do
       {:ok, item_ids} ->
         items =
           Enum.map(item_ids, fn id ->
-            display = display_name(Map.get(state.item_text, id))
+            display = display_name(Map.get(item_text, id))
             %ItemSummary{item_id: id, display_name: display}
           end)
 

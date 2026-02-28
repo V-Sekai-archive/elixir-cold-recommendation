@@ -18,7 +18,7 @@ defmodule RecGPT.ReleaseTasks do
   Optional: RECGPT_GRPC_PORT (default 50051), RECGPT_HEALTH_PORT (default 50052; 0 to disable), RECGPT_CATALOG.
   """
   def serve do
-    Application.ensure_all_started(:nx)
+    Application.ensure_all_started(:recgpt)
     fixture_path = System.get_env("RECGPT_FIXTURE")
     ckpt_dir = System.get_env("RECGPT_CKPT_EXPORT")
 
@@ -33,7 +33,6 @@ defmodule RecGPT.ReleaseTasks do
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
-
         children = [
           {GRPC.Server.Supervisor,
            endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}

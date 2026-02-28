@@ -39,9 +39,14 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     Application.ensure_all_started(:bumblebee)
 
     Mix.shell().info("Building fixture from #{items_path}...")
-    fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir)
-    :ok = RecGPT.FixtureBuild.write_fixture(fixture, out_path)
-    Mix.shell().info("Wrote #{out_path} (num_items=#{fixture["num_items"]})")
+
+    try do
+      fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir)
+      :ok = RecGPT.FixtureBuild.write_fixture(fixture, out_path)
+      Mix.shell().info("Wrote #{out_path} (num_items=#{fixture["num_items"]})")
+    rescue
+      e -> Mix.raise("Fixture build failed: #{Exception.message(e)}")
+    end
   end
 
   defp resolve(path) do

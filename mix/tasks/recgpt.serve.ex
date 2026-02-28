@@ -62,7 +62,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
 
     catalog_path = opts[:catalog]
 
-    Application.ensure_all_started(:nx)
+    Application.ensure_all_started(:recgpt)
 
     Mix.shell().info("Loading model and fixture...")
 

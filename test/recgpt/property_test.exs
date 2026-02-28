@@ -6,7 +6,7 @@ defmodule RecGPT.PropertyTest do
 
   @vocab_max 15_359
 
-  property "trie build and lookup round-trip: item_id maps back via token list" do
+  test "trie build and lookup round-trip: item_id maps back via token list" do
     four_tokens =
       StreamData.list_of(StreamData.integer(0..@vocab_max), min_length: 4, max_length: 4)
 

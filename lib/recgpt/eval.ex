@@ -34,6 +34,8 @@ defmodule RecGPT.Eval do
     top_k = Keyword.get(opts, :top_k, 10)
     top_k = min(top_k, 20)
 
+    recommend_fn = fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
+
     {h1, h5, h10, rr_sum, n} =
       Enum.reduce(test_cases, {0, 0, 0, 0.0, 0}, fn tc,
                                                     {acc_h1, acc_h5, acc_h10, acc_rr, acc_n} ->
@@ -43,7 +45,7 @@ defmodule RecGPT.Eval do
         if context == [] or next_item == nil do
           {acc_h1, acc_h5, acc_h10, acc_rr, acc_n}
         else
-          case RecGPT.Serve.recommend(state, context, top_k) do
+          case recommend_fn.(context, top_k) do
             {:ok, preds} ->
               preds = List.wrap(preds)
               idx = index_of(preds, next_item)
