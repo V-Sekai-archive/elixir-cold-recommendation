@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package recgpt.v1;
+
+import "google/api/annotations.proto";
+
+// =============================================================================
+// Authoritative API contract (gRPC + REST). REST mapping and behaviour below.
+// google.api.http options enable gRPC–REST transcoding (e.g. grpc-gateway).
+// For protoc, use -I with googleapis to resolve the import.
+// =============================================================================
+//
+// Base URL: all endpoints under /v1/. Other paths return 404.
+//
+// RPC / REST mapping:
+//   PredictionService.Predict (PredictRequest → PredictResponse)
+//     → POST /v1/catalog:recommend  [body: PredictRequest, response: PredictResponse]
+//   — GET /v1/catalog/items  (REST-only; q, pageSize; response shape = ItemSummary[])
+//   — GET /v1/health         (REST-only; {"status":"ok"})
+//   CatalogItem — for future ingest/update (not yet implemented).
+//
+// POST /v1/catalog:recommend
+//   Request: context_item_ids (required, non-empty), max_results (optional, default 5, max 20).
+//   Response: item_ids (ordered recommended IDs), items (ItemSummary: item_id, display_name).
+//   JSON: snake_case; camelCase accepted in request body.
+//
+// GET /v1/catalog/items
+//   Query: q (string, search substring), pageSize (int, default 20, cap 100).
+//   Response: items = array of ItemSummary-like objects.
+//
+// GET /v1/health — readiness; 200 {"status":"ok"}.
+//
+// Errors (Google-style JSON, AIP-193): error.code, error.message, error.status.
+//   400 INVALID_ARGUMENT — bad request/params.
+//   404 NOT_FOUND — path not supported.
+//   503 UNAVAILABLE — service not ready (fixture/checkpoint not loaded).
+//
+// Server: mix recgpt.serve --port 8000 (fixture + checkpoint export dir required).
+//
+// Embedding: api_prefix (default "v1"), rest_error_domain (default "recgpt.googleapis.com"),
+// item_extra (per-item enrichment), optional request fields (ignored but allowed).
+// One server instance = one catalog; catalog = fixture + catalog at load time.
+
+service PredictionService {
+  rpc Predict (PredictRequest) returns (PredictResponse) {
+    option (google.api.http) = {
+      post: "/v1/catalog:recommend"
+      body: "*"
+    };
+  }
+}
+
+message PredictRequest {
+  repeated int32 context_item_ids = 1;
+  int32 max_results = 2;
+}
+
+message PredictResponse {
+  repeated int32 item_ids = 1;
+  repeated ItemSummary items = 2;
+}
+
+message ItemSummary {
+  int32 item_id = 1;
+  string display_name = 2;
+}
+
+// Catalog item for ingest/update (e.g. CatalogService). Slug is the URL-friendly identifier
+// (e.g. Polymarket outcome slug). content_jsonld is the item's primary data as Dublin Core
+// XMP JSON-LD (dc:title, dc:description, etc.). catalog_ids names which database/catalog(s)
+// we're searching in (e.g. "uci_clickstream", "polymarket_outcomes") for scoping.
+message CatalogItem {
+  string item_id = 1;        // Primary key (e.g. external or internal ID).
+  string slug = 2;           // URL-friendly identifier (e.g. market slug).
+  string content_jsonld = 3; // Primary item data as Dublin Core XMP JSON-LD (title, description, etc.).
+  repeated string catalog_ids = 4;  // Which catalog(s) this item belongs to; scope for search.
+}

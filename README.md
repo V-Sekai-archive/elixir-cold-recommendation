@@ -57,7 +57,7 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`, `--fsq`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
 | `mix recgpt.eval` | Run next-item eval (Hit@k, MRR) on test + cold-test sets. Requires fixture, checkpoint, and both test files. |
-| `mix recgpt.serve` | Start REST API: GET /v1/catalog/items, POST /v1/catalog:recommend, GET /v1/health. |
+| `mix recgpt.serve` | Start REST (port 8000) and gRPC (port 50051): catalog items, recommend, health; gRPC Predict. |
 
 Paths default to `data/clickstream/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
@@ -115,13 +115,13 @@ See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [
 
 ## REST API (serve)
 
-RESTful API following [Google API Design Guide](https://cloud.google.com/apis/design). Unified gRPC+REST: [docs/13](docs/13_grpc_rest_api.md), [docs/14](docs/14_api_schemas.md). REST: [docs/09](docs/09_rest_api.md). Only `/v1/` endpoints are served.
+RESTful API following [Google API Design Guide](https://cloud.google.com/apis/design). gRPC (PredictionService/Predict) and REST: [docs/13](docs/13_grpc_rest_api.md). Authoritative contract and REST mapping: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). Only `/v1/` endpoints are served.
 
 - **GET /v1/catalog/items?q=...&pageSize=20** — List (search) catalog items; response: `{"items": [{"item_id", "display_name"}]}`.
 - **POST /v1/catalog:recommend** — Body: `{"context_item_ids": [0,1,2], "max_results": 5}` → `{"item_ids": [...], "items": [...]}`.
 - **GET /v1/health** — Readiness: `{"status": "ok"}`.
 
-Errors return a JSON body with `error.code`, `error.message`, `error.status`. See [docs/09_rest_api.md](docs/09_rest_api.md).
+Errors return a JSON body with `error.code`, `error.message`, `error.status`. See [recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) (Errors section in file comment).
 
 ---
 
@@ -139,7 +139,7 @@ Errors return a JSON body with `error.code`, `error.message`, `error.status`. Se
 | [docs/06_eval_data_shapes.md](docs/06_eval_data_shapes.md) | JSON shapes: test_sequences, items, fixture, train_sequences, cold. |
 | [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md) | Train/test/cold splits, pretrain-first pipeline. |
 | [docs/08_pipeline_reference.md](docs/08_pipeline_reference.md) | End-to-end pipeline: commands, options, file layout. |
-| [docs/09_rest_api.md](docs/09_rest_api.md) | REST API (Google API Design Guide): endpoints, errors, flexibility. |
+| [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto) | API contract and REST mapping (endpoints, errors, embedding options). |
 
 ---
 
