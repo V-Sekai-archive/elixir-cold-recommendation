@@ -125,6 +125,7 @@ Tests live in `test/recgpt/*_test.exs` and `test/support/recgpt/`.
 - **Evaluation:** [05 Evaluation and testing](05_evaluation_and_testing.md).
 - **Checkpoint:** [07 Checkpoint layout](07_recgpt_checkpoint_layout.md).
 - **API:** [01 gRPC API](01_grpc_api.md).
+- **Layer boundaries and test strategy:** [13 Layers and testing](13_layers_and_testing.md) — Maps module areas to layers (e.g. Core: FSQ and embeddings → Layer 2: Representation).
 
 ---
 
