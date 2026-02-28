@@ -90,13 +90,8 @@ defmodule RecGPT.Serve do
               if is_integer(id), do: Map.put(acc, id, text), else: acc
             end)
 
-          map when is_map(map) ->
-            Enum.reduce(map, %{}, fn {k, v}, acc ->
-              case Integer.parse(to_string(k)) do
-                {id, _} -> Map.put(acc, id, v)
-                :error -> acc
-              end
-            end)
+          _ ->
+            %{}
         end
 
       {:ok, item_text}

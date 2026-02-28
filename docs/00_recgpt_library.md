@@ -12,7 +12,7 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.FSQ**        | Finite Scalar Quantization: levels [8,8,8,6,5], 4 tokens per item, vocab 15360 + padding. `load_params/1`, `encode/2`, `codes_to_indices/1`, `indices_to_codes/2`.        |
 | **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: embeddings + FSQ params → list of 4-token lists.                         |
-| **RecGPT.Embedding**  | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_texts/1`, `encode_item_text_dict/1`. |
+| **RecGPT.Embedding**  | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_item_text_dict/1`. |
 
 ### Fixture and training data
 
@@ -54,7 +54,7 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 
 | Module                 | Purpose                                                                                       |
 | ---------------------- | --------------------------------------------------------------------------------------------- |
-| **RecGPT.Steam.Fetch** | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/2`. |
+| **RecGPT.Steam.Fetch** | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/1`. |
 
 ### HTTP and application
 

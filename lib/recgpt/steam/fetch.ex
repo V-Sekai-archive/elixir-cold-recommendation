@@ -13,11 +13,8 @@ defmodule RecGPT.Steam.Fetch do
   @doc """
   Downloads pkl files, unpickles them, and writes JSON to `out_dir`.
   Returns `:ok` or `{:error, reason}`.
-
-  Options:
-  - `:out_dir` — output directory (default: "data/steam")
   """
-  def run(out_dir \\ "data/steam", _opts \\ []) do
+  def run(out_dir \\ "data/steam") do
     dir = Path.expand(out_dir, File.cwd!())
     File.mkdir_p!(dir)
     Application.ensure_all_started(:req)

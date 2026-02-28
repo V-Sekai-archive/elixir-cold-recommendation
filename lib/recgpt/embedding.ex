@@ -50,8 +50,7 @@ defmodule RecGPT.Embedding do
     serving
   end
 
-  @doc "Encodes a list of texts to a single Nx tensor of shape {num_texts, 768}."
-  def encode_texts(texts) when is_list(texts) do
+  defp encode_texts(texts) when is_list(texts) do
     serv = serving()
     results = Nx.Serving.run(serv, texts)
     tensors = Enum.map(results, fn %{embedding: t} -> t end)

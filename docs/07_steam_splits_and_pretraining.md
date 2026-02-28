@@ -32,7 +32,7 @@ Recommendation: Generate data with train, test, and cold. Pretrain on the train 
 
 ## Artifacts (this repo)
 
-After `RecGPT.Steam.Fetch.run/2` (or `mix recgpt.fetch_steam data/steam`):
+After `RecGPT.Steam.Fetch.run/1` (or `mix recgpt.fetch_steam data/steam`):
 
 | File                        | Shape                                                     | Use                                                                      |
 | --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -42,7 +42,7 @@ After `RecGPT.Steam.Fetch.run/2` (or `mix recgpt.fetch_steam data/steam`):
 | `cold_test_sequences.json`  | Same as test_sequences                                    | Eval; cold-start. **Required** for `mix recgpt.eval`. Produced by Fetch. |
 | `cold_train_sequences.json` | Same as train_sequences                                   | Train sequences containing at least one cold item.                       |
 
-**Train/test split:** e.g., 80% of sessions → train, 20% → test (last-item-out). **Cold split:** Items that appear in ≤ K sessions in train are “cold” (default K=2). Cold_test = test cases whose `next_item` is cold; cold_train = train sequences that contain at least one cold item. Fetch always writes both cold files. Override K via `run/2` opts: `:max_train_sessions_for_cold`.
+**Train/test split:** e.g., 80% of sessions → train, 20% → test (last-item-out). **Cold split:** Items that appear in ≤ K sessions in train are “cold” (default K=2). Cold_test = test cases whose `next_item` is cold; cold_train = train sequences that contain at least one cold item. Fetch always writes both cold files. Cold K is fixed in the dataset.
 
 ---
 
