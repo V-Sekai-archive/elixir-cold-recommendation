@@ -108,4 +108,5 @@ This codebase ties the four requirements together in one specification and imple
 | Run eval and interpret metrics         | [05 Evaluation and testing](05_evaluation_and_testing.md)                                                                            |
 | Understand cold vs regular splits      | [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md)                                                                |
 | Export or load a checkpoint            | [07 Checkpoint layout](07_recgpt_checkpoint_layout.md)                                                                               |
+| Use SQLite/Ecto for catalog storage   | [11 Infrastructure](11_infrastructure_serving.md#catalog-storage-object-store-semantics)                                                       |
 | Read the architecture blueprint        | [09 Paradigm](09_recgpt_paradigm.md), [10 Dynamic state](10_dynamic_state_ets.md), [11 Infrastructure](11_infrastructure_serving.md) |
