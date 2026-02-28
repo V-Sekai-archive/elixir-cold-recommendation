@@ -33,10 +33,10 @@ Canonical Steam layout: `train.pkl`, `test.pkl`, `item_text_dict.pkl`, optional 
 
 ## Pretraining vs zero-shot
 
-| Approach               | When to use                                                                                     | Quality                                         |
-| ---------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Approach               | When to use                                                            | Quality                                         |
+| ---------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
 | **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain`). | Best; model adapts to catalog and sequences.    |
-| **Zero-shot**          | No training; pretrained checkpoint + fixture only.                                              | Baseline; often below random on small catalogs. |
+| **Zero-shot**          | No training; pretrained checkpoint + fixture only.                     | Baseline; often below random on small catalogs. |
 
 Recommendation: Generate data with train, test, and cold. Pretrain on the train split, then run eval on test and cold_test. Use zero-shot only as a sanity check or when training is not available.
 

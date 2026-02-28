@@ -33,15 +33,15 @@ Maintain **parity progress** docs: at-a-glance table, reference-to-Elixir mappin
 
 ## Reference to Elixir mapping
 
-| Reference (RecGPT repo)                                    | Elixir (recgpt)                                                            | Notes                                                                      |
-| ------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity via unit tests.                                      |
-| Token list (reference)                                 | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Unit and pipeline integration tests.                                       |
-| FSQ (reference: levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | Unit tests.                                                                |
-| VAE weights `vae_len4_fsq88865_ep90.pt`                 | Weights from export → `FSQ.load_params/1`                                  | Encoder logic in Elixir; export via `mix recgpt.export_ckpt` or reference. |
-| `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                               |
+| Reference (RecGPT repo)                                 | Elixir (recgpt)                                                            | Notes                                                                                                                       |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| sentence-transformers / MPNet 768-d                     | `RecGPT.Embedding` (Bumblebee, all-mpnet-base-v2)                          | Same model id; parity via unit tests.                                                                                       |
+| Token list (reference)                                  | `RecGPT.FSQEncoder.encode_embeddings_to_token_id_list/3`                   | Unit and pipeline integration tests.                                                                                        |
+| FSQ (reference: levels, bound, quantize, codes↔indices) | `RecGPT.FSQ`                                                               | Unit tests.                                                                                                                 |
+| VAE weights `vae_len4_fsq88865_ep90.pt`                 | Weights from export → `FSQ.load_params/1`                                  | Encoder logic in Elixir; export via `mix recgpt.export_ckpt` or reference.                                                  |
+| `GPT2RecBatchTrainAuxData`, batch build, loss           | `RecGPT.Training.build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2` | No model forward in package.                                                                                                |
 | Pretrain / Eval                                         | `mix recgpt.pretrain` / `mix recgpt.eval`                                  | Full pipeline in Elixir; see [02](02_pipeline_overview.md), [03](03_pipeline_steps.md), [06](06_evaluation_and_testing.md). |
-| Serve (reference: HTTP)                                 | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | gRPC only: recgpt.v1.PredictionService/Predict (see recommendation.proto). |
+| Serve (reference: HTTP)                                 | **`RecGPT.Serve` + `mix recgpt.serve`**                                    | gRPC only: recgpt.v1.PredictionService/Predict (see recommendation.proto).                                                  |
 
 ---
 
@@ -50,7 +50,7 @@ Maintain **parity progress** docs: at-a-glance table, reference-to-Elixir mappin
 | Area                                           | Parity                      | Blocker / note                                                               |
 | ---------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------- |
 | Embeddings                                     | ✅ Implemented              | Same model id; unit tested.                                                  |
-| FSQ + FSQEncoder                               | ✅ Implemented, unit tested | Same logic as reference.                                                        |
+| FSQ + FSQEncoder                               | ✅ Implemented, unit tested | Same logic as reference.                                                     |
 | Training data + loss                           | ✅ Implemented              | Same shapes and loss as paper.                                               |
 | Checkpoint loader                              | ✅ Implemented              | `CheckpointLoader.load_from_export/1`; export via `mix recgpt.export_ckpt`.  |
 | Inference forward (embed + aux + GPT-2 + head) | ✅ Implemented              | `RecGPT.Inference.forward/4`; full backbone when params have gpt2model.h.\*. |

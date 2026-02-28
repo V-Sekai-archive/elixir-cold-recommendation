@@ -1,4 +1,4 @@
-# Quality assurance
+﻿# Quality assurance
 
 Sub-proposal of the [documentation index](README.md). How to run the quality-assurance checklist so the codebase stays lint-clean, type-checked, and tested.
 
@@ -13,6 +13,8 @@ Before merging or releasing, there must be a single reference for which checks t
 ## Proposed improvement
 
 Run a fixed sequence of checks before merge or release. All must pass. This doc is the single reference for what to run and what pass means.
+
+**Validation backwards from here:** Running this QA checklist is how you validate that the implementation works. Steps 1–5 confirm the codebase builds and passes tests; step 6 (with pipeline and RECGPT\_\* env) confirms eval with real weights. This doc is the single pass/fail gate for use.
 
 ## QA checklist (run in order)
 

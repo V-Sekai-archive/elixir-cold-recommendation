@@ -79,12 +79,18 @@ This codebase ties the four requirements together in one specification and imple
 
 **End-to-end:** A single test exercises the full stack in-process: `Serve.load_state` (fixture + checkpoint) → state in application env → `PredictionService.Server.predict` → valid `PredictResponse`. That confirms data → model → API is wired correctly in this codebase.
 
+### How to validate (backwards from 23)
+
+To validate that the **library works when you use it**, run the QA checklist ([23](23_quality_assurance.md)). Steps 1–5 (compile, format, Credo, unit tests, Dialyzer) need no pipeline; they confirm the codebase builds and passes tests. Step 6 (Steam top-k) requires running the pipeline (fetch*steam, build_fixture, pretrain) and setting RECGPT*\* env; when it passes, the library behaves correctly with real data. That checklist is the single pass/fail gate for use.
+
+Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` and call Predict (e.g. via grpcurl per [01](01_grpc_api.md#quick-test)), or run eval with your own fixture and checkpoints — all of these exercise the library in use.
+
 ### Feature status
 
-| Source | Done | Total | Notes |
-| ------ | ---- | ----- | ----- |
-| [22 Top-tier recommendations](22_top_tier_recommendations.md) | 6 | 6 | All recommended improvements done. |
-| [10 Parity by layer](10_parity_layers.md) | 31 | 32 | 1 optional (numerical parity: Elixir forward vs reference logits). |
+| Source                                                        | Done | Total | Notes                                                              |
+| ------------------------------------------------------------- | ---- | ----- | ------------------------------------------------------------------ |
+| [22 Top-tier recommendations](22_top_tier_recommendations.md) | 6    | 6     | All recommended improvements done.                                 |
+| [10 Parity by layer](10_parity_layers.md)                     | 31   | 32    | 1 optional (numerical parity: Elixir forward vs reference logits). |
 
 ---
 
@@ -100,7 +106,7 @@ This codebase ties the four requirements together in one specification and imple
 | 06  | [06_evaluation_and_testing.md](06_evaluation_and_testing.md)               | Need to measure accuracy and reject the null baseline.             | Zero-shot vs trained; Null hypothesis; Held-out eval; Commands.                                           |
 | 07  | [07_steam_splits_and_pretraining.md](07_steam_splits_and_pretraining.md)   | Train/test/cold semantics and artifact layout must be clear.       | Artifact table; cold split definition.                                                                    |
 | 08  | [08_recgpt_checkpoint_layout.md](08_recgpt_checkpoint_layout.md)           | RecGPT weights are PyTorch; Elixir needs export layout and loader. | Components; Export; Mapping to inference.                                                                 |
-| 09  | [09_parity_overview.md](09_parity_overview.md)                             | Parity at a glance and reference mapping.                    | At a glance; mapping; summary. See [10](10_parity_layers.md) for per-layer.                               |
+| 09  | [09_parity_overview.md](09_parity_overview.md)                             | Parity at a glance and reference mapping.                          | At a glance; mapping; summary. See [10](10_parity_layers.md) for per-layer.                               |
 | 10  | [10_parity_layers.md](10_parity_layers.md)                                 | Per-layer parity task lists and validation.                        | Embeddings; FSQ; Training; Forward; Decode; Checkpoint; E2E.                                              |
 | 11  | [11_recgpt_paradigm.md](11_recgpt_paradigm.md)                             | Algorithmic foundations must be documented.                        | FSQ and semantic tokenization; Hybrid attention; Pipeline and modules.                                    |
 | 12  | [12_dynamic_state_ets.md](12_dynamic_state_ets.md)                         | Decoding must be catalog-aware; scaling may need ETS.              | Trie; Beam search; Future ETS.                                                                            |
