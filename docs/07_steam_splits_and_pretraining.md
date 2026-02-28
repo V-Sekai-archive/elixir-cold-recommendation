@@ -35,7 +35,7 @@ Canonical Steam layout: `train.pkl`, `test.pkl`, `item_text_dict.pkl`, optional 
 
 | Approach               | When to use                                                                                     | Quality                                         |
 | ---------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain` or Python `pre_train.py`). | Best; model adapts to catalog and sequences.    |
+| **Pretrain then eval** | You have a train split and run training (e.g., `mix recgpt.pretrain`). | Best; model adapts to catalog and sequences.    |
 | **Zero-shot**          | No training; pretrained checkpoint + fixture only.                                              | Baseline; often below random on small catalogs. |
 
 Recommendation: Generate data with train, test, and cold. Pretrain on the train split, then run eval on test and cold_test. Use zero-shot only as a sanity check or when training is not available.
@@ -78,7 +78,7 @@ For full commands, options, and file layout, see [02 Pipeline reference](02_pipe
 ## References
 
 - [hkuds/RecGPT_dataset — test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam) — `train.pkl`, `test.pkl`, `cold_train.pkl`, `cold_test.pkl`, `item_text_dict.pkl`, `item_text_embeddings.npy`.
-- RecGPT training: Python `pre_train.py`; Elixir `RecGPT.Training.build_train_batch/4`, `RecGPT.AxonTrain`.
+- RecGPT training: `RecGPT.Training.build_train_batch/4`, `RecGPT.AxonTrain`, `mix recgpt.pretrain`.
 
 ---
 
