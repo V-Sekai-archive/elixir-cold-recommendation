@@ -30,7 +30,7 @@ defmodule RecGPT.PtLoader do
     storage_map = build_storage_map(unzip, entries)
     data_pkl_path = find_data_pkl(entries)
     unless data_pkl_path, do: raise("data.pkl not found in zip (entries: #{inspect(entries)})")
-    data_pkl = read_zip_file!(unzip, data_pkl_path)
+    data_pkl = read_zip_file_or_raw!(unzip, data_pkl_path, binary)
 
     persistent_id_resolver = fn id ->
       resolve_persistent_id(id, storage_map)
@@ -78,6 +78,42 @@ defmodule RecGPT.PtLoader do
     unzip
     |> Unzip.file_stream!(path)
     |> Enum.reduce(<<>>, fn chunk, acc -> acc <> IO.iodata_to_binary(chunk) end)
+  end
+
+  # data.pkl in some PyTorch checkpoints has incorrect CRC in the zip; read raw without CRC check
+  defp read_zip_file_or_raw!(unzip, path, zip_binary) do
+    read_zip_file!(unzip, path)
+  rescue
+    e in [Unzip.Error] ->
+      if String.contains?(e.message, "CRC mismatch") do
+        read_zip_entry_raw!(zip_binary, path, unzip.cd_list)
+      else
+        reraise e, __STACKTRACE__
+      end
+  end
+
+  defp read_zip_entry_raw!(zip_binary, path, cd_list) when is_binary(zip_binary) do
+    entry = Map.get(cd_list, path)
+    unless entry, do: raise("Entry not in cd_list: #{inspect(path)}")
+
+    offset = entry.local_header_offset
+    <<_::binary-size(26), name_len::little-16, extra_len::little-16>> =
+      binary_part(zip_binary, offset, 30)
+
+    data_start = offset + 30 + name_len + extra_len
+    data = binary_part(zip_binary, data_start, entry.compressed_size)
+
+    if entry.compression_method == 0 do
+      data
+    else
+      # deflate (8): decompress with zlib
+      z = :zlib.open()
+      :zlib.inflateInit(z, -15)
+      out = :zlib.inflate(z, data)
+      :zlib.inflateEnd(z)
+      :zlib.close(z)
+      IO.iodata_to_binary(out)
+    end
   end
 
   defp resolve_persistent_id(id, storage_map) when is_tuple(id) do
@@ -128,6 +164,9 @@ defmodule RecGPT.PtLoader do
     {storage, offset, shape, stride} = extract_tensor_args(args)
 
     cond do
+      constructor =~ "collections.OrderedDict" ->
+        {:ok, Map.new(obj.set_items || [])}
+
       constructor =~ "rebuild_tensor" and storage != nil ->
         rebuild_tensor(storage, offset, shape, stride)
 
@@ -235,46 +274,46 @@ defmodule RecGPT.PtLoader do
   defp nx_dtype_to_bytes({f, bits}) when f in [:f, :s, :u], do: div(bits, 8)
   defp nx_dtype_to_bytes(_), do: 4
 
+  # When pickle shape product != actual element count, use 1-D shape so reshape never fails (generic .pt)
   defp maybe_fix_shape(shape, size) when is_tuple(shape) do
     product = Enum.reduce(Tuple.to_list(shape), 1, &*/2)
-    if product == 1 and size > 1, do: List.to_tuple([size]), else: shape
+    if product == size and product > 0, do: shape, else: List.to_tuple([size])
   end
 
   defp binary_to_nx(binary, {:f, 32}, shape) do
     size = div(byte_size(binary), 4)
     out_shape = maybe_fix_shape(shape, size)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :f32) |> Nx.reshape(flat_shape) |> Nx.reshape(out_shape)
+    Nx.from_binary(binary, :f32) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, {:f, 64}, shape) do
     size = div(byte_size(binary), 8)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :f64) |> Nx.reshape(flat_shape) |> Nx.reshape(shape)
+    out_shape = maybe_fix_shape(shape, size)
+    Nx.from_binary(binary, :f64) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, {:s, 64}, shape) do
     size = div(byte_size(binary), 8)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :s64) |> Nx.reshape(flat_shape) |> Nx.reshape(shape)
+    out_shape = maybe_fix_shape(shape, size)
+    Nx.from_binary(binary, :s64) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, {:s, 32}, shape) do
     size = div(byte_size(binary), 4)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :s32) |> Nx.reshape(flat_shape) |> Nx.reshape(shape)
+    out_shape = maybe_fix_shape(shape, size)
+    Nx.from_binary(binary, :s32) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, {:f, 16}, shape) do
     size = div(byte_size(binary), 2)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :f16) |> Nx.reshape(flat_shape) |> Nx.reshape(shape)
+    out_shape = maybe_fix_shape(shape, size)
+    Nx.from_binary(binary, :f16) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, {:u, 8}, shape) do
     size = byte_size(binary)
-    flat_shape = List.duplicate(1, size) |> List.to_tuple()
-    Nx.from_binary(binary, :u8) |> Nx.reshape(flat_shape) |> Nx.reshape(shape)
+    out_shape = maybe_fix_shape(shape, size)
+    Nx.from_binary(binary, :u8) |> Nx.reshape(out_shape)
   end
 
   defp binary_to_nx(binary, _, shape), do: binary_to_nx(binary, {:f, 32}, shape)
