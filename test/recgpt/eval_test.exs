@@ -72,9 +72,14 @@ defmodule RecGPT.EvalTest do
   end
 
   @tag :eval
-  test "load_test_cases loads synthetic test_sequences JSON" do
+  test "load_test_cases loads test_sequences JSON" do
     num_items = 20
-    payload = RecGPT.EvalFixtures.generate_test_sequences_json(num_items, 15)
+    test_cases =
+      for i <- 0..14 do
+        %{"context" => [rem(i, num_items)], "next_item" => rem(i + 1, num_items)}
+      end
+
+    payload = %{"num_items" => num_items, "test_cases" => test_cases}
 
     path =
       Path.join(
@@ -122,7 +127,7 @@ defmodule RecGPT.EvalTest do
     unless is_binary(test_file) and test_file != "" and File.regular?(test_file) do
       flunk("""
       Skipped (missing data): Set RECGPT_TEST_SEQUENCES to path to test_sequences.json (test_cases + num_items).
-      Use synthetic data: RecGPT.EvalFixtures.generate_test_sequences_json/3; see docs/06_eval_data_shapes.md.
+      See docs/06_eval_data_shapes.md for test_sequences.json format.
       """)
     end
 

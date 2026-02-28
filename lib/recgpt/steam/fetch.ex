@@ -135,7 +135,7 @@ defmodule RecGPT.Steam.Fetch do
     :ok
   end
 
-  defp ensure_pkl!(dir, filename, path) do
+  defp ensure_pkl!(_dir, filename, path) do
     unless File.regular?(path) do
       case download_pkl(@base_url, filename, path) do
         :ok -> :ok

@@ -23,6 +23,6 @@ The RecGPT transformer uses **bidirectional** attention over the tokens of a sin
 
 ## Pipeline and modules
 
-Data → fixture → pretrain → eval. Fixture building uses `RecGPT.FixtureBuild.build/3` (Embedding + FSQ → `token_id_list`); pretraining uses `RecGPT.AxonTrain` with the same checkpoint layout as inference. Checkpoints are `manifest.json` + `.npy`; they can be imported from PyTorch with `mix recgpt.export_ckpt`.
+Data → fixture → pretrain → eval. Fixture building uses `RecGPT.FixtureBuild.build/2` (Embedding + FSQ → `token_id_list`); pretraining uses `RecGPT.AxonTrain` with the same checkpoint layout as inference. Checkpoints are `manifest.json` + `.npy`; they can be imported from PyTorch with `mix recgpt.export_ckpt`.
 
 **Next:** [12_dynamic_state_ets.md](12_dynamic_state_ets.md) — Trie, beam search, optional ETS.

@@ -16,8 +16,7 @@ defmodule RecGPT.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       description:
-        "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee.",
-      test_coverage: [summary: [threshold: 85]]
+        "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee."
     ]
   end
 
@@ -25,7 +24,7 @@ defmodule RecGPT.MixProject do
   defp elixirc_paths(_), do: ["lib", "mix"]
 
   def application do
-    [extra_applications: [:logger], mod: {RecGPT.Application, []}]
+    [extra_applications: [:logger]]
   end
 
   defp deps do

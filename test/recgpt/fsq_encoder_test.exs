@@ -52,34 +52,6 @@ defmodule RecGPT.FSQEncoderTest do
     end
   end
 
-  describe "load_embeddings_from_npy/1" do
-    test "raises on missing file" do
-      path =
-        Path.join(
-          System.tmp_dir!(),
-          "recgpt_nonexistent_#{:erlang.unique_integer([:positive])}.npy"
-        )
-
-      assert_raise RuntimeError, ~r/Failed to load embeddings/, fn ->
-        FSQEncoder.load_embeddings_from_npy(path)
-      end
-    end
-
-    test "loads tensor from valid .npy file" do
-      path = Path.join(System.tmp_dir!(), "recgpt_emb_#{:erlang.unique_integer([:positive])}.npy")
-      tensor = Nx.iota({2, 768}) |> Nx.divide(768) |> Nx.as_type({:f, 32})
-
-      try do
-        Npy.save(tensor, path)
-        loaded = FSQEncoder.load_embeddings_from_npy(path)
-        assert Nx.shape(loaded) == {2, 768}
-        assert Nx.all_close(loaded, tensor) |> Nx.to_number() == 1
-      after
-        File.rm(path)
-      end
-    end
-  end
-
   defp make_params do
     project_in_k = Nx.iota({192, 5}) |> Nx.divide(192 * 5) |> Nx.subtract(0.05)
     project_out_k = Nx.iota({5, 192}) |> Nx.divide(5 * 192) |> Nx.subtract(0.05)

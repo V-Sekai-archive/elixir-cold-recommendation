@@ -10,8 +10,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--fixture` - Fixture JSON path (default: data/steam/fixture.json)
     * `--train` - train_sequences.json path (default: data/steam/train_sequences.json)
-    * `--items` - items.json for building embeddings (default: data/steam/items.json); ignored if --embeddings given
-    * `--embeddings` - Optional path to precomputed embeddings (Nx.serialize); overrides --items
+    * `--items` - items.json for building embeddings (default: data/steam/items.json)
     * `--out` - Output export dir (required)
     * `--iterations` - Max training steps (default: 100)
     * `--batch-size` - Batch size (default: 8)
@@ -29,7 +28,6 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           fixture: :string,
           train: :string,
           items: :string,
-          embeddings: :string,
           out: :string,
           iterations: :integer,
           batch_size: :integer,
@@ -42,7 +40,6 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     fixture_path = opts[:fixture] || resolve("data/steam/fixture.json")
     train_path = opts[:train] || resolve("data/steam/train_sequences.json")
     items_path = opts[:items] || resolve("data/steam/items.json")
-    embeddings_path = opts[:embeddings]
     out_dir = opts[:out]
     iterations = opts[:iterations] || 100
     batch_size = opts[:batch_size] || 8
@@ -88,28 +85,22 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       RecGPT.CheckpointExport.write_export(params, out_dir)
       Mix.shell().info("Done.")
     else
-      item_embeddings =
-        if embeddings_path && File.regular?(embeddings_path) do
-          Mix.shell().info("Loading embeddings from #{embeddings_path}...")
-          RecGPT.Embedding.load_embeddings(embeddings_path)
-        else
-          unless File.regular?(items_path) do
-            Mix.raise("items not found: #{items_path} and no --embeddings given")
-          end
+      unless File.regular?(items_path) do
+        Mix.raise("items not found: #{items_path}")
+      end
 
-          Mix.shell().info("Encoding item text from #{items_path}...")
-          raw = File.read!(items_path) |> Jason.decode!()
-          items = raw["items"] || []
-          n = raw["num_items"] || length(items)
+      Mix.shell().info("Encoding item text from #{items_path}...")
+      raw = File.read!(items_path) |> Jason.decode!()
+      items = raw["items"] || []
+      n = raw["num_items"] || length(items)
 
-          item_text_dict =
-            items
-            |> Enum.take(n)
-            |> Enum.with_index()
-            |> Map.new(fn {item, idx} -> {idx, item["title"] || item["text"] || ""} end)
+      item_text_dict =
+        items
+        |> Enum.take(n)
+        |> Enum.with_index()
+        |> Map.new(fn {item, idx} -> {idx, item["title"] || item["text"] || ""} end)
 
-          RecGPT.Embedding.encode_item_text_dict(item_text_dict)
-        end
+      item_embeddings = RecGPT.Embedding.encode_item_text_dict(item_text_dict)
 
       stream =
         RecGPT.AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,

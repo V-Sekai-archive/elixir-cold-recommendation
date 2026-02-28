@@ -25,18 +25,4 @@ defmodule RecGPT.FSQEncoder do
       end
     end)
   end
-
-  @doc """
-  Load embeddings from a NumPy .npy file (e.g. item_text_embeddings.npy).
-
-  Uses the npy hex package to parse the binary format into an Nx.Tensor.
-  Expects shape `{num_items, 768}` (float32). Returns the tensor for use with
-  `encode_embeddings_to_token_id_list/3`.
-  """
-  def load_embeddings_from_npy(path) do
-    case Npy.load(path, :nx) do
-      {:ok, tensor} -> tensor
-      {:error, reason} -> raise "Failed to load embeddings from #{path}: #{inspect(reason)}"
-    end
-  end
 end

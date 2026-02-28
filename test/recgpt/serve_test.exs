@@ -175,24 +175,6 @@ defmodule RecGPT.ServeTest do
     RecGPT.CheckpointExport.write_export(params, dir)
   end
 
-  describe "safe_str/1" do
-    test "returns empty string for nil" do
-      assert Serve.safe_str(nil) == ""
-    end
-
-    test "returns binary as-is" do
-      assert Serve.safe_str("hello") == "hello"
-    end
-
-    test "returns inspect for map" do
-      assert Serve.safe_str(%{a: 1}) =~ "%{"
-    end
-
-    test "returns to_string for number" do
-      assert Serve.safe_str(42) == "42"
-    end
-  end
-
   defp build_stub_state do
     token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
     trie = RecGPT.Trie.build(token_id_list)

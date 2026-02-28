@@ -11,8 +11,8 @@ Reference for the **recgpt** package: modules, dependencies, and tests. For pipe
 | Module                | Purpose                                                                                                                                                                   |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.FSQ**        | Finite Scalar Quantization: levels [8,8,8,6,5], 4 tokens per item, vocab 15360 + padding. `load_params/1`, `encode/2`, `codes_to_indices/1`, `indices_to_codes/2`.        |
-| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: embeddings + FSQ params → list of 4-token lists. `load_embeddings_from_npy/1` for precomputed embeddings.                         |
-| **RecGPT.Embedding**  | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_texts/1`, `encode_item_text_dict/1`, `save_embeddings/2`, `load_embeddings/1`. |
+| **RecGPT.FSQEncoder** | `encode_embeddings_to_token_id_list/3`: embeddings + FSQ params → list of 4-token lists.                         |
+| **RecGPT.Embedding**  | Text → 768-d via Bumblebee (sentence-transformers/all-mpnet-base-v2). `serving/0`, `encode_texts/1`, `encode_item_text_dict/1`. |
 
 ### Fixture and training data
 
@@ -89,7 +89,7 @@ See [mix.exs](../mix.exs).
 
 | Scope                              | Command                                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Default                            | `mix test --no-start` (excludes integration, eval, e2e_serve). |
+| Default                            | `mix test --no-start` (excludes integration, eval). |
 | Integration                        | `mix test --include integration`.                             |
 | Eval (fixture + ckpt + test files) | `mix test test/recgpt/eval_test.exs --include eval --include integration`. |
 

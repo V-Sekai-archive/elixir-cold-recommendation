@@ -2,31 +2,20 @@ syntax = "proto3";
 
 package recgpt.v1;
 
-import "google/api/annotations.proto";
-
 // =============================================================================
 // Authoritative API contract. Service is gRPC-only (no REST server).
-// google.api.http on Predict is for optional transcoding (e.g. grpc-gateway).
-// For protoc, use -I with googleapis to resolve the import.
 // =============================================================================
 //
 // gRPC: recgpt.v1.PredictionService.Predict (PredictRequest → PredictResponse).
 //   Request: context_item_ids (required, non-empty), max_results (optional, default 5, max 20).
 //   Response: item_ids (ordered recommended IDs), items (ItemSummary: item_id, display_name).
 //
-// CatalogItem — for future ingest/update (not yet implemented).
-//
 // Errors (gRPC status): INVALID_ARGUMENT (bad params), UNAVAILABLE (not ready).
 //
 // Server: mix recgpt.serve --grpc-port 50051 (fixture + checkpoint export dir required).
 
 service PredictionService {
-  rpc Predict (PredictRequest) returns (PredictResponse) {
-    option (google.api.http) = {
-      post: "/v1/catalog:recommend"
-      body: "*"
-    };
-  }
+  rpc Predict (PredictRequest) returns (PredictResponse);
 }
 
 message PredictRequest {
@@ -42,15 +31,4 @@ message PredictResponse {
 message ItemSummary {
   int32 item_id = 1;
   string display_name = 2;
-}
-
-// Catalog item for ingest/update (e.g. CatalogService). Slug is the URL-friendly identifier
-// (e.g. Polymarket outcome slug). content_jsonld is the item's primary data as Dublin Core
-// XMP JSON-LD (dc:title, dc:description, etc.). catalog_ids names which database/catalog(s)
-// we're searching in (e.g. "uci_clickstream", "polymarket_outcomes") for scoping.
-message CatalogItem {
-  string item_id = 1;        // Primary key (e.g. external or internal ID).
-  string slug = 2;           // URL-friendly identifier (e.g. market slug).
-  string content_jsonld = 3; // Primary item data as Dublin Core XMP JSON-LD (title, description, etc.).
-  repeated string catalog_ids = 4;  // Which catalog(s) this item belongs to; scope for search.
 }

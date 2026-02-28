@@ -9,7 +9,6 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--items` - Path to items.json (default: data/steam/items.json)
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
-    * `--fsq` - FSQ params export dir (required if FSQ not in --ckpt)
   """
   use Mix.Task
 
@@ -17,13 +16,12 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [items: :string, out: :string, ckpt: :string, fsq: :string]
+        switches: [items: :string, out: :string, ckpt: :string]
       )
 
     items_path = opts[:items] || resolve("data/steam/items.json")
     out_path = opts[:out] || resolve("data/steam/fixture.json")
     ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
-    fsq_dir = opts[:fsq]
 
     unless File.regular?(items_path) do
       Mix.raise(
@@ -41,8 +39,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     Application.ensure_all_started(:bumblebee)
 
     Mix.shell().info("Building fixture from #{items_path}...")
-    fixture_opts = if fsq_dir, do: [fsq_dir: resolve(fsq_dir)], else: []
-    fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, fixture_opts)
+    fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir)
     :ok = RecGPT.FixtureBuild.write_fixture(fixture, out_path)
     Mix.shell().info("Wrote #{out_path} (num_items=#{fixture["num_items"]})")
   end

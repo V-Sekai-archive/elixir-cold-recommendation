@@ -67,14 +67,4 @@ defmodule RecGPT.Embedding do
     texts = Enum.map(indices, &Map.fetch!(item_text_dict, &1))
     encode_texts(texts)
   end
-
-  @doc "Saves embeddings tensor to path (Nx serialized). Load with Nx.deserialize(File.read!(path))."
-  def save_embeddings(embeddings, path) do
-    File.write!(path, Nx.serialize(embeddings))
-  end
-
-  @doc "Loads embeddings from a path written by save_embeddings/2."
-  def load_embeddings(path) do
-    path |> File.read!() |> Nx.deserialize()
-  end
 end

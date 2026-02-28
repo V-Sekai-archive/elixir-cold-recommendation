@@ -144,9 +144,4 @@ defmodule RecGPT.Serve do
     end
   end
 
-  @doc "Coerce value to string for API response (nil -> \"\", binary -> self, map -> inspect, other -> to_string)."
-  def safe_str(nil), do: ""
-  def safe_str(s) when is_binary(s), do: s
-  def safe_str(m) when is_map(m), do: inspect(m)
-  def safe_str(x), do: to_string(x)
 end

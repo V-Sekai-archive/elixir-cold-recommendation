@@ -39,7 +39,7 @@ See [Pipeline](#pipeline) and [docs/08_pipeline_reference.md](docs/08_pipeline_r
 | Step | Command / API | Outputs |
 |------|----------------|---------|
 | **1. Data** | `mix recgpt.fetch_steam data/steam` or `RecGPT.Steam.Fetch.run/2` | `items.json`, `train_sequences.json`, `test_sequences.json`, `cold_test_sequences.json`, `cold_train_sequences.json` |
-| **2. Fixture** | `mix recgpt.build_fixture` or `RecGPT.FixtureBuild.build/3` | `fixture.json` (`num_items`, `token_id_list`) |
+| **2. Fixture** | `mix recgpt.build_fixture` or `RecGPT.FixtureBuild.build/2` | `fixture.json` (`num_items`, `token_id_list`) |
 | **3. Pretrain** | `mix recgpt.pretrain` (uses `AxonTrain.stream_batches` + `run/3`) | Updated checkpoint in `--out` |
 | **4. Eval** | `mix recgpt.eval` (requires `--test` and `--cold-test` files) | Hit@k, MRR, cold-test metrics |
 
@@ -102,7 +102,7 @@ Full list and details: [docs/00_recgpt_library.md](docs/00_recgpt_library.md).
 mix test --no-start
 ```
 
-- Excluded by default: `integration`, `eval`, `e2e_serve`.
+- Excluded by default: `integration`, `eval`.
 - **Include integration:** `mix test --include integration`
 - **Eval (fixture + ckpt + test file):** `mix test test/recgpt/eval_test.exs --include eval --include integration`
 

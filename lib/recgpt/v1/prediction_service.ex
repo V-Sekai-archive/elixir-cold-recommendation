@@ -11,9 +11,8 @@ defmodule Recgpt.V1.PredictionService.Server do
   """
   use GRPC.Server, service: Recgpt.V1.PredictionService.Service
 
-  alias Recgpt.V1.{ItemSummary, PredictRequest, PredictResponse}
+  alias Recgpt.V1.{ItemSummary, PredictResponse}
 
-  @impl true
   def predict(request, _stream) do
     state = Application.get_env(:recgpt, :serve_state)
     if is_nil(state), do: raise(GRPC.RPCError, status: :unavailable, message: "Service not ready")
@@ -30,7 +29,7 @@ defmodule Recgpt.V1.PredictionService.Server do
       {:ok, item_ids} ->
         items =
           Enum.map(item_ids, fn id ->
-            display = RecGPT.Serve.safe_str(Map.get(state.item_text, id))
+            display = display_name(Map.get(state.item_text, id))
             %ItemSummary{item_id: id, display_name: display}
           end)
 
@@ -40,4 +39,9 @@ defmodule Recgpt.V1.PredictionService.Server do
         raise GRPC.RPCError, status: :invalid_argument, message: to_string(msg)
     end
   end
+
+  defp display_name(nil), do: ""
+  defp display_name(s) when is_binary(s), do: s
+  defp display_name(m) when is_map(m), do: inspect(m)
+  defp display_name(x), do: to_string(x)
 end

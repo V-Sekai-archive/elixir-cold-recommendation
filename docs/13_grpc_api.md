@@ -38,17 +38,6 @@ The recommendation API is **gRPC-only**. The authoritative contract is [recommen
 | `item_id`      | `int32`  | Catalog item ID. |
 | `display_name` | `string` | Human-readable label (from fixture/item text). |
 
-### CatalogItem (future)
-
-Reserved for future ingest/update (e.g., CatalogService). Not used by Predict.
-
-| Field            | Type               | Description |
-| ---------------- | ------------------ | ----------- |
-| `item_id`        | `string`           | Primary key. |
-| `slug`           | `string`           | URL-friendly identifier (e.g., market slug). |
-| `content_jsonld` | `string`           | Dublin Core XMP JSON-LD. |
-| `catalog_ids`    | `repeated string`  | Which catalog(s) this item belongs to. |
-
 ---
 
 ## Errors (gRPC status)
