@@ -44,12 +44,14 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
   @doc "Writes a minimal checkpoint export to dir for load_state tests."
   def write_stub_ckpt!(dir) do
     File.mkdir_p!(dir)
+
     params = %{
       "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
       "pred_head.weight" =>
         Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
       "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     }
+
     CheckpointExport.write_export(params, dir)
   end
 

@@ -130,7 +130,7 @@ jobs:
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
-      - name: Steam top-k (reject null; pretrained ≥ zero-shot)
+      - name: Steam top-k (reject null; pretrained >= zero-shot)
         env:
           RECGPT_FIXTURE: data/steam/fixture.json
           RECGPT_CKPT_ZEROSHOT: data/recgpt_ckpt_export

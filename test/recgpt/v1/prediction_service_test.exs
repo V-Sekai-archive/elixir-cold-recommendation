@@ -115,5 +115,4 @@ defmodule Recgpt.V1.PredictionServiceTest do
       end
     end
   end
-
 end

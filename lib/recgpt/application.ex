@@ -33,6 +33,7 @@ defmodule RecGPT.ReleaseTasks do
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
         Application.put_env(:recgpt, :serve_state, state)
+
         children = [
           {GRPC.Server.Supervisor,
            endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}

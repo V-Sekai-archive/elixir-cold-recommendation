@@ -21,6 +21,7 @@ defmodule RecGPT.LayerFreeze do
   @spec record_from_state(Serve.state(), [non_neg_integer()]) :: t()
   def record_from_state(state, context_item_ids \\ [0]) do
     context_token_ids = Serve.item_ids_to_context_token_ids(context_item_ids, state.token_id_list)
+
     %__MODULE__{
       params: state.params,
       state: state,
@@ -44,7 +45,8 @@ defmodule RecGPT.LayerFreeze do
   @doc """
   Runs the Recommendation layer in isolation with frozen state.
   """
-  @spec recommend(t(), [non_neg_integer()], pos_integer()) :: {:ok, [non_neg_integer()]} | {:error, String.t()}
+  @spec recommend(t(), [non_neg_integer()], pos_integer()) ::
+          {:ok, [non_neg_integer()]} | {:error, String.t()}
   def recommend(frozen, item_ids, top_k \\ 5) do
     Serve.recommend(frozen.state, item_ids, top_k)
   end

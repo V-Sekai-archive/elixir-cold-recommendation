@@ -181,5 +181,4 @@ defmodule RecGPT.ServeTest do
       end
     end
   end
-
 end

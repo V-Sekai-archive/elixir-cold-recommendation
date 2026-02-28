@@ -164,7 +164,9 @@ defmodule RecGPT.EvalTest do
 
     unless is_binary(zero_shot_ckpt) and zero_shot_ckpt != "" and File.dir?(zero_shot_ckpt) and
              File.regular?(Path.join(zero_shot_ckpt, "manifest.json")) do
-      flunk("Set RECGPT_CKPT_ZEROSHOT to zero-shot checkpoint (base model, no training on this catalogue).")
+      flunk(
+        "Set RECGPT_CKPT_ZEROSHOT to zero-shot checkpoint (base model, no training on this catalogue)."
+      )
     end
 
     unless is_binary(pretrained_ckpt) and pretrained_ckpt != "" and File.dir?(pretrained_ckpt) and
@@ -193,5 +195,4 @@ defmodule RecGPT.EvalTest do
            "pretrained (on catalogue) Hit@1 (#{pretrained_metrics.hit_at_1}) must be >= zero-shot Hit@1 (#{zero_shot_metrics.hit_at_1}); " <>
              "when zero-shot equals baseline, pretrain on catalogue must improve or we fail"
   end
-
 end
