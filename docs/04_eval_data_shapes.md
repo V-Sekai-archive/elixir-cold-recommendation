@@ -39,7 +39,7 @@ Same shape as `test_sequences.json`. Test cases where `next_item` is a cold item
 
 ## items.json
 
-Item catalog for fixture building: id and title per item.
+Item catalog for fixture building and for Serve display names (id and title per item). This file is the **SSD-stable** canonical store for catalogue item data.
 
 | Key         | Type | Description                                          |
 | ----------- | ---- | ---------------------------------------------------- |
@@ -47,6 +47,8 @@ Item catalog for fixture building: id and title per item.
 | `items`     | list | Each element: `id` (int, 0-based), `title` (string). |
 
 IDs should be unique and contiguous 0 .. num_items-1.
+
+**SSD-stable storage:** When writing catalog (e.g. from a Mix task or future API), use atomic replace so the visible file is never half-written: write to a temporary file in the same directory (e.g. `items.json.tmp`), optionally `File.sync/1` on the temp file, then `File.rename/2` to the final path. On most filesystems rename is atomic. Serve and pipeline read the file once at load time; no in-place updates.
 
 ---
 

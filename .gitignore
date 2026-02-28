@@ -42,3 +42,9 @@ data/clickstream/cold_train_sequences.json
 data/clickstream/fixture.json
 data/clickstream/clickstream+data+for+online+shopping/
 data/recgpt_layer_3_weight.pt
+
+# FoundationDB (Windows install / build from source)
+foundationdb/
+fdb_build/
+foundationdb-*.msi
+foundationdb7-*/

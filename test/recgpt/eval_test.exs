@@ -49,8 +49,8 @@ defmodule RecGPT.EvalTest do
   test "Fetch output test_sequences.json fits top-k form (one next_item per case, k=10)" do
     path = Path.join(File.cwd!(), "data/steam/test_sequences.json")
 
-    if not File.regular?(path) do
-      ExUnit.skip(
+    unless File.regular?(path) do
+      flunk(
         "Run mix recgpt.fetch_steam data/steam to build data/steam/test_sequences.json"
       )
     end

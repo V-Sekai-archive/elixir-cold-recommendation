@@ -2,6 +2,7 @@
 defmodule Recgpt.V1.PredictionServiceTest do
   use ExUnit.Case, async: false
 
+  alias RecGPT.Serve
   alias Recgpt.V1.PredictionService.Server
   alias Recgpt.V1.PredictRequest
 
@@ -63,6 +64,45 @@ defmodule Recgpt.V1.PredictionServiceTest do
         e in GRPC.RPCError -> assert e.status == 3
       end
     end
+
+    test "full flow: load_state then predict returns valid response" do
+      Application.ensure_all_started(:nx)
+
+      base =
+        Path.join(System.tmp_dir!(), "recgpt_predict_flow_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(base)
+      fixture_path = Path.join(base, "fixture.json")
+      ckpt_dir = Path.join(base, "ckpt")
+
+      try do
+        num_items = 2
+        token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
+        File.write!(
+          fixture_path,
+          Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
+        )
+
+        write_stub_ckpt!(ckpt_dir)
+
+        assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
+        Application.put_env(:recgpt, :serve_state, state)
+
+        request = %PredictRequest{context_item_ids: [0], max_results: 5}
+        response = Server.predict(request, nil)
+
+        assert is_list(response.item_ids)
+        assert length(response.items) == length(response.item_ids)
+        assert Enum.all?(response.item_ids, fn id -> is_integer(id) and id >= 0 and id < num_items end)
+        Enum.zip(response.item_ids, response.items)
+        |> Enum.each(fn {id, item} ->
+          assert item.item_id == id
+          assert is_binary(item.display_name) or item.display_name == ""
+        end)
+      after
+        File.rm_rf(base)
+      end
+    end
   end
 
   defp build_stub_state do
@@ -94,5 +134,16 @@ defmodule Recgpt.V1.PredictionServiceTest do
     head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
     head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
+  end
+
+  defp write_stub_ckpt!(dir) do
+    File.mkdir_p!(dir)
+    params = %{
+      "wte" => Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.weight" =>
+        Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32}),
+      "pred_head.bias" => Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
+    }
+    RecGPT.CheckpointExport.write_export(params, dir)
   end
 end

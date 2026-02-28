@@ -1,6 +1,6 @@
 # RecGPT (Elixir)
 
-Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scalar Quantization), text embeddings (MPNet via Bumblebee), training pipeline, and HTTP serving. No GenServer; use from any application (e.g. polymarket).
+Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scalar Quantization), text embeddings (MPNet via Bumblebee), training pipeline, and gRPC serving. No Python at runtime; use from any application (e.g. polymarket).
 
 **RecGPT** ([paper](https://arxiv.org/abs/2506.06270), [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT)) treats items as 4-token sequences; this library provides the data pipeline, training (Axon + Polaris), inference, and eval tooling to match that setup.
 
@@ -61,6 +61,8 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 
 Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
+**Catalog storage** uses object-store semantics; options are BEAM-native (file path, [CubDB](https://hex.pm/packages/cubdb), or RabbitMQ’s [Khepri](https://hex.pm/packages/khepri)). See [docs/11_infrastructure_serving.md](docs/11_infrastructure_serving.md#catalog-storage-object-store-semantics).
+
 ---
 
 ## Modules (overview)
@@ -111,7 +113,7 @@ See [docs/05_evaluation_and_testing.md](docs/05_evaluation_and_testing.md) and [
 
 ## gRPC API (serve)
 
-Service is gRPC-only. Contract: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). [docs/13](docs/13_grpc_api.md).
+Service is gRPC-only. Contract: [priv/proto/recgpt/v1/recommendation.proto](priv/proto/recgpt/v1/recommendation.proto). [docs/01_grpc_api.md](docs/01_grpc_api.md).
 
 - **recgpt.v1.PredictionService/Predict** — Request: `context_item_ids`, `max_results`; response: `item_ids`, `items` (ItemSummary).
 

@@ -64,6 +64,21 @@ Design is **specific and actionable**: each sub-proposal below can be implemente
 
 ---
 
+## Verification: problem solved
+
+This codebase ties the four requirements together in one specification and implementation. You can verify each as follows.
+
+| Requirement | How the codebase delivers | How to verify |
+| ----------- | ------------------------- | -------------- |
+| **(1) RecGPT paradigm** (FSQ, hybrid attention, text-driven items) | `RecGPT.FSQ` / `FSQEncoder`, `RecGPT.Embedding` (Bumblebee/MPNet), `RecGPT.Inference` (bidirectional–causal), `RecGPT.Decode` (beam + trie). Pipeline: [02](02_pipeline_reference.md), paradigm: [09](09_recgpt_paradigm.md). | Unit tests (FSQ, embedding, inference, decode); pipeline integration tests (`mix test`). |
+| **(2) Elixir/BEAM only at runtime** | No Python in-repo; `.pt` and pickle files are read via Elixir (Unpickler, zip). Bumblebee runs in the VM. | `mix test`; no Python process; see [08](08_python_recgpt_parity_progress.md). |
+| **(3) Single reproducible pipeline** (data → trained model → metrics) | Four steps with commands: Fetch → build_fixture → pretrain → eval. Artifact layout and options are defined. | Run the pipeline: `mix recgpt.fetch_steam` → `mix recgpt.build_fixture` → `mix recgpt.pretrain` → `mix recgpt.eval`; see [02](02_pipeline_reference.md). |
+| **(4) Stable, implementable API** (gRPC) | `recommendation.proto` defines the contract; `PredictionService.Predict`; serve via `mix recgpt.serve`. | Unit tests for Predict (validation, errors); full-flow test (load_state → predict); manual: `grpcurl` per [01](01_grpc_api.md#quick-test). |
+
+**End-to-end:** A single test exercises the full stack in-process: `Serve.load_state` (fixture + checkpoint) → state in application env → `PredictionService.Server.predict` → valid `PredictResponse`. That confirms data → model → API is wired correctly in this codebase.
+
+---
+
 ## Sub-proposals (user-facing order)
 
 | #   | Proposal                                                                   | Problem / limitation                                               | Sub-proposals                                                                     |
@@ -80,7 +95,6 @@ Design is **specific and actionable**: each sub-proposal below can be implemente
 | 10  | [10_dynamic_state_ets.md](10_dynamic_state_ets.md)                         | Decoding must be catalog-aware; scaling may need ETS.              | Trie; Beam search; Future ETS.                                                    |
 | 11  | [11_infrastructure_serving.md](11_infrastructure_serving.md)               | Serving and deployment must be specified.                          | In-process inference; Run serve; Optional Triton/edge.                            |
 | 12  | [12_architecture_references.md](12_architecture_references.md)             | Claims and design must be citable.                                 | Works cited (RecGPT, beam/trie, ETS, gRPC).                                       |
-
 ---
 
 ## Quick reference (actionable)

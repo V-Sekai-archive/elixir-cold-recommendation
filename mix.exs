@@ -24,7 +24,10 @@ defmodule RecGPT.MixProject do
   defp elixirc_paths(_), do: ["lib", "mix"]
 
   def application do
-    [extra_applications: [:logger]]
+    [
+      extra_applications: [:logger],
+      mod: {RecGPT.Application, []}
+    ]
   end
 
   defp deps do
