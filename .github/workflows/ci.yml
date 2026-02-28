@@ -1,0 +1,135 @@
+# CI: unit tests + pipeline (zero-shot eval + pretrain + trained eval).
+# Uses Steam test data (hkuds/RecGPT_dataset) and frozen RecGPT weights (hkuds/RecGPT_model).
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  MIX_ENV: test
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26"
+          elixir-version: "1.16.1"
+
+      - name: Restore dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix local.hex --force && mix local.rebar --force && mix deps.get
+
+      - name: Compile
+        run: mix compile --warnings-as-errors
+
+      - name: Unit tests (no download)
+        run: mix test --no-start --exclude embedding --exclude integration --exclude eval --exclude compare_python
+
+      - name: Prepare data dir
+        run: mkdir -p data
+
+      - name: Restore checkpoint cache
+        id: restore_ckpt
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/recgpt_ckpt_export
+            data/recgpt_layer_3_weight.pt
+          key: ${{ runner.os }}-recgpt-ckpt-v1
+          restore-keys: |
+            ${{ runner.os }}-recgpt-ckpt-
+
+      - name: Download RecGPT checkpoint
+        run: |
+          if [ ! -f data/recgpt_layer_3_weight.pt ]; then
+            mix recgpt.fetch_ckpt
+          fi
+
+      - name: Export checkpoint to Elixir format
+        run: |
+          if [ ! -f data/recgpt_ckpt_export/manifest.json ]; then
+            mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
+          fi
+
+      - name: Restore Steam data cache
+        id: restore_steam
+        uses: actions/cache@v4
+        with:
+          path: data/steam
+          key: ${{ runner.os }}-steam-v1
+          restore-keys: |
+            ${{ runner.os }}-steam-
+
+      - name: Fetch Steam dataset
+        run: |
+          if [ ! -f data/steam/items.json ]; then
+            mix recgpt.fetch_steam data/steam
+          fi
+
+      - name: Build fixture
+        run: mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export
+
+      - name: Zero-shot eval
+        run: |
+          mix recgpt.eval \
+            --fixture data/steam/fixture.json \
+            --ckpt data/recgpt_ckpt_export \
+            --test data/steam/test_sequences.json \
+            --cold-test data/steam/cold_test_sequences.json
+
+      - name: Pretrain (few steps for CI)
+        run: |
+          mix recgpt.pretrain \
+            --ckpt data/recgpt_ckpt_export \
+            --fixture data/steam/fixture.json \
+            --train data/steam/train_sequences.json \
+            --items data/steam/items.json \
+            --out data/ckpt_after_pretrain \
+            --iterations 30 \
+            --batch-size 8 \
+            --log 10
+
+      - name: Trained eval
+        run: |
+          mix recgpt.eval \
+            --fixture data/steam/fixture.json \
+            --ckpt data/ckpt_after_pretrain \
+            --test data/steam/test_sequences.json \
+            --cold-test data/steam/cold_test_sequences.json
+
+      - name: Save checkpoint cache
+        uses: actions/cache/save@v4
+        if: steps.restore_ckpt.outputs.cache-hit != 'true'
+        with:
+          path: |
+            data/recgpt_ckpt_export
+            data/recgpt_layer_3_weight.pt
+          key: ${{ runner.os }}-recgpt-ckpt-v1
+
+      - name: Save Steam cache
+        uses: actions/cache/save@v4
+        if: steps.restore_steam.outputs.cache-hit != 'true'
+        with:
+          path: data/steam
+          key: ${{ runner.os }}-steam-v1
