@@ -77,20 +77,20 @@ Use `data/recgpt_ckpt_export` as `--ckpt` for build_fixture and pretrain.
 
 ```
 data/
-â”œâ”€â”€ recgpt_ckpt_export/          # From fetch_ckpt + export_ckpt
-â”‚   â”œâ”€â”€ manifest.json
-â”‚   â””â”€â”€ *.npy
-â”œâ”€â”€ recgpt_layer_3_weight.pt     # Optional; from fetch_ckpt
-â”œâ”€â”€ steam/
-â”‚   â”œâ”€â”€ items.json
-â”‚   â”œâ”€â”€ train_sequences.json
-â”‚   â”œâ”€â”€ test_sequences.json
-â”‚   â”œâ”€â”€ cold_test_sequences.json
-â”‚   â”œâ”€â”€ cold_train_sequences.json
-â”‚   â””â”€â”€ fixture.json             # From build_fixture
-â””â”€â”€ ckpt_after_pretrain/         # From pretrain --out
-    â”œâ”€â”€ manifest.json
-    â””â”€â”€ *.npy
+├── recgpt_ckpt_export/          # From fetch_ckpt + export_ckpt
+│   ├── manifest.json
+│   â””── *.npy
+├── recgpt_layer_3_weight.pt     # Optional; from fetch_ckpt
+├── steam/
+│   ├── items.json
+│   ├── train_sequences.json
+│   ├── test_sequences.json
+│   ├── cold_test_sequences.json
+│   ├── cold_train_sequences.json
+│   â””── fixture.json             # From build_fixture
+â””── ckpt_after_pretrain/         # From pretrain --out
+    ├── manifest.json
+    â””── *.npy
 ```
 
 ---

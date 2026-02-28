@@ -38,7 +38,7 @@ The same steps run in [GitHub Actions](../.github/workflows/ci.yml) on push/PR. 
 
 ## One-shot QA (local)
 
-Steps 1â€“5 (no weights):
+Steps 1–5 (no weights):
 
 mix compile --warnings-as-errors && mix format --check-formatted && mix credo && mix test --no-start --exclude integration --exclude eval && mix dialyzer --format short
 
@@ -47,6 +47,6 @@ Full QA including step 6 (Steam top-k, real weights): run the pipeline first, se
 ## See also
 
 - [06 Evaluation and testing](06_evaluation_and_testing.md)
-- [15 Layers overview](15_layers_overview.md), [16 Layers detail](16_layers_detail.md)
-- [17 Top-tier recommendations](17_top_tier_recommendations.md)
+- [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)-[21](21_layer_application.md) layer docs.
+- [22 Top-tier recommendations](22_top_tier_recommendations.md)
 

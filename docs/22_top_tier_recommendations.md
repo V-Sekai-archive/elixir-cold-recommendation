@@ -1,6 +1,6 @@
 # Top-tier recommendations
 
-Sub-proposal of the [documentation index](README.md). Elevate the library to production-grade quality: typespecs, Dialyzer, integration test, health endpoint, property tests, benchmarks, release and Docker. Checklist: [18 Quality assurance](18_quality_assurance.md).
+Sub-proposal of the [documentation index](README.md). Elevate the library to production-grade quality: typespecs, Dialyzer, integration test, health endpoint, property tests, benchmarks, release and Docker. Checklist: [23 Quality assurance](23_quality_assurance.md).
 
 ---
 
@@ -23,5 +23,5 @@ Make the codebase production-ready with static typing, linting, tests, health ch
 
 ## See also
 
-- [18 Quality assurance](18_quality_assurance.md) - QA checklist and CI.
+- [23 Quality assurance](23_quality_assurance.md) - QA checklist and CI.
 - [04 RecGPT library](04_recgpt_library.md) - Module reference.

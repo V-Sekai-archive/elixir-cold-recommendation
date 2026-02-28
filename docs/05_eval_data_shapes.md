@@ -25,7 +25,7 @@ Next-item prediction test set: one case per sequence; last item is the target. U
 | `num_items`  | int  | Catalog size.                                                             |
 | `test_cases` | list | Each element: `context` (list of item_ids), `next_item` (single item_id). |
 
-`context` is typically length 1â€“64; `next_item` is the ground-truth next item. Eval uses `context` as input and checks whether `next_item` appears in the modelâ€™s top-k.
+`context` is typically length 1–64; `next_item` is the ground-truth next item. Eval uses `context` as input and checks whether `next_item` appears in the model's top-k.
 
 **Example:** See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) and [02 Pipeline overview](02_pipeline_overview.md).
 
@@ -33,7 +33,7 @@ Next-item prediction test set: one case per sequence; last item is the target. U
 
 ## cold_test_sequences.json
 
-Same shape as `test_sequences.json`. Test cases where `next_item` is a cold item (â‰¤ K sessions in train). **Required** for `mix recgpt.eval`; produced by Fetch.
+Same shape as `test_sequences.json`. Test cases where `next_item` is a cold item (≤ K sessions in train). **Required** for `mix recgpt.eval`; produced by Fetch.
 
 ---
 
@@ -74,7 +74,7 @@ Full sequences for pretraining (no last-item-out). Same catalog as test; session
 | `num_items` | int           | Catalog size.                                            |
 | `sequences` | list of lists | Each inner list is a full sequence of item_ids in order. |
 
-Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g., 80% sessions â†’ train, 20% â†’ test last-item-out). See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md).
+Used by `RecGPT.Training.build_train_batch/4` with token_id_list and item embeddings. Train and test must be disjoint (e.g., 80% sessions → train, 20% → test last-item-out). See [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md).
 
 ---
 
@@ -86,17 +86,17 @@ Same shape as `train_sequences.json`. Train sequences that contain at least one 
 
 ## Sub-proposals
 
-- **test_sequences.json** (above) â€” Test set shape for `Eval.load_test_cases/1`.
-- **cold_test_sequences.json** (above) â€” Same shape; cold items only.
-- **items.json** (above) â€” Catalog for fixture building.
-- **fixture.json** (above) â€” Tokenized catalog for Serve and Eval.
-- **train_sequences.json** (above) â€” Pretraining sequences.
-- **cold_train_sequences.json** (above) â€” Train sequences containing cold items.
+- **test_sequences.json** (above) — Test set shape for `Eval.load_test_cases/1`.
+- **cold_test_sequences.json** (above) — Same shape; cold items only.
+- **items.json** (above) — Catalog for fixture building.
+- **fixture.json** (above) — Tokenized catalog for Serve and Eval.
+- **train_sequences.json** (above) — Pretraining sequences.
+- **cold_train_sequences.json** (above) — Train sequences containing cold items.
 
 ---
 
 ## See also
 
-- [06 Evaluation and testing](06_evaluation_and_testing.md) â€” Eval commands and null hypothesis.
-- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) â€” Artifact layout and cold split.
-- [02 Pipeline overview](02_pipeline_overview.md) â€” File layout and pipeline.
+- [06 Evaluation and testing](06_evaluation_and_testing.md) — Eval commands and null hypothesis.
+- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Artifact layout and cold split.
+- [02 Pipeline overview](02_pipeline_overview.md) — File layout and pipeline.
