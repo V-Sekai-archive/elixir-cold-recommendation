@@ -1,4 +1,6 @@
-# CI: unit tests + pipeline (zero-shot eval + pretrain + trained eval).
+# CI: runs the QA checklist from docs/23_quality_assurance.md (steps 1–6).
+# Steps 1–5: compile, format, Credo, unit tests, Dialyzer.
+# Step 6: pipeline (fetch_steam, build_fixture, pretrain), then Steam top-k eval.
 # Uses Steam test data (hkuds/RecGPT_dataset) and frozen RecGPT weights (hkuds/RecGPT_model).
 name: CI
 
@@ -50,13 +52,13 @@ jobs:
       - name: Credo
         run: mix credo
 
-      - name: Unit tests (no download)
+      - name: Unit tests
         run: mix test --no-start --exclude integration --exclude eval
 
       - name: Dialyzer
         run: mix dialyzer --format short
 
-      - name: Prepare data dir
+      - name: Prepare data directory
         run: mkdir -p data
 
       - name: Restore checkpoint cache
@@ -108,7 +110,7 @@ jobs:
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
-      - name: Pretrain (few steps for CI)
+      - name: Pretrain (short run for CI)
         run: |
           mix recgpt.pretrain \
             --ckpt data/recgpt_ckpt_export \
@@ -128,7 +130,7 @@ jobs:
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
-      - name: Steam top-k correctness (pretrained on catalogue vs zero-shot; reject null, no regress)
+      - name: Steam top-k (reject null; pretrained ≥ zero-shot)
         env:
           RECGPT_FIXTURE: data/steam/fixture.json
           RECGPT_CKPT_ZEROSHOT: data/recgpt_ckpt_export
