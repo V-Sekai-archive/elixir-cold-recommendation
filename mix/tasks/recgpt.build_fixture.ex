@@ -9,9 +9,11 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--items` - Path to items.json (default: data/steam/items.json)
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
-    * `--limit` - Max items to process (default: all)
+    * `--limit` - Max items to process (default: 100; do not exceed per run to avoid NIF issues)
   """
   use Mix.Task
+
+  @default_limit 100
 
   @impl true
   def run(args) do
@@ -23,7 +25,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     items_path = opts[:items] || resolve("data/steam/items.json")
     out_path = opts[:out] || resolve("data/steam/fixture.json")
     ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
-    limit = opts[:limit]
+    limit = opts[:limit] || @default_limit
 
     unless File.regular?(items_path) do
       Mix.raise(
