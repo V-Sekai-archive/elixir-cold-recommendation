@@ -1,6 +1,6 @@
 # CI: runs the QA checklist from docs/23_quality_assurance.md (steps 1–6).
 # Steps 1–5: compile, format, Credo, unit tests, Dialyzer.
-# Step 6: pipeline (fetch_steam, build_fixture, pretrain), then Steam top-k eval.
+# Step 6: pipeline (fetch_steam, build_fixture); pretrain commented out for CI; use base ckpt for eval. Pretrain block below kept for local testing.
 # Uses Steam test data (hkuds/RecGPT_dataset) and frozen RecGPT weights (hkuds/RecGPT_model).
 name: CI
 
@@ -110,23 +110,24 @@ jobs:
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
-      - name: Pretrain (short run for CI)
-        run: |
-          mix recgpt.pretrain \
-            --ckpt data/recgpt_ckpt_export \
-            --fixture data/steam/fixture.json \
-            --train data/steam/train_sequences.json \
-            --items data/steam/items.json \
-            --out data/ckpt_after_pretrain \
-            --iterations 30 \
-            --batch-size 8 \
-            --log 10
+      # Pretrain skipped in CI; uncomment and use data/ckpt_after_pretrain in Trained eval + Steam top-k for local testing.
+      # - name: Pretrain (short run for CI)
+      #   run: |
+      #     mix recgpt.pretrain \
+      #       --ckpt data/recgpt_ckpt_export \
+      #       --fixture data/steam/fixture.json \
+      #       --train data/steam/train_sequences.json \
+      #       --items data/steam/items.json \
+      #       --out data/ckpt_after_pretrain \
+      #       --iterations 30 \
+      #       --batch-size 8 \
+      #       --log 10
 
       - name: Trained eval
         run: |
           mix recgpt.eval \
             --fixture data/steam/fixture.json \
-            --ckpt data/ckpt_after_pretrain \
+            --ckpt data/recgpt_ckpt_export \
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
@@ -134,7 +135,7 @@ jobs:
         env:
           RECGPT_FIXTURE: data/steam/fixture.json
           RECGPT_CKPT_ZEROSHOT: data/recgpt_ckpt_export
-          RECGPT_CKPT_EXPORT: data/ckpt_after_pretrain
+          RECGPT_CKPT_EXPORT: data/recgpt_ckpt_export
           RECGPT_TEST_SEQUENCES: data/steam/test_sequences.json
         run: mix test test/recgpt/eval_test.exs --include eval --include integration --no-start
 
