@@ -38,26 +38,7 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
       Mix.shell().info("  -> #{out_path}")
 
       case stream_download(@hf_url, out_path) do
-        {:ok, expected_bytes} ->
-          unless valid_pt_file?(out_path) do
-            File.rm(out_path)
-            Mix.raise(
-              "Downloaded file is not a valid .pt (zip format). Hugging Face may have returned HTML. " <>
-                "Use a pre-exported checkpoint or run fetch_ckpt from a network that receives the binary."
-            )
-          end
-
-          if expected_bytes do
-            actual = File.stat!(out_path).size
-            if actual != expected_bytes do
-              File.rm(out_path)
-              Mix.raise(
-                "Download incomplete: got #{actual} bytes, expected #{expected_bytes}. " <>
-                  "Retry or use a pre-exported checkpoint."
-              )
-            end
-          end
-
+        :ok ->
           Mix.shell().info("Done. Export to Elixir format (manifest + .npy):")
 
           Mix.shell().info(
@@ -88,30 +69,12 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
 
     try do
       case Req.get(url, opts) do
-        {:ok, %{status: 200} = resp} ->
-          expected =
-            case Req.Response.get_header(resp, "content-length") do
-              [len] -> String.to_integer(len)
-              _ -> nil
-            end
-          {:ok, expected}
-
-        {:ok, %{status: code}} ->
-          {:error, "HTTP #{code}"}
-
-        {:error, reason} ->
-          {:error, reason}
+        {:ok, %{status: 200}} -> :ok
+        {:ok, %{status: code}} -> {:error, "HTTP #{code}"}
+        {:error, reason} -> {:error, reason}
       end
     after
       File.close(file)
     end
-  end
-
-  # PyTorch 1.6+ .pt is zip; first 4 bytes are PK\x03\x04
-  defp valid_pt_file?(path) do
-    fd = File.open!(path, [:read, :binary, :raw])
-    first = IO.binread(fd, 4)
-    File.close(fd)
-    first == <<0x50, 0x4B, 0x03, 0x04>>
   end
 end

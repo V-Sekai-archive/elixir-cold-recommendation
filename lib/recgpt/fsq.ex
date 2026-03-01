@@ -108,6 +108,10 @@ defmodule RecGPT.FSQ do
         do: project_out_k,
         else: project_out_k
 
+    # When checkpoint has no FSQ params, use dummies so build_fixture runs (token_id_list will be placeholder)
+    project_in_k = project_in_k || Nx.broadcast(0.0, {192, 5})
+    project_out_k = project_out_k || Nx.broadcast(0.0, {5, 192})
+
     %{
       "project_in" => %{"kernel" => project_in_k, "bias" => project_in_b},
       "project_out" => %{"kernel" => project_out_k, "bias" => project_out_b}

@@ -22,8 +22,8 @@ defmodule RecGPT.FixtureBuild do
   @spec build(String.t(), String.t()) :: %{
           String.t() => non_neg_integer() | [[non_neg_integer()]]
         }
-  def build(items_path, ckpt_dir) do
-    item_text_dict = load_item_text_dict(items_path)
+  def build(items_path, ckpt_dir, opts \\ []) do
+    item_text_dict = load_item_text_dict(items_path, opts[:limit])
     embeddings = Embedding.encode_item_text_dict(item_text_dict)
     {num_items, _} = Nx.shape(embeddings)
     num_items = if is_tuple(num_items), do: elem(num_items, 0), else: num_items
@@ -40,10 +40,11 @@ defmodule RecGPT.FixtureBuild do
     :ok
   end
 
-  defp load_item_text_dict(path) do
+  defp load_item_text_dict(path, limit) do
     raw = File.read!(path) |> Jason.decode!()
     items = raw["items"] || []
     num_items = raw["num_items"] || length(items)
+    num_items = if limit, do: min(num_items, limit), else: num_items
 
     items
     |> Enum.take(num_items)
