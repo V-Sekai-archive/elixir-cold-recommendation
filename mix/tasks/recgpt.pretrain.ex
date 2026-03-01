@@ -16,6 +16,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)
     * `--log` - Log every N batches (default: 50; 0 to disable)
+    * `--log-interval-sec` - Log progress at least every N seconds (default: 20; 0 to disable)
   """
   use Mix.Task
 
@@ -32,7 +33,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           iterations: :integer,
           batch_size: :integer,
           learning_rate: :float,
-          log: :integer
+          log: :integer,
+          log_interval_sec: :integer
         ]
       )
 
@@ -52,6 +54,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     batch_size = opts[:batch_size] || 8
     learning_rate = opts[:learning_rate] || 1.0e-4
     log_every = opts[:log] || 50
+    log_interval_sec = opts[:log_interval_sec]
+    log_interval_sec = if is_integer(log_interval_sec), do: log_interval_sec, else: 20
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
       Mix.raise("checkpoint not found: #{ckpt_dir}")
@@ -116,9 +120,12 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
         RecGPT.AxonTrain.run(stream, params,
           iterations: iterations,
           log: log_every,
+          log_interval_sec: log_interval_sec,
           learning_rate: learning_rate
         )
 
+      # Newline after in-place progress so next message is on its own line
+      IO.write(:stdio, "\n")
       Mix.shell().info("Writing export to #{out_dir}...")
       RecGPT.CheckpointExport.write_export(trained, out_dir)
       Mix.shell().info("Done.")
