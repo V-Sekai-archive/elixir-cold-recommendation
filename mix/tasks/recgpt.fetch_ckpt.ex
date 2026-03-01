@@ -4,15 +4,16 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
   Downloads the RecGPT PyTorch checkpoint from [hkuds/RecGPT_model](https://huggingface.co/hkuds/RecGPT_model/tree/main).
 
   Saves `recgpt_layer_3_weight.pt` (~290 MB) to the given path. Then run
-  `mix recgpt.export_ckpt --from-pt path/to/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`
-  to produce the Elixir export (manifest.json + .npy). Load with `RecGPT.CheckpointLoader.load_from_export/1`.
+  `mix recgpt.export_ckpt --from-pt <path> --out <export_dir>` to produce the
+  Elixir export (manifest.json + .npy). Default layout uses thirdparty/checkpoints/recgpt/.
 
   ## Options
-    * `--out` - Output path (default: data/recgpt_layer_3_weight.pt). Use a full path, e.g. `--out thirdparty/RecGPT_model/recgpt_layer_3_weight.pt`.
+    * `--out` - Output path for the .pt file (default: thirdparty/checkpoints/recgpt/recgpt_layer_3_weight.pt)
 
   ## Examples
       mix recgpt.fetch_ckpt
-      mix recgpt.fetch_ckpt --out thirdparty/RecGPT_model/recgpt_layer_3_weight.pt
+      mix recgpt.export_ckpt --from-pt thirdparty/checkpoints/recgpt/recgpt_layer_3_weight.pt --out thirdparty/checkpoints/recgpt
+      mix recgpt.fetch_ckpt --out data/recgpt_layer_3_weight.pt
   """
   use Mix.Task
 
@@ -24,7 +25,9 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
     {opts, _, _} =
       OptionParser.parse(args, switches: [out: :string])
 
-    out_path = opts[:out] || Path.join(File.cwd!(), "data/#{@filename}")
+    out_path =
+      opts[:out] ||
+        Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt", @filename])
 
     Application.ensure_all_started(:req)
     File.mkdir_p!(Path.dirname(out_path))
@@ -39,11 +42,9 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
 
       case stream_download(@hf_url, out_path) do
         :ok ->
+          export_dir = Path.dirname(out_path)
           Mix.shell().info("Done. Export to Elixir format (manifest + .npy):")
-
-          Mix.shell().info(
-            "  mix recgpt.export_ckpt --from-pt #{out_path} --out data/recgpt_ckpt_export"
-          )
+          Mix.shell().info("  mix recgpt.export_ckpt --from-pt #{out_path} --out #{export_dir}")
 
         {:error, reason} ->
           Mix.raise("Download failed: #{inspect(reason)}")

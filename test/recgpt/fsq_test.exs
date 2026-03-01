@@ -171,7 +171,7 @@ defmodule RecGPT.FSQTest do
       assert map_size(params["project_out"]) == 2
     end
 
-    test "transposes project_in when shape is {5, 192}" do
+    test "transposes project_in when shape is {5, 192} and project_out when {192, 5}" do
       k_in = Nx.iota({5, 192}) |> Nx.divide(1)
 
       params =
@@ -183,6 +183,8 @@ defmodule RecGPT.FSQTest do
         })
 
       assert Nx.shape(params["project_in"]["kernel"]) == {192, 5}
+      # PyTorch exports (192, 5); we need (5, 192) for Nx.dot(codes, [2], kernel, [0])
+      assert Nx.shape(params["project_out"]["kernel"]) == {5, 192}
     end
 
     test "keeps project_out kernel shape {5, 192} as-is" do

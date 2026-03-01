@@ -58,7 +58,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
-        resolve_path("data/recgpt_ckpt_export")
+        resolve_path(Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"]))
 
     catalog_path = opts[:catalog]
 

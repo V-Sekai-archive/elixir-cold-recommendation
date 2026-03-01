@@ -7,19 +7,14 @@ end
 
 defmodule Recgpt.V1.PredictionService.Server do
   @moduledoc """
-  gRPC server for RecGPT PredictionService. Delegates to `RecGPT.Serve`.
+  gRPC server for RecGPT PredictionService. Uses Elixir inference (RecGPT.Serve.recommend).
+  State is loaded by `mix recgpt.serve` and stored in config :recgpt, :serve_state.
   """
   use GRPC.Server, service: Recgpt.V1.PredictionService.Service
 
   alias Recgpt.V1.{ItemSummary, PredictResponse}
 
   def predict(request, _stream) do
-    state = Application.get_env(:recgpt, :serve_state)
-
-    unless state do
-      raise GRPC.RPCError, status: :unavailable, message: "Service not ready"
-    end
-
     context_ids = request.context_item_ids || []
     raw_max = request.max_results || 0
     max_results = if raw_max in 1..20, do: raw_max, else: 5
@@ -36,26 +31,21 @@ defmodule Recgpt.V1.PredictionService.Server do
         message: "context_item_ids must not be empty"
     end
 
-    result = RecGPT.Serve.recommend(state, context_ids, max_results)
-    item_text = state.item_text
+    case Application.get_env(:recgpt, :serve_state) do
+      nil ->
+        raise GRPC.RPCError,
+          status: :failed_precondition,
+          message: "Serve state not loaded. Start with mix recgpt.serve (fixture + checkpoint)."
 
-    case result do
-      {:ok, item_ids} ->
-        items =
-          Enum.map(item_ids, fn id ->
-            display = display_name(Map.get(item_text, id))
-            %ItemSummary{item_id: id, display_name: display}
-          end)
+      state ->
+        case RecGPT.Serve.recommend(state, context_ids, max_results) do
+          {:ok, item_ids} ->
+            items = Enum.map(item_ids, fn id -> %ItemSummary{item_id: id, display_name: to_string(id)} end)
+            %PredictResponse{item_ids: item_ids, items: items}
 
-        %PredictResponse{item_ids: item_ids, items: items}
-
-      {:error, msg} ->
-        raise GRPC.RPCError, status: :invalid_argument, message: to_string(msg)
+          {:error, reason} ->
+            raise GRPC.RPCError, status: :internal, message: "Recommend failed: #{inspect(reason)}"
+        end
     end
   end
-
-  defp display_name(nil), do: ""
-  defp display_name(s) when is_binary(s), do: s
-  defp display_name(m) when is_map(m), do: inspect(m)
-  defp display_name(x), do: to_string(x)
 end

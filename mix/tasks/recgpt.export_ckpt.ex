@@ -43,6 +43,11 @@ defmodule Mix.Tasks.Recgpt.ExportCkpt do
     params = RecGPT.PtLoader.load!(pt_path)
     Mix.shell().info("Writing export to #{out_dir} (#{map_size(params)} tensors)...")
     :ok = RecGPT.CheckpointExport.write_export(params, out_dir)
+    pt_dest = Path.join(out_dir, "recgpt_layer_3_weight.pt")
+    if pt_path != Path.expand(pt_dest) do
+      File.cp!(pt_path, pt_dest)
+      Mix.shell().info("Copied .pt to #{pt_dest} (for Python eval/predict).")
+    end
     Mix.shell().info("Done.")
   end
 end

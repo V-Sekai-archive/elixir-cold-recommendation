@@ -15,12 +15,13 @@ defmodule RecGPT.Serve do
   @max_length 255
   @seq_token_capacity 1024
 
-  defstruct [:params, :trie, :token_id_list, :item_text, :num_items, :get_logits_fn]
+  defstruct [:params, :trie, :token_id_list, :token_id_map, :item_text, :num_items, :get_logits_fn]
 
   @type state :: %__MODULE__{
           params: map(),
           trie: map(),
           token_id_list: [[non_neg_integer()]],
+          token_id_map: %{non_neg_integer() => [non_neg_integer()]} | nil,
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
           get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t())
@@ -43,6 +44,7 @@ defmodule RecGPT.Serve do
         params: params,
         trie: trie,
         token_id_list: token_id_list,
+        token_id_map: nil,
         item_text: item_text,
         num_items: num_items,
         get_logits_fn: get_logits_fn
@@ -50,6 +52,55 @@ defmodule RecGPT.Serve do
 
       {:ok, state}
     end
+  end
+
+  @doc """
+  Load state from catalog DB (item_tokens) + checkpoint. Constant memory: streams item_tokens into trie and map.
+  Requires RECGPT_SQLITE_PATH and mix ecto.migrate. Run build_fixture with --sqlite (or RECGPT_SQLITE_PATH) first.
+  """
+  @spec load_state_from_db(String.t(), String.t() | nil) :: {:ok, state()} | {:error, String.t()}
+  def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
+    with {:ok, params} <- load_checkpoint(ckpt_export_dir),
+         {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
+         {:ok, item_text} <- load_catalog(catalog_path, num_items) do
+      get_logits_fn = build_get_logits_fn(params)
+      state = %__MODULE__{
+        params: params,
+        trie: trie,
+        token_id_list: [],
+        token_id_map: token_id_map,
+        item_text: item_text,
+        num_items: num_items,
+        get_logits_fn: get_logits_fn
+      }
+      {:ok, state}
+    end
+  end
+
+  defp load_fixture_from_db do
+    import Ecto.Query
+    alias RecGPT.Catalog.ItemToken
+    alias RecGPT.Repo
+
+    stream =
+      from(t in ItemToken, order_by: [asc: t.item_id], select: {t.item_id, t.t0, t.t1, t.t2, t.t3})
+      |> Repo.stream()
+
+    stream =
+      Stream.map(stream, fn {item_id, t0, t1, t2, t3} ->
+        tokens = [t0 || 0, t1 || 0, t2 || 0, t3 || 0]
+        {item_id, tokens}
+      end)
+
+    {trie, token_id_map, num_items} =
+      Enum.reduce(stream, {%{}, %{}, 0}, fn {item_id, tokens}, {acc_trie, acc_map, max_id} ->
+        new_trie = Trie.add_item(acc_trie, item_id, tokens)
+        new_map = Map.put(acc_map, item_id, tokens)
+        new_max = max(item_id + 1, max_id)
+        {new_trie, new_map, new_max}
+      end)
+
+    {:ok, trie, token_id_map, num_items}
   end
 
   defp load_checkpoint(dir) do
@@ -114,18 +165,31 @@ defmodule RecGPT.Serve do
 
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
+  Uses state.token_id_list when present, else state.token_id_map (when loaded from DB).
   """
   @spec item_ids_to_context_token_ids(
           [non_neg_integer()],
-          [[non_neg_integer()]],
-          non_neg_integer()
-        ) ::
-          [integer()]
-  def item_ids_to_context_token_ids(item_ids, token_id_list, padding_id \\ @padding_id) do
+          [[non_neg_integer()]] | state(),
+          non_neg_integer() | nil
+        ) :: [integer()]
+  def item_ids_to_context_token_ids(item_ids, token_id_list, padding_id \\ @padding_id)
+      when is_list(token_id_list) or is_struct(token_id_list) do
     seq = Enum.take(item_ids, -@max_length)
-    token_list = Enum.flat_map(seq, fn iid -> Enum.at(token_id_list, iid) || [0, 0, 0, 0] end)
+    token_list =
+      if is_struct(token_id_list) do
+        state = token_id_list
+        Enum.flat_map(seq, fn iid ->
+          if state.token_id_map && state.token_id_map != %{} do
+            Map.get(state.token_id_map, iid, [0, 0, 0, 0])
+          else
+            Enum.at(state.token_id_list || [], iid) || [0, 0, 0, 0]
+          end
+        end)
+      else
+        Enum.flat_map(seq, fn iid -> Enum.at(token_id_list, iid) || [0, 0, 0, 0] end)
+      end
     len = length(token_list)
-    padding = List.duplicate(padding_id, @seq_token_capacity - len)
+    padding = List.duplicate(padding_id || @padding_id, @seq_token_capacity - len)
     padding ++ token_list
   end
 
@@ -140,7 +204,7 @@ defmodule RecGPT.Serve do
       {:error, "item_ids must be non-empty"}
     else
       top_k = min(top_k, 20)
-      context_token_ids = item_ids_to_context_token_ids(item_ids, state.token_id_list)
+      context_token_ids = item_ids_to_context_token_ids(item_ids, state)
 
       case Decode.beam_search_top_k(state.get_logits_fn, state.trie, context_token_ids, top_k) do
         {:ok, list} -> {:ok, list}

@@ -1,4 +1,4 @@
-﻿# Proposal: RecGPT library (module reference)
+# Proposal: RecGPT library (module reference)
 
 Sub-proposal of the [documentation index](README.md). One place to look up modules, dependencies, and tests.
 
@@ -75,7 +75,7 @@ API: gRPC only. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recomme
 | Module                                 | Purpose                                                               |
 | -------------------------------------- | --------------------------------------------------------------------- |
 | **RecGPT.GRPCEndpoint**                | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.             |
-| **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; delegates to `RecGPT.Serve.recommend/3`. |
+| **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; uses `RecGPT.PythonShim.predict/2` (Python). |
 
 ---
 

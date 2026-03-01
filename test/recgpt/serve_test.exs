@@ -105,7 +105,7 @@ defmodule RecGPT.ServeTest do
         assert state.num_items > 0
         assert is_list(state.token_id_list)
       else
-        raise "Skip: need data/serve_e2e_fixture.json and data/recgpt_ckpt_export (or run Serve E2E from M:\\reflex-logic-other)"
+        raise "Skip: need data/serve_e2e_fixture.json and data/recgpt_ckpt_export (or run Serve E2E from your local setup; see CONTRIBUTING)"
       end
     end
 

@@ -2,6 +2,8 @@
 
 Sub-proposal of the [documentation index](README.md). How to evaluate RecGPT and reject the null baseline.
 
+**Scope:** This doc is only about **testing recommendation performance** (Hit@k, MRR, null hypothesis, commands). How you obtain the fixture (our encoder vs dataset embeddings) is a separate concern — see [embedding_vs_eval.md](embedding_vs_eval.md) and [26_embedding_mismatch.md](26_embedding_mismatch.md).
+
 ---
 
 ## Problem or limitation
@@ -78,7 +80,9 @@ For zero-shot vs trained in CI: run once with `RECGPT_CKPT_EXPORT` pointing to t
 
 ## See also
 
-- [03 RecGPT library](03_recgpt_library.md) — Module reference.
-- [04 Eval data shapes](04_eval_data_shapes.md) — JSON format for test files.
-- [06 Steam splits and pretraining](06_steam_splits_and_pretraining.md) — Train/test/cold splits.
-- [02 Pipeline reference](02_pipeline_reference.md) — Eval step in the pipeline.
+- [embedding_vs_eval.md](embedding_vs_eval.md) — Divide: generating embeddings vs testing recommendation performance.
+- [26 Embedding mismatch](26_embedding_mismatch.md) — Embedding parity and how to build fixture from dataset .npy.
+- [04 RecGPT library](04_recgpt_library.md) — Module reference.
+- [05 Eval data shapes](05_eval_data_shapes.md) — JSON format for test files.
+- [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md) — Train/test/cold splits.
+- [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md) — Eval step in the pipeline.

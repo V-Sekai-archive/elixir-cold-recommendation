@@ -20,44 +20,43 @@ defmodule RecGPT.ReleaseTasks do
   @moduledoc """
   Entrypoint for running the gRPC server from a release.
   Usage: bin/recgpt eval "RecGPT.ReleaseTasks.serve()"
-  Requires env: RECGPT_FIXTURE, RECGPT_CKPT_EXPORT (paths to fixture JSON and checkpoint export dir).
-  Optional: RECGPT_GRPC_PORT (default 50051), RECGPT_HEALTH_PORT (default 50052; 0 to disable), RECGPT_CATALOG.
+  Uses Elixir inference (RecGPT.Serve). Set RECGPT_FIXTURE and RECGPT_CKPT_EXPORT (or RECGPT_CKPT_PATH)
+  so state is loaded and stored in :serve_state.
+  Optional: RECGPT_GRPC_PORT (default 50051), RECGPT_HEALTH_PORT (default 50052; 0 to disable).
   """
   def serve do
     Application.ensure_all_started(:recgpt)
-    fixture_path = System.get_env("RECGPT_FIXTURE")
-    ckpt_dir = System.get_env("RECGPT_CKPT_EXPORT")
+    Application.ensure_all_started(:nx)
 
-    if not (fixture_path && fixture_path != "" && ckpt_dir && ckpt_dir != "") do
-      raise "RECGPT_FIXTURE and RECGPT_CKPT_EXPORT must be set"
+    fixture_path = System.get_env("RECGPT_FIXTURE")
+    ckpt_dir = System.get_env("RECGPT_CKPT_EXPORT") || System.get_env("RECGPT_CKPT_PATH")
+
+    if fixture_path != "" and fixture_path != nil and ckpt_dir != "" and ckpt_dir != nil do
+      case RecGPT.Serve.load_state(fixture_path, ckpt_dir, nil) do
+        {:ok, state} ->
+          Application.put_env(:recgpt, :serve_state, state)
+        {:error, reason} ->
+          raise "Failed to load state: #{inspect(reason)}"
+      end
     end
 
     grpc_port = env_port("RECGPT_GRPC_PORT", 50_051)
     health_port = env_port("RECGPT_HEALTH_PORT", 50_052)
-    catalog_path = System.get_env("RECGPT_CATALOG")
 
-    case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
-      {:ok, state} ->
-        Application.put_env(:recgpt, :serve_state, state)
+    children = [
+      {GRPC.Server.Supervisor,
+       endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
+    ]
 
-        children = [
-          {GRPC.Server.Supervisor,
-           endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
-        ]
+    children =
+      if is_integer(health_port) and health_port > 0 do
+        [{RecGPT.HealthServer, health_port} | children]
+      else
+        children
+      end
 
-        children =
-          if is_integer(health_port) and health_port > 0 do
-            [{RecGPT.HealthServer, health_port} | children]
-          else
-            children
-          end
-
-        {:ok, _} = Supervisor.start_link(children, strategy: :one_for_one)
-        Process.sleep(:infinity)
-
-      {:error, reason} ->
-        raise "Failed to load state: #{inspect(reason)}"
-    end
+    {:ok, _} = Supervisor.start_link(children, strategy: :one_for_one)
+    Process.sleep(:infinity)
   end
 
   defp env_port(name, default) do

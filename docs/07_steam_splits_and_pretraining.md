@@ -78,6 +78,7 @@ For full commands, options, and file layout, see [02 Pipeline reference](02_pipe
 ## References
 
 - [hkuds/RecGPT_dataset — test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam) — `train.pkl`, `test.pkl`, `cold_train.pkl`, `cold_test.pkl`, `item_text_dict.pkl`, `item_text_embeddings.npy`.
+- **Local clone:** If you have the dataset cloned locally, use a test split dir as the steam dir: `mix recgpt.fetch_steam path/to/RecGPT_dataset/test/steam` then `--steam-dir path/to/RecGPT_dataset/test/steam` (or `test/baby`, `test/games`, etc.) for build_fixture, compare_embeddings, and related tasks. See [26_embedding_mismatch.md](26_embedding_mismatch.md#see-also-local-recgpt_dataset-clone).
 - RecGPT training: `RecGPT.Training.build_train_batch/4`, `RecGPT.AxonTrain`, `mix recgpt.pretrain`.
 
 ---

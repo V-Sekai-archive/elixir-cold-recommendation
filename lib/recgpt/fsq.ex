@@ -5,8 +5,11 @@ defmodule RecGPT.FSQ do
   Port of RecGPT utils/fsq.py: levels [8,8,8,6,5] -> 15360 codes, 4 tokens per item.
   Each token is one index in 0..15359. Padding id is 15360.
 
-  Requires Nx. Weights (project_in, project_out) must be loaded from the VAE checkpoint;
-  use `load_params/1` with a map from export (see scripts/export_recgpt_fsq_weights.py).
+  Requires Nx. Weights (project_in, project_out) come from the **VAE** checkpoint (the RecGPT
+  .pt export does not include them). Use `load_params_from_vae_pt/1` with the path to
+  `vae_len4_fsq88865_ep90.pt` so token_id_list matches the Python pipeline; or `load_params/1`
+  with a map that has `quantizer.project_in.weight` / `quantizer.project_out.weight` (e.g. from
+  `RecGPT.PtLoader.load!/1` on the VAE .pt).
   """
 
   @seq_len 4
@@ -92,20 +95,45 @@ defmodule RecGPT.FSQ do
     {out, indices}
   end
 
+  @doc """
+  Load FSQ params from a VAE checkpoint .pt file (e.g. vae_len4_fsq88865_ep90.pt).
+
+  The VAE state_dict uses keys like `quantizer.project_in.weight`; they are extracted
+  and normalized to the same format as `load_params/1`. Use this when building a fixture
+  so token_id_list matches the Python RecGPT pipeline (same FSQ codebook as eval/predict).
+  """
+  @spec load_params_from_vae_pt(String.t()) :: map()
+  def load_params_from_vae_pt(vae_pt_path) when is_binary(vae_pt_path) do
+    vae_pt_path = Path.expand(vae_pt_path)
+    unless File.regular?(vae_pt_path), do: raise(File.Error, path: vae_pt_path, reason: :enoent)
+    tensor_map = RecGPT.PtLoader.load!(vae_pt_path)
+    load_params(tensor_map)
+  end
+
   def load_params(tensor_map) do
-    project_in_k = tensor_map["project_in/kernel"] || tensor_map["fsq.project_in.weight"]
-    project_in_b = tensor_map["project_in/bias"] || tensor_map["fsq.project_in.bias"]
-    project_out_k = tensor_map["project_out/kernel"] || tensor_map["fsq.project_out.weight"]
-    project_out_b = tensor_map["project_out/bias"] || tensor_map["fsq.project_out.bias"]
+    # Export / manifest keys, RecGPT export keys, and VAE .pt state_dict keys
+    project_in_k =
+      tensor_map["project_in/kernel"] || tensor_map["fsq.project_in.weight"] ||
+        tensor_map["quantizer.project_in.weight"]
+    project_in_b =
+      tensor_map["project_in/bias"] || tensor_map["fsq.project_in.bias"] ||
+        tensor_map["quantizer.project_in.bias"]
+    project_out_k =
+      tensor_map["project_out/kernel"] || tensor_map["fsq.project_out.weight"] ||
+        tensor_map["quantizer.project_out.weight"]
+    project_out_b =
+      tensor_map["project_out/bias"] || tensor_map["fsq.project_out.bias"] ||
+        tensor_map["quantizer.project_out.bias"]
 
     project_in_k =
       if project_in_k && Nx.shape(project_in_k) == {5, 192},
         do: Nx.transpose(project_in_k),
         else: project_in_k
 
+    # PyTorch Linear(5, 192) stores weight (192, 5). Nx.dot(codes, [2], kernel, [0]) needs kernel (5, 192).
     project_out_k =
       if project_out_k && Nx.shape(project_out_k) == {192, 5},
-        do: project_out_k,
+        do: Nx.transpose(project_out_k),
         else: project_out_k
 
     # When checkpoint has no FSQ params, use dummies so build_fixture runs (token_id_list will be placeholder)

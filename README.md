@@ -1,8 +1,8 @@
-﻿# RecGPT (Elixir)
+# RecGPT (Elixir)
 
-Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scalar Quantization), text embeddings (MPNet via Bumblebee), training pipeline, and gRPC serving. No Python at runtime; use from any application (e.g. polymarket).
+Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gRPC serving, Ecto/SQLite. **RecGPT inference, eval, and Predict run in Elixir** (RecGPT.Serve, RecGPT.Eval, fixture + checkpoint); no Python at runtime.
 
-**RecGPT** ([paper](https://arxiv.org/abs/2506.06270), [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT)) treats items as 4-token sequences; this library provides the data pipeline, training (Axon + Polaris), inference, and eval tooling to match that setup.
+**RecGPT** ([paper](https://arxiv.org/abs/2506.06270), [HKUDS/RecGPT](https://github.com/HKUDS/RecGPT)) treats items as 4-token sequences; this repo provides the data pipeline (fetch, build_fixture), gRPC API, and Elixir-native inference and evaluation.
 
 ---
 
@@ -15,19 +15,17 @@ Elixir library for **RecGPT-style sequential recommendation**: FSQ (Finite Scala
    mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
    ```
 
-2. **Generate data and build the pipeline** (Steam example):
+2. **Generate data and run first step** (Steam baseline, Elixir eval):
 
    ```bash
-   mix recgpt.fetch_steam data/steam        # items, train/test/cold sequences
-   mix recgpt.build_fixture                  # items → fixture.json (Embedding + FSQ)
-   mix recgpt.pretrain --out data/ckpt_out   # train on train_sequences, write updated checkpoint
-   mix recgpt.eval                           # eval on test + cold_test (requires cold_test file)
+   mix recgpt.first_step                     # fetch → build_fixture → eval (Elixir)
+   # Or: mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture && mix recgpt.eval
    ```
 
-3. **Serve recommendations** (optional):
+3. **Serve recommendations** (gRPC; Predict uses Elixir Serve):
 
    ```bash
-   mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_out
+   RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/recgpt_ckpt_export mix recgpt.serve
    ```
 
 See [Pipeline](#pipeline), [docs/02_pipeline_overview.md](docs/02_pipeline_overview.md), and [docs/03_pipeline_steps.md](docs/03_pipeline_steps.md) for the full sequence and options.
@@ -41,7 +39,7 @@ See [Pipeline](#pipeline), [docs/02_pipeline_overview.md](docs/02_pipeline_overv
 | **1. Data** | `mix recgpt.fetch_steam data/steam` or `RecGPT.Steam.Fetch.run/1` | `items.json`, `train_sequences.json`, `test_sequences.json`, `cold_test_sequences.json`, `cold_train_sequences.json` |
 | **2. Fixture** | `mix recgpt.build_fixture` or `RecGPT.FixtureBuild.build/2` | `fixture.json` (`num_items`, `token_id_list`) |
 | **3. Pretrain** | `mix recgpt.pretrain` (uses `AxonTrain.stream_batches` + `run/3`) | Updated checkpoint in `--out` |
-| **4. Eval** | `mix recgpt.eval` (requires `--test` and `--cold-test` files) | Hit@k, MRR, cold-test metrics |
+| **4. Eval** | `mix recgpt.eval` (Elixir; `--data-dir`, `--ckpt`, `--fixture`, `--test`) | Hit@k, MRR, etc. |
 
 For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a baseline. See [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md).
 
@@ -56,10 +54,10 @@ For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a 
 | `mix recgpt.fetch_steam` | Fetch Steam test split from HuggingFace (hkuds/RecGPT_dataset); write items + train/test/cold sequences. |
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
-| `mix recgpt.eval` | Run next-item eval (Hit@k, MRR) on test + cold-test sets. Requires fixture, checkpoint, and both test files. |
-| `mix recgpt.serve` | Start gRPC server (port 50051): recgpt.v1.PredictionService/Predict. |
+| `mix recgpt.eval` | Run next-item eval in Elixir (`--data-dir`, `--ckpt`, `--fixture`, `--test`). |
+| `mix recgpt.serve` | Start gRPC server (port 50051): Predict uses RecGPT.Serve.recommend. Set `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`. |
 
-Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, etc. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
+Paths default to `data/steam/` and `thirdparty/checkpoints/recgpt`. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT` for serve.
 
 **Catalog storage** uses object-store semantics; options are BEAM-native (file path, [CubDB](https://hex.pm/packages/cubdb), or RabbitMQ's [Khepri](https://hex.pm/packages/khepri)). See [docs/13_infrastructure_serving.md](docs/13_infrastructure_serving.md#catalog-storage-object-store-semantics).
 
@@ -76,9 +74,7 @@ Paths default to `data/steam/` and `data/recgpt_ckpt_export`; override with `--f
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. |
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
 | **RecGPT.Inference** | Forward pass: token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
-| **RecGPT.Serve** | Load state (fixture + checkpoint), `recommend/3`, item_ids_to_context_token_ids. |
-| **RecGPT.Eval** | `evaluate/3`, `load_test_cases/1` (Hit@k, MRR, null rejection). |
-| **RecGPT.Decode** | Beam search for next-item from logits + trie. |
+| **RecGPT.Serve** | Load state (fixture + checkpoint); `recommend/3` for next-item. Predict RPC uses Serve.recommend. |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
 | **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |

@@ -28,6 +28,9 @@ defmodule Mix.Tasks.Recgpt.FetchSteam do
         Mix.shell().info(
           "Done. Next: mix recgpt.build_fixture --items #{out_dir}/items.json --out #{out_dir}/fixture.json --ckpt data/recgpt_ckpt_export, then pretrain and eval."
         )
+        Mix.shell().info(
+          "Or run the full first-step baseline (fetch + build fixture with dataset embeddings + eval): mix recgpt.first_step (requires checkpoint; see docs/24_first_step_plan.md)."
+        )
 
       {:error, reason} ->
         Mix.raise("Steam fetch failed: #{inspect(reason)}")

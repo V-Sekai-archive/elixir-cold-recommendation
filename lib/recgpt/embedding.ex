@@ -2,8 +2,9 @@ defmodule RecGPT.Embedding do
   @moduledoc """
   Text → 768-d embeddings for RecGPT training (MPNet, sentence-transformers/all-mpnet-base-v2).
 
-  Uses Bumblebee to load and run the model. Mean pooling; outputs are L2-normalized per row to match the
-  dataset item_text_embeddings.npy (unit norm). Outputs are not guaranteed identical to Python; validate if you need parity.
+  Uses Bumblebee with mean pooling, L2 normalization, and fixed sequence length 384 to align with
+  sentence-transformers (SentenceTransformer.encode). Run `mix recgpt.compare_embeddings` to check
+  cosine similarity vs the dataset item_text_embeddings.npy.
 
   ## Usage
 
@@ -15,6 +16,8 @@ defmodule RecGPT.Embedding do
 
   @model_id "sentence-transformers/all-mpnet-base-v2"
   @embed_batch_size 100
+  # Match sentence-transformers default for all-mpnet-base-v2 (truncate/pad to 384 tokens).
+  @max_sequence_length 384
 
   @doc """
   Builds the same string upstream RecGPT uses for encoding: Python's str(dict).replace('{','').replace('}','').
@@ -58,7 +61,8 @@ defmodule RecGPT.Embedding do
       Bumblebee.Text.text_embedding(model_info, tokenizer,
         output_pool: :mean_pooling,
         output_attribute: :hidden_state,
-        embedding_processor: nil
+        embedding_processor: :l2_norm,
+        compile: [batch_size: @embed_batch_size, sequence_length: @max_sequence_length]
       )
 
     IO.puts("Embedding serving ready.")
@@ -69,14 +73,7 @@ defmodule RecGPT.Embedding do
     serv = serving()
     results = Nx.Serving.run(serv, texts)
     tensors = Enum.map(results, fn %{embedding: t} -> t end)
-    stacked = Nx.stack(tensors)
-    l2_normalize_rows(stacked)
-  end
-
-  defp l2_normalize_rows(t) do
-    norms = Nx.sqrt(Nx.sum(Nx.multiply(t, t), axes: [1]))
-    safe = Nx.select(Nx.greater(norms, 1.0e-9), norms, Nx.tensor(1.0, type: Nx.type(t)))
-    Nx.divide(t, Nx.new_axis(safe, 1))
+    Nx.stack(tensors)
   end
 
   @doc "Encodes item_text_dict (map of item_index => text) to Nx tensor {num_items, 768}. Indices 0..num_items-1, sorted. Processes in batches of #{@embed_batch_size} to limit memory."

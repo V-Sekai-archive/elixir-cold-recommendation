@@ -13,13 +13,32 @@ defmodule RecGPT.Eval do
   ## Random baseline
   For a catalog of size N, random Hit@1 ≈ 1/N and MRR ≈ 1/N. Comparing to these values
   shows whether the model beats the null hypothesis (no predictive signal).
+
+  ## Constant memory and wavefront
+  Eval is designed for **constant memory**: one test case at a time, so the computation
+  **wavefront** stays bounded—no backlog of tensors or data. We keep only running counts
+  (h1, h5, h10, rr_sum, n); each case is computed, metrics updated, then released. When
+  you pass a **stream** (e.g. `stream_test_cases_from_db/1`), the wavefront advances
+  through the stream without accumulating. No full test set or tensor batch in memory.
+
+  **SPMD** is the right design for scaling: same program on every rank, sharded test
+  data (and optionally sharded catalog/model), then reduce metrics (sum h1, h5, h10,
+  rr_sum, n). See GSPMD and N-D parallelism (e.g.
+  [pytorch/torchtitan](https://github.com/pytorch/torchtitan),
+  [openxla/shardy](https://github.com/openxla/shardy)). We want SPMD for all tensor
+  code here, but we build a rope bridge across the chasm before a road or a busy
+  highway: this eval is one rank (single wavefront: one case → recommend → update
+  counts → release). Pipelining (multiple wavefronts with bounded queues) belongs
+  *within* a rank. Scaling out to more ranks and full SPMD is the intended road and
+  highway.
   """
 
   @doc """
-  Runs evaluation given serve state and a list of test cases.
+  Runs evaluation given serve state and test cases (list or stream).
 
-  Test cases: list of maps with keys `"context"` (list of item_ids) and `"next_item"` (single item_id).
-  Keys may be atoms or strings. Optional `:top_k` in opts (default 10) limits recommendation size for MRR.
+  Test cases: enumerable of maps with keys `"context"` (list of item_ids) and `"next_item"` (single item_id).
+  Use a stream (e.g. from `stream_test_cases_from_db/2`) for constant memory; pass `:total` in opts for progress.
+  Optional `:top_k` in opts (default 10) limits recommendation size for MRR.
 
   Returns a map with:
   - `:n` - number of test cases
@@ -29,26 +48,47 @@ defmodule RecGPT.Eval do
   - `:random_hit_at_1` - 1/catalog_size (null baseline)
   - `:rejects_null` - true if Hit@1 > random_hit_at_1 (model beats random baseline)
   """
-  @spec evaluate(RecGPT.Serve.state(), [map()], keyword()) :: map()
+  @spec evaluate(RecGPT.Serve.state(), Enumerable.t(), keyword()) :: map()
   def evaluate(state, test_cases, opts \\ []) do
     top_k = Keyword.get(opts, :top_k, 10) |> min(20)
     check_interval = Keyword.get(opts, :resource_check_interval, 100)
+    progress_interval_sec = Keyword.get(opts, :progress_interval_sec)
+    progress_fn = Keyword.get(opts, :progress_fn) || default_progress_fn()
+    total = Keyword.get(opts, :total) || (if is_list(test_cases), do: length(test_cases), else: nil)
 
     check_opts =
       Keyword.get(opts, :resource_check_opts, [])
       |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
 
     recommend_fn = fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
+    start_sec = System.monotonic_time(:second)
 
+    # Constant memory / bounded wavefront: one test case at a time; acc = (h1, h5, h10, rr_sum, n, last_progress_sec).
     result =
-      Enum.reduce_while(test_cases, {0, 0, 0, 0.0, 0}, fn tc, acc ->
-        if run_resource_check?(elem(acc, 4), check_interval) do
+      Enum.reduce_while(test_cases, {0, 0, 0, 0.0, 0, start_sec}, fn tc, acc ->
+        {h1, h5, h10, rr_sum, n, last_progress_sec} = acc
+        metrics_5 = update_acc_for_tc(tc, {h1, h5, h10, rr_sum, n}, recommend_fn, top_k)
+        {nh1, nh5, nh10, nrr_sum, nn} = metrics_5
+        now_sec = System.monotonic_time(:second)
+
+        maybe_report_progress =
+          if progress_interval_sec && progress_interval_sec > 0 &&
+               (now_sec - last_progress_sec) >= progress_interval_sec do
+            progress_fn.(nn, total, metrics_5)
+            now_sec
+          else
+            last_progress_sec
+          end
+
+        next_acc = {nh1, nh5, nh10, nrr_sum, nn, maybe_report_progress}
+
+        if run_resource_check?(nn, check_interval) do
           case RecGPT.ResourceCheck.check(check_opts) do
-            :ok -> {:cont, update_acc_for_tc(tc, acc, recommend_fn, top_k)}
-            {:halt, reason} -> {:halt, {:halted, reason, acc}}
+            :ok -> {:cont, next_acc}
+            {:halt, reason} -> {:halt, {:halted, reason, next_acc}}
           end
         else
-          {:cont, update_acc_for_tc(tc, acc, recommend_fn, top_k)}
+          {:cont, next_acc}
         end
       end)
 
@@ -76,6 +116,143 @@ defmodule RecGPT.Eval do
   def filter_to_catalog(test_cases, _), do: test_cases
 
   @doc """
+  Streams test cases from the catalog DB (test_cases + test_context).
+
+  Use for constant-memory eval: stream is consumed one test case at a time.
+  Optional `num_items` filters to in-catalog only (context and next_item in 0..num_items-1).
+  Requires Ecto Repo and RECGPT_SQLITE_PATH (or sync_test_from_json) to have been run.
+  """
+  @spec stream_test_cases_from_db(non_neg_integer() | nil) :: Enumerable.t()
+  def stream_test_cases_from_db(num_items \\ nil) do
+    import Ecto.Query
+    alias RecGPT.Catalog.{TestCase, TestContext}
+    alias RecGPT.Repo
+
+    query =
+      from(tc in TestCase,
+        left_join: ctx in TestContext,
+        on: ctx.case_id == tc.case_id,
+        order_by: [asc: tc.case_id, asc: ctx.pos],
+        select: {tc.case_id, tc.next_item, ctx.pos, ctx.item_id}
+      )
+
+    stream = Repo.stream(query)
+
+    stream
+    |> Stream.transform(
+      {nil, [], nil},
+      fn row, state ->
+        {case_id, next_item, pos, item_id} = row
+        {prev_cid, prev_ctx, prev_next} = state
+
+        emit =
+          if prev_cid != nil and case_id != prev_cid do
+            tc = %{"context" => prev_ctx, "next_item" => prev_next}
+            in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+            if in_catalog, do: [tc], else: []
+          else
+            []
+          end
+
+        new_ctx =
+          if case_id != prev_cid do
+            if pos != nil and item_id != nil, do: [item_id], else: []
+          else
+            if pos != nil and item_id != nil, do: prev_ctx ++ [item_id], else: prev_ctx
+          end
+        new_state = {case_id, new_ctx, (if case_id != prev_cid, do: next_item, else: prev_next)}
+        {emit, new_state}
+      end,
+      fn state ->
+        {prev_cid, prev_ctx, prev_next} = state
+        if prev_cid == nil do
+          []
+        else
+          tc = %{"context" => prev_ctx, "next_item" => prev_next}
+          in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+          if in_catalog, do: [tc], else: []
+        end
+      end
+    )
+  end
+
+  @doc """
+  Count test cases in the DB (for progress total when streaming).
+  """
+  @spec count_test_cases_from_db() :: non_neg_integer()
+  def count_test_cases_from_db do
+    import Ecto.Query
+    alias RecGPT.Catalog.TestCase
+    alias RecGPT.Repo
+    Repo.aggregate(from(t in TestCase), :count, :case_id)
+  end
+
+  @doc """
+  Stream cold test cases from DB. Same as stream_test_cases_from_db but for cold_test_cases / cold_test_context.
+  """
+  @spec stream_cold_test_cases_from_db(non_neg_integer() | nil) :: Enumerable.t()
+  def stream_cold_test_cases_from_db(num_items \\ nil) do
+    import Ecto.Query
+    alias RecGPT.Catalog.{ColdTestCase, ColdTestContext}
+    alias RecGPT.Repo
+
+    query =
+      from(tc in ColdTestCase,
+        left_join: ctx in ColdTestContext,
+        on: ctx.case_id == tc.case_id,
+        order_by: [asc: tc.case_id, asc: ctx.pos],
+        select: {tc.case_id, tc.next_item, ctx.pos, ctx.item_id}
+      )
+
+    stream = Repo.stream(query)
+
+    stream
+    |> Stream.transform(
+      {nil, [], nil},
+      fn row, state ->
+        {case_id, next_item, pos, item_id} = row
+        {prev_cid, prev_ctx, prev_next} = state
+
+        emit =
+          if prev_cid != nil and case_id != prev_cid do
+            tc = %{"context" => prev_ctx, "next_item" => prev_next}
+            in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+            if in_catalog, do: [tc], else: []
+          else
+            []
+          end
+
+        new_ctx =
+          if case_id != prev_cid do
+            if pos != nil and item_id != nil, do: [item_id], else: []
+          else
+            if pos != nil and item_id != nil, do: prev_ctx ++ [item_id], else: prev_ctx
+          end
+        new_state = {case_id, new_ctx, (if case_id != prev_cid, do: next_item, else: prev_next)}
+        {emit, new_state}
+      end,
+      fn state ->
+        {prev_cid, prev_ctx, prev_next} = state
+        if prev_cid == nil do
+          []
+        else
+          tc = %{"context" => prev_ctx, "next_item" => prev_next}
+          in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+          if in_catalog, do: [tc], else: []
+        end
+      end
+    )
+  end
+
+  @spec count_cold_test_cases_from_db() :: non_neg_integer()
+  def count_cold_test_cases_from_db do
+    import Ecto.Query
+    alias RecGPT.Catalog.ColdTestCase
+    alias RecGPT.Repo
+    Repo.aggregate(from(t in ColdTestCase), :count, :case_id)
+  end
+
+  @doc """
   Loads test cases from a JSON file.
 
   Expected keys: `"test_cases"` (list of `{"context": [id, ...], "next_item": id}`).
@@ -85,7 +262,17 @@ defmodule RecGPT.Eval do
   def load_test_cases(path) do
     if File.regular?(path) do
       raw = File.read!(path) |> Jason.decode!()
-      cases = raw["test_cases"] || []
+      cases =
+        raw["test_cases"] ||
+          (raw["sequences"] || [])
+          |> Enum.map(fn seq ->
+            seq = List.wrap(seq)
+            if length(seq) >= 1 do
+              %{"context" => Enum.drop(seq, -1), "next_item" => List.last(seq)}
+            else
+              %{"context" => [], "next_item" => 0}
+            end
+          end)
       {:ok, List.wrap(cases)}
     else
       {:error, "file not found: #{path}"}
@@ -132,9 +319,24 @@ defmodule RecGPT.Eval do
   end
 
   defp final_metrics_tuple(result) do
-    case result do
-      {:halted, _reason, acc_tuple} -> acc_tuple
-      acc_tuple -> acc_tuple
+    raw =
+      case result do
+        {:halted, _reason, acc} -> acc
+        acc -> acc
+      end
+    # Strip progress timestamp (6th element) if present
+    case raw do
+      {h1, h5, h10, rr_sum, n, _last_sec} -> {h1, h5, h10, rr_sum, n}
+      t when tuple_size(t) == 5 -> t
+    end
+  end
+
+  defp default_progress_fn do
+    fn done, total, {h1, _h5, _h10, rr_sum, n} ->
+      hit1 = if n > 0, do: Float.round(h1 / n, 4), else: 0.0
+      mrr = if n > 0, do: Float.round(rr_sum / n, 4), else: 0.0
+      total_str = if total, do: "#{done}/#{total}", else: "#{done}"
+      IO.puts("  eval progress: #{total_str}  Hit@1=#{hit1}  MRR=#{mrr}")
     end
   end
 

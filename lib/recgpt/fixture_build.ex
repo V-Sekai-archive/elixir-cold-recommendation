@@ -20,7 +20,9 @@ defmodule RecGPT.FixtureBuild do
   Builds fixture from items path and checkpoint.
 
   - Reads items.json → item_text_dict (id => title for 0..num_items-1).
-  - Encodes via Embedding.encode_item_text_dict/1 → {num_items, 768}.
+  - Item embeddings: if opts[:embeddings_npy] is set and the file exists, loads that .npy (original
+    dataset embeddings) and uses rows 0..num_items-1. Otherwise encodes via Embedding.encode_item_text_dict/1.
+    Using the dataset's item_text_embeddings.npy ensures token_id_list matches the released checkpoint.
   - Loads FSQ params from ckpt_dir.
   - Encodes embeddings to token_id_list via FSQEncoder.encode_embeddings_to_token_id_list/3.
   - When sqlite: processes in batches and flushes items, item_embeddings, item_tokens to SQLite each batch.
@@ -34,33 +36,40 @@ defmodule RecGPT.FixtureBuild do
     sqlite? = opts[:sqlite] || System.get_env("RECGPT_SQLITE_PATH") != nil
 
     if sqlite? do
-      build_with_sqlite(item_text_dict, ckpt_dir, items_path)
+      build_with_sqlite(item_text_dict, ckpt_dir, items_path, opts)
     else
-      build_in_memory(item_text_dict, ckpt_dir)
+      build_in_memory(item_text_dict, ckpt_dir, items_path, opts)
     end
   end
 
-  defp build_in_memory(item_text_dict, ckpt_dir) do
-    embeddings = Embedding.encode_item_text_dict(item_text_dict)
-    {num_items, _} = Nx.shape(embeddings)
-    num_items = if is_tuple(num_items), do: elem(num_items, 0), else: num_items
-    fsq_params = load_fsq_params(ckpt_dir)
+  defp build_in_memory(item_text_dict, ckpt_dir, items_path, opts) do
+    num_items = map_size(item_text_dict)
+    embeddings = load_item_embeddings(item_text_dict, num_items, items_path, opts)
+    fsq_params = load_fsq_params(ckpt_dir, opts)
     token_id_list = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
     %{"num_items" => num_items, "token_id_list" => token_id_list}
   end
 
-  defp build_with_sqlite(item_text_dict, ckpt_dir, items_path) do
+  defp build_with_sqlite(item_text_dict, ckpt_dir, items_path, opts) do
     Application.ensure_all_started(:recgpt)
-    fsq_params = load_fsq_params(ckpt_dir)
+    fsq_params = load_fsq_params(ckpt_dir, opts)
     ids = item_text_dict |> Map.keys() |> Enum.sort()
     num_items = length(ids)
+    # When using dataset .npy, load once and slice per batch; otherwise encode per batch.
+    preloaded = if npy_path = resolve_embeddings_npy(items_path, opts), do: load_embeddings_npy(npy_path, num_items), else: nil
 
     {token_id_list, _cleared} =
       ids
       |> Enum.chunk_every(@sqlite_batch_size)
       |> Enum.reduce({[], false}, fn batch_ids, {acc, cleared} ->
-        batch_dict = Map.take(item_text_dict, batch_ids)
-        embeddings = Embedding.encode_item_text_dict(batch_dict)
+        embeddings =
+          if preloaded do
+            indices = Nx.tensor(Enum.map(batch_ids, & &1), type: {:s, 64})
+            Nx.gather(preloaded, Nx.new_axis(indices, 1))
+          else
+            batch_dict = Map.take(item_text_dict, batch_ids)
+            Embedding.encode_item_text_dict(batch_dict)
+          end
         batch_tokens = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
 
         unless cleared, do: Sync.clear_catalog_tables()
@@ -112,6 +121,35 @@ defmodule RecGPT.FixtureBuild do
     :ok
   end
 
+  # Use dataset item_text_embeddings.npy when available so token_id_list matches the released checkpoint.
+  defp load_item_embeddings(item_text_dict, _num_items, items_path, opts) do
+    case resolve_embeddings_npy(items_path, opts) do
+      npy_path when is_binary(npy_path) -> load_embeddings_npy(npy_path, map_size(item_text_dict))
+      nil -> Embedding.encode_item_text_dict(item_text_dict)
+    end
+  end
+
+  defp resolve_embeddings_npy(_items_path, opts) do
+    path = opts[:embeddings_npy]
+    if path && File.regular?(path), do: path, else: nil
+  end
+
+  defp load_embeddings_npy(npy_path, num_items) do
+    {:ok, tensor} = Npy.load(npy_path, :nx)
+    tensor = ensure_embeddings_2d(tensor)
+    {rows, _} = Nx.shape(tensor)
+    if rows < num_items, do: raise("Dataset .npy has #{rows} rows, need #{num_items}")
+    Nx.slice(tensor, [0, 0], [num_items, 768])
+  end
+
+  defp ensure_embeddings_2d(tensor) do
+    case Nx.shape(tensor) do
+      {_n, 768} -> tensor
+      {_n, 1, 768} -> Nx.squeeze(tensor, axes: [1])
+      shape -> raise "Unexpected .npy shape #{inspect(shape)}, expected {n, 768} or {n, 1, 768}"
+    end
+  end
+
   defp load_item_text_dict(path, limit) do
     raw = File.read!(path) |> Jason.decode!()
     items = raw["items"] || []
@@ -124,15 +162,21 @@ defmodule RecGPT.FixtureBuild do
     |> Map.new(fn {item, idx} -> {idx, Embedding.recgpt_item_text(item)} end)
   end
 
-  defp load_fsq_params(ckpt_dir) do
-    ckpt_params = CheckpointLoader.load_from_export(ckpt_dir)
-    params = FSQ.load_params(ckpt_params)
+  defp load_fsq_params(ckpt_dir, opts) do
+    params =
+      case opts[:vae_ckpt] do
+        path when is_binary(path) and path != "" ->
+          FSQ.load_params_from_vae_pt(path)
+
+        _ ->
+          ckpt_params = CheckpointLoader.load_from_export(ckpt_dir)
+          FSQ.load_params(ckpt_params)
+      end
 
     if fsq_params_ok?(params) do
       params
     else
-      raise "FSQ params not found in checkpoint #{ckpt_dir}. " <>
-              "Use a checkpoint that includes FSQ (e.g. project_in/kernel or fsq.project_in.weight)."
+      raise "FSQ params not found. Pass --vae-ckpt path/to/vae_len4_fsq88865_ep90.pt when building fixture so token_id_list matches the Python pipeline."
     end
   end
 

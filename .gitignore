@@ -63,3 +63,9 @@ data/
 # Embedding sanity-check dumps (mix recgpt.compare_embeddings --dump-row N, scripts/embed_one.py)
 item*_elixir.raw
 item*_sentence_transformers.npy
+
+# Checkpoints (thirdparty/checkpoints) — binaries not committed; use mix recgpt.fetch_vae_ckpt / fetch_ckpt
+thirdparty/checkpoints/vae/*.pt
+thirdparty/checkpoints/recgpt/*.pt
+thirdparty/checkpoints/recgpt/*.npy
+thirdparty/checkpoints/recgpt/manifest.json

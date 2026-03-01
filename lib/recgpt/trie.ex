@@ -27,6 +27,32 @@ defmodule RecGPT.Trie do
     end)
   end
 
+  @doc """
+  Build a trie from a stream of {item_id, [t0,t1,t2,t3]} (constant memory: no full list).
+  """
+  @spec build_from_stream(Enumerable.t()) :: map()
+  def build_from_stream(stream) do
+    Enum.reduce(stream, %{}, fn {item_id, tokens}, acc ->
+      case tokens do
+        [t0, t1, t2, t3]
+        when is_integer(t0) and is_integer(t1) and is_integer(t2) and is_integer(t3) ->
+          put_path(acc, [t0, t1, t2, t3], item_id)
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  @doc "Add one item (4-token list) to an existing trie. For building trie + map in one pass (e.g. load_state_from_db)."
+  @spec add_item(map(), non_neg_integer(), [non_neg_integer(), ...]) :: map()
+  def add_item(trie, item_id, [t0, t1, t2, t3])
+      when is_integer(t0) and is_integer(t1) and is_integer(t2) and is_integer(t3) do
+    put_path(trie, [t0, t1, t2, t3], item_id)
+  end
+
+  def add_item(trie, _item_id, _tokens), do: trie
+
   defp put_path(map, [k], v), do: Map.put(map, k, v)
 
   defp put_path(map, [k | rest], v) do

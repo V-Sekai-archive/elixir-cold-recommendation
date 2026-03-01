@@ -17,12 +17,14 @@ defmodule RecGPT.EmbeddingCompare do
 
   Options:
   - :limit - max items to compare (default 500)
+  - :text_format - :recgpt_item_text (default, builds \"'title': 'X'\") or :title_only (plain title string)
   - :ckpt_dir - if set, also compare FSQ token agreement
   - :dump_row - if set, write this row of our embeddings to :dump_path as raw float32 (for Python sanity check)
   - :dump_path - path for dump (default: item{N}_elixir.raw)
   """
   def run(steam_dir, opts \\ []) do
     limit = Keyword.get(opts, :limit, 500)
+    text_format = Keyword.get(opts, :text_format, :recgpt_item_text)
     steam_dir = Path.expand(steam_dir, File.cwd!())
     items_path = Path.join(steam_dir, "items.json")
     npy_path = Path.join(steam_dir, "item_text_embeddings.npy")
@@ -36,9 +38,9 @@ defmodule RecGPT.EmbeddingCompare do
     Application.ensure_all_started(:nx)
     Application.ensure_all_started(:bumblebee)
 
-    texts = load_ordered_texts(items_path, limit)
+    texts = load_ordered_texts(items_path, limit, text_format)
     n = length(texts)
-    IO.puts("Comparing #{n} items...")
+    IO.puts("Comparing #{n} items... (text_format=#{text_format})")
     report_first_strings(texts, 3)
 
     dataset = load_dataset_embeddings(npy_path, n)
@@ -143,12 +145,19 @@ defmodule RecGPT.EmbeddingCompare do
     end
   end
 
-  defp load_ordered_texts(items_path, limit) do
+  defp load_ordered_texts(items_path, limit, text_format) do
     raw = File.read!(items_path) |> Jason.decode!()
     items = raw["items"] || []
     items
     |> Enum.take(limit)
-    |> Enum.map(fn item -> Embedding.recgpt_item_text(item) end)
+    |> Enum.map(fn item ->
+      case text_format do
+        :title_only ->
+          to_string(Map.get(item, "title") || Map.get(item, :title) || "")
+        _ ->
+          Embedding.recgpt_item_text(item)
+      end
+    end)
   end
 
   defp load_dataset_embeddings(npy_path, n) do
@@ -220,6 +229,19 @@ defmodule RecGPT.EmbeddingCompare do
       frac = same / n
       IO.puts("=== FSQ token agreement (same 4-token code per item) ===")
       IO.puts("  #{same} / #{n} = #{Float.round(frac * 100, 1)}%")
+      # Debug: show first 3 items' 4-token codes (ours vs dataset)
+      IO.puts("  First 3 items [t0,t1,t2,t3] ours vs dataset:")
+      Enum.take(Enum.zip(tokens_ours, tokens_dataset), 3)
+      |> Enum.with_index(0)
+      |> Enum.each(fn {{ours_4, ds_4}, i} ->
+        match = if ours_4 == ds_4, do: " OK", else: " MISMATCH"
+        IO.puts("    [#{i}] ours=#{inspect(ours_4)}  dataset=#{inspect(ds_4)}#{match}")
+      end)
+      if same < n do
+        mismatches = Enum.zip(tokens_ours, tokens_dataset) |> Enum.with_index(0) |> Enum.filter(fn {{a, b}, _} -> a != b end)
+        IO.puts("  First 3 mismatches (item_idx ours dataset):")
+        mismatches |> Enum.take(3) |> Enum.each(fn {{o, d}, idx} -> IO.puts("    item #{idx}: #{inspect(o)} vs #{inspect(d)}") end)
+      end
       IO.puts("")
     else
       IO.puts("(FSQ params not in checkpoint; skipping token comparison)")
