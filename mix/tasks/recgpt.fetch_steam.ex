@@ -16,12 +16,14 @@ defmodule Mix.Tasks.Recgpt.FetchSteam do
   """
   use Mix.Task
 
+  alias RecGPT.Steam.Fetch
+
   @impl true
   def run(args) do
     Application.ensure_all_started(:recgpt)
     out_dir = List.first(args) || "data/steam"
 
-    case RecGPT.Steam.Fetch.run(out_dir) do
+    case Fetch.run(out_dir) do
       :ok ->
         Mix.shell().info(
           "Done. Next: mix recgpt.build_fixture --items #{out_dir}/items.json --out #{out_dir}/fixture.json --ckpt data/recgpt_ckpt_export, then pretrain and eval."

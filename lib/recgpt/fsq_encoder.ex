@@ -6,7 +6,7 @@ defmodule RecGPT.FSQEncoder do
 
   alias RecGPT.FSQ
 
-  def encode_embeddings_to_token_id_list(embeddings, fsq_params, batch_size \\ 4096) do
+  def encode_embeddings_to_token_id_list(embeddings, fsq_params, batch_size \\ 100) do
     {num_items, _} = Nx.shape(embeddings)
     num_items = if is_tuple(num_items), do: elem(num_items, 0), else: num_items
     starts = 0..max(0, div(num_items - 1, batch_size)) |> Enum.map(&(&1 * batch_size))

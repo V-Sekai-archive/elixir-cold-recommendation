@@ -97,6 +97,7 @@ defmodule RecGPT.PtLoader do
     unless entry, do: raise("Entry not in cd_list: #{inspect(path)}")
 
     offset = entry.local_header_offset
+
     <<_::binary-size(26), name_len::little-16, extra_len::little-16>> =
       binary_part(zip_binary, offset, 30)
 

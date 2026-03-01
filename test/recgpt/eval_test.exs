@@ -152,7 +152,7 @@ defmodule RecGPT.EvalTest do
   @tag :eval
   @tag timeout: 90_000
   test "pretrained (on catalogue) does not regress vs zero-shot and rejects null (Steam top-k)" do
-    # Compare: zero-shot (base ckpt, no training on this catalogue) vs pretrained (ckpt after pretrain on this catalogue).
+    # Compare zero-shot (base ckpt) vs pretrained (ckpt after pretrain on this catalogue).
     fixture = System.get_env("RECGPT_FIXTURE")
     zero_shot_ckpt = System.get_env("RECGPT_CKPT_ZEROSHOT")
     pretrained_ckpt = System.get_env("RECGPT_CKPT_EXPORT")

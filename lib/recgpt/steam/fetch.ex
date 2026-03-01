@@ -75,11 +75,13 @@ defmodule RecGPT.Steam.Fetch do
     map = to_map(raw)
     keys = map |> Map.keys() |> Enum.sort_by(&sort_key/1)
     old_to_new = keys |> Enum.with_index() |> Map.new(fn {old, i} -> {old, i} end)
+
     title_map =
       Map.new(keys, fn k ->
         raw = map[k] || map[to_string(k)] || ""
         {k, item_value_to_title(raw)}
       end)
+
     {:ok, keys, old_to_new, title_map}
   end
 

@@ -40,7 +40,9 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     Application.ensure_all_started(:nx)
     Application.ensure_all_started(:bumblebee)
 
-    Mix.shell().info("Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}...")
+    Mix.shell().info(
+      "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}..."
+    )
 
     try do
       fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, limit: limit)
