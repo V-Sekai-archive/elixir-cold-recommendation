@@ -31,54 +31,49 @@ defmodule RecGPT.Eval do
   """
   @spec evaluate(RecGPT.Serve.state(), [map()], keyword()) :: map()
   def evaluate(state, test_cases, opts \\ []) do
-    top_k = Keyword.get(opts, :top_k, 10)
-    top_k = min(top_k, 20)
+    top_k = Keyword.get(opts, :top_k, 10) |> min(20)
+    check_interval = Keyword.get(opts, :resource_check_interval, 100)
+
+    check_opts =
+      Keyword.get(opts, :resource_check_opts, [])
+      |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
 
     recommend_fn = fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
 
-    {h1, h5, h10, rr_sum, n} =
-      Enum.reduce(test_cases, {0, 0, 0, 0.0, 0}, fn tc,
-                                                    {acc_h1, acc_h5, acc_h10, acc_rr, acc_n} ->
-        context = get_tc_context(tc)
-        next_item = get_tc_next_item(tc)
-
-        if context == [] or next_item == nil do
-          {acc_h1, acc_h5, acc_h10, acc_rr, acc_n}
-        else
-          case recommend_fn.(context, top_k) do
-            {:ok, preds} ->
-              preds = List.wrap(preds)
-              idx = index_of(preds, next_item)
-              rr = if idx, do: 1.0 / (idx + 1), else: 0.0
-              h1 = if idx != nil and idx < 1, do: 1, else: 0
-              h5 = if idx != nil and idx < 5, do: 1, else: 0
-              h10 = if idx != nil and idx < 10, do: 1, else: 0
-              {acc_h1 + h1, acc_h5 + h5, acc_h10 + h10, acc_rr + rr, acc_n + 1}
-
-            _ ->
-              {acc_h1, acc_h5, acc_h10, acc_rr, acc_n}
+    result =
+      Enum.reduce_while(test_cases, {0, 0, 0, 0.0, 0}, fn tc, acc ->
+        if run_resource_check?(elem(acc, 4), check_interval) do
+          case RecGPT.ResourceCheck.check(check_opts) do
+            :ok -> {:cont, update_acc_for_tc(tc, acc, recommend_fn, top_k)}
+            {:halt, reason} -> {:halt, {:halted, reason, acc}}
           end
+        else
+          {:cont, update_acc_for_tc(tc, acc, recommend_fn, top_k)}
         end
       end)
 
-    n = max(n, 1)
-    catalog_size = state.num_items
-    random_hit_at_1 = if catalog_size > 0, do: 1.0 / catalog_size, else: 0.0
-
-    hit_at_1 = h1 / n
-    rejects_null = hit_at_1 > random_hit_at_1
-
-    %{
-      n: n,
-      hit_at_1: hit_at_1,
-      hit_at_5: h5 / n,
-      hit_at_10: h10 / n,
-      mrr: rr_sum / n,
-      catalog_size: catalog_size,
-      random_hit_at_1: random_hit_at_1,
-      rejects_null: rejects_null
-    }
+    {h1, h5, h10, rr_sum, n} = final_metrics_tuple(result)
+    halted_reason = halted_reason_from_result(result)
+    build_metrics(h1, h5, h10, rr_sum, n, state.num_items, halted_reason)
   end
+
+  @doc """
+  Keeps only test cases whose context and next_item are in 0..(num_items - 1).
+  Use when fixture was built with a limit (e.g. 100) so eval stays within that catalog
+  and avoids high memory. Larger limits can be restored later when the stack supports them.
+  """
+  @spec filter_to_catalog([map()], non_neg_integer()) :: [map()]
+  def filter_to_catalog(test_cases, num_items) when num_items > 0 do
+    Enum.filter(test_cases, fn tc ->
+      context = get_tc_context(tc)
+      next_item = get_tc_next_item(tc)
+
+      next_item != nil and next_item >= 0 and next_item < num_items and
+        Enum.all?(context, fn id -> is_integer(id) and id >= 0 and id < num_items end)
+    end)
+  end
+
+  def filter_to_catalog(test_cases, _), do: test_cases
 
   @doc """
   Loads test cases from a JSON file.
@@ -107,5 +102,65 @@ defmodule RecGPT.Eval do
 
   defp index_of(list, value) do
     Enum.find_index(list, &(&1 == value))
+  end
+
+  defp run_resource_check?(acc_n, check_interval) do
+    check_interval > 0 and acc_n > 0 and rem(acc_n, check_interval) == 0
+  end
+
+  defp update_acc_for_tc(tc, acc, recommend_fn, top_k) do
+    context = get_tc_context(tc)
+    next_item = get_tc_next_item(tc)
+
+    if context == [] or next_item == nil do
+      acc
+    else
+      case recommend_fn.(context, top_k) do
+        {:ok, preds} -> add_hit_metrics(acc, List.wrap(preds), next_item)
+        _ -> acc
+      end
+    end
+  end
+
+  defp add_hit_metrics({acc_h1, acc_h5, acc_h10, acc_rr, acc_n}, preds, next_item) do
+    idx = index_of(preds, next_item)
+    rr = if idx, do: 1.0 / (idx + 1), else: 0.0
+    h1 = if idx != nil and idx < 1, do: 1, else: 0
+    h5 = if idx != nil and idx < 5, do: 1, else: 0
+    h10 = if idx != nil and idx < 10, do: 1, else: 0
+    {acc_h1 + h1, acc_h5 + h5, acc_h10 + h10, acc_rr + rr, acc_n + 1}
+  end
+
+  defp final_metrics_tuple(result) do
+    case result do
+      {:halted, _reason, acc_tuple} -> acc_tuple
+      acc_tuple -> acc_tuple
+    end
+  end
+
+  defp halted_reason_from_result(result) do
+    case result do
+      {:halted, reason, _} -> reason
+      _ -> nil
+    end
+  end
+
+  defp build_metrics(h1, h5, h10, rr_sum, n, catalog_size, halted_reason) do
+    n = max(n, 1)
+    random_hit_at_1 = if catalog_size > 0, do: 1.0 / catalog_size, else: 0.0
+    hit_at_1 = h1 / n
+
+    metrics = %{
+      n: n,
+      hit_at_1: hit_at_1,
+      hit_at_5: h5 / n,
+      hit_at_10: h10 / n,
+      mrr: rr_sum / n,
+      catalog_size: catalog_size,
+      random_hit_at_1: random_hit_at_1,
+      rejects_null: hit_at_1 > random_hit_at_1
+    }
+
+    if halted_reason, do: Map.put(metrics, :halted, halted_reason), else: metrics
   end
 end

@@ -14,6 +14,7 @@ defmodule RecGPT.Embedding do
   """
 
   @model_id "sentence-transformers/all-mpnet-base-v2"
+  @embed_batch_size 100
 
   @doc "Loads the MPNet model and tokenizer, returns a text embedding serving. Cached in application env :recgpt."
   def serving do
@@ -57,10 +58,21 @@ defmodule RecGPT.Embedding do
     Nx.stack(tensors)
   end
 
-  @doc "Encodes item_text_dict (map of item_index => text) to Nx tensor {num_items, 768}. Indices 0..num_items-1, sorted."
+  @doc "Encodes item_text_dict (map of item_index => text) to Nx tensor {num_items, 768}. Indices 0..num_items-1, sorted. Processes in batches of #{@embed_batch_size} to limit memory."
   def encode_item_text_dict(item_text_dict) when is_map(item_text_dict) do
     indices = item_text_dict |> Map.keys() |> Enum.sort()
     texts = Enum.map(indices, &Map.fetch!(item_text_dict, &1))
+    encode_texts_batched(texts, @embed_batch_size)
+  end
+
+  defp encode_texts_batched(texts, batch_size) when length(texts) <= batch_size do
     encode_texts(texts)
+  end
+
+  defp encode_texts_batched(texts, batch_size) do
+    texts
+    |> Enum.chunk_every(batch_size)
+    |> Enum.map(&encode_texts/1)
+    |> Nx.concatenate(axis: 0)
   end
 end

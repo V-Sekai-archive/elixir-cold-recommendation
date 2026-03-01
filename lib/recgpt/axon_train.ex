@@ -75,6 +75,12 @@ defmodule RecGPT.AxonTrain do
     iterations = Keyword.get(opts, :iterations, 1)
     log_every = Keyword.get(opts, :log, 50)
     log_interval_sec = Keyword.get(opts, :log_interval_sec, 20)
+    check_interval = Keyword.get(opts, :resource_check_interval, 5)
+
+    check_opts =
+      Keyword.get(opts, :resource_check_opts, [])
+      |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
+
     {init_opt, update_opt} = optimizer_from_opts(opts)
 
     batches = stream |> Enum.take(iterations)
@@ -95,7 +101,7 @@ defmodule RecGPT.AxonTrain do
       end)
 
     {final_params, _, _, _} =
-      Enum.reduce(batches, {initial_state, opt_state, 0, start_sec}, fn
+      Enum.reduce_while(batches, {initial_state, opt_state, 0, start_sec}, fn
         {input, labels}, {params, opt_state, i, last_log_sec} ->
           {new_params, new_opt_state, loss} = step_jit.(params, opt_state, input, labels)
 
@@ -105,10 +111,12 @@ defmodule RecGPT.AxonTrain do
           end
 
           now_sec = System.monotonic_time(:second)
+
           last_log_sec =
             if log_interval_sec > 0 and now_sec - last_log_sec >= log_interval_sec do
               msg =
                 "Step #{i}, loss: #{Nx.to_number(loss)}, elapsed #{now_sec - start_sec}s"
+
               # Overwrite same line with \r; pad with spaces so previous content is cleared
               padded = String.pad_trailing(msg, 80)
               IO.write(:stdio, "\r" <> padded)
@@ -117,7 +125,19 @@ defmodule RecGPT.AxonTrain do
               last_log_sec
             end
 
-          {new_params, new_opt_state, i + 1, last_log_sec}
+          if check_interval > 0 and rem(i + 1, check_interval) == 0 do
+            case RecGPT.ResourceCheck.check(check_opts) do
+              :ok ->
+                {:cont, {new_params, new_opt_state, i + 1, last_log_sec}}
+
+              {:halt, reason} ->
+                require Logger
+                Logger.warning("Pretrain circuit break: #{reason}")
+                {:halt, {new_params, new_opt_state, i + 1, last_log_sec}}
+            end
+          else
+            {:cont, {new_params, new_opt_state, i + 1, last_log_sec}}
+          end
       end)
 
     final_params

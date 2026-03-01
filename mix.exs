@@ -48,6 +48,7 @@ defmodule RecGPT.MixProject do
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
       {:req, "~> 0.5"},
+      {:ecto_sqlite3, "~> 0.14"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 0.6", only: :test},

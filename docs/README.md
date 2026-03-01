@@ -137,6 +137,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | Understand cold vs regular splits      | [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md)                                                                |
 | Export or load a checkpoint            | [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)                                                                               |
 | Use SQLite/Ecto for catalog storage    | [13 Infrastructure](13_infrastructure_serving.md#catalog-storage-object-store-semantics)                                             |
+| Design catalog/DB schema (ETNF)        | [ETNF database design](etnf_database_design.md)                                                                                     |
 | Understand layers and test strategy    | [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)–[21](21_layer_application.md) layer docs.                   |
 | Isolate layers with frozen inputs      | [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md)                                                          |
 | Make the library top tier              | [22 Top-tier recommendations](22_top_tier_recommendations.md)                                                                        |
@@ -152,3 +153,4 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 - [04 RecGPT library](04_recgpt_library.md) — Module reference.
 - [15 Layers overview](15_layers_overview.md) — Layer diagram and table.
 - [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md) — Unit/property testing with frozen inputs.
+- [ETNF database design](etnf_database_design.md) — Essential Tuple Normal Form for catalog/embedding schemas.

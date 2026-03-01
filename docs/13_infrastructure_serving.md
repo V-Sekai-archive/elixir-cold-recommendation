@@ -44,6 +44,8 @@ The catalog (item id and title for display names) is stored as JSON: shape `{"nu
 
 **Object-store options (Elixir/BEAM native):** Use **SQLite** with Ecto as the primary catalog storage so the repo stays stable. (1) **File-based** — built-in; JSON path, atomic replace for writes; no extra deps. (2) **CubDB** ([cubdb](https://hex.pm/packages/cubdb)) — pure Elixir; key-value, one key for catalog; add `{:cubdb, "~> 2.0"}`. (3) **Khepri** ([khepri](https://hex.pm/packages/khepri)) — RabbitMQ's tree store (built on [Ra](https://hex.pm/packages/ra)); replicated, on-disk; put/get by path; add `{:khepri, "~> 0.17"}`. (4) **SQLite** — use SQLite (or whatever embedded store the project already uses) for catalog storage; describe in the docs how it fits with object-store semantics and the options above. All run on the BEAM.
 
+When designing schemas for catalog or embedding storage, follow **Essential Tuple Normal Form (ETNF)** so relations stay in BCNF and every explicitly declared join dependency has a superkey component—see [ETNF database design](etnf_database_design.md).
+
 #### Ra vs Khepri (RabbitMQ stack)
 
 - **Ra** ([ra](https://hex.pm/packages/ra)) — Raft consensus library. You implement a **state machine** (via `ra_machine` behaviour); Ra replicates it across a cluster. Used by RabbitMQ for quorum queues, streams, and by Khepri as its engine. Use Ra when you need custom replicated state and are willing to implement the machine.

@@ -121,7 +121,9 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           iterations: iterations,
           log: log_every,
           log_interval_sec: log_interval_sec,
-          learning_rate: learning_rate
+          learning_rate: learning_rate,
+          resource_check_interval: 5,
+          resource_check_opts: pretrain_resource_check_opts()
         )
 
       # Newline after in-place progress so next message is on its own line
@@ -132,6 +134,19 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     end
 
     :ok
+  end
+
+  defp pretrain_resource_check_opts do
+    case System.get_env("RECGPT_MAX_MEMORY_MB") do
+      nil ->
+        []
+
+      s ->
+        case Integer.parse(s) do
+          {n, _} when n > 0 -> [max_memory_mb: n]
+          _ -> []
+        end
+    end
   end
 
   defp resolve(path) when is_binary(path) do

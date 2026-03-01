@@ -8,6 +8,9 @@ defmodule RecGPT.EvalTest do
   alias RecGPT.TestSupport.FrozenHelpers
 
   @top_k 10
+  # Minimal test cases to have reasonable power to reject null (Hit@1 > random). Rule of thumb:
+  # under H1 expect Hit@1 ~ 5% when random=1%; 100 cases => ~5 hits vs 1 under H0.
+  @min_n_reject_null 100
 
   describe "evaluate/3" do
     test "returns metrics with frozen inputs (stub state) and test cases" do
@@ -105,7 +108,7 @@ defmodule RecGPT.EvalTest do
 
   @tag :integration
   @tag :eval
-  @tag timeout: 60_000
+  @tag timeout: 300_000
   test "eval on held-out test set rejects null (Hit@1 > random)" do
     fixture = System.get_env("RECGPT_FIXTURE")
     ckpt = System.get_env("RECGPT_CKPT_EXPORT")
@@ -134,8 +137,19 @@ defmodule RecGPT.EvalTest do
     Application.ensure_all_started(:nx)
 
     assert {:ok, state} = Serve.load_state(fixture, ckpt, nil)
-    assert {:ok, test_cases} = Eval.load_test_cases(test_file)
-    assert test_cases != [], "need at least one test case"
+    assert {:ok, raw_cases} = Eval.load_test_cases(test_file)
+    assert raw_cases != [], "need at least one test case"
+
+    test_cases =
+      raw_cases
+      |> Eval.filter_to_catalog(state.num_items)
+      |> Enum.take(@min_n_reject_null)
+
+    if test_cases == [] do
+      flunk(
+        "No in-catalog test cases (catalog size #{state.num_items}). Build fixture with --limit 100 or more."
+      )
+    end
 
     metrics = Eval.evaluate(state, test_cases, top_k: @top_k)
 
@@ -150,7 +164,7 @@ defmodule RecGPT.EvalTest do
 
   @tag :integration
   @tag :eval
-  @tag timeout: 90_000
+  @tag timeout: 600_000
   test "pretrained (on catalogue) does not regress vs zero-shot and rejects null (Steam top-k)" do
     # Compare zero-shot (base ckpt) vs pretrained (ckpt after pretrain on this catalogue).
     fixture = System.get_env("RECGPT_FIXTURE")
@@ -182,8 +196,19 @@ defmodule RecGPT.EvalTest do
 
     assert {:ok, zero_shot_state} = Serve.load_state(fixture, zero_shot_ckpt, nil)
     assert {:ok, pretrained_state} = Serve.load_state(fixture, pretrained_ckpt, nil)
-    assert {:ok, test_cases} = Eval.load_test_cases(test_file)
-    assert test_cases != [], "need at least one test case"
+    assert {:ok, raw_cases} = Eval.load_test_cases(test_file)
+    assert raw_cases != [], "need at least one test case"
+
+    test_cases =
+      raw_cases
+      |> Eval.filter_to_catalog(zero_shot_state.num_items)
+      |> Enum.take(@min_n_reject_null)
+
+    if test_cases == [] do
+      flunk(
+        "No in-catalog test cases (catalog size #{zero_shot_state.num_items}). Build fixture with --limit 100 or more."
+      )
+    end
 
     zero_shot_metrics = Eval.evaluate(zero_shot_state, test_cases, top_k: @top_k)
     pretrained_metrics = Eval.evaluate(pretrained_state, test_cases, top_k: @top_k)

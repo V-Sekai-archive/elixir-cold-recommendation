@@ -27,6 +27,11 @@ bench/output/
 # Migration backups (do not commit)
 priv/repo/migrations_old/
 
+# RecGPT SQLite (optional catalog/token DB; path from RECGPT_SQLITE_PATH or default)
+priv/recgpt.sqlite3
+priv/recgpt.sqlite3-shm
+priv/recgpt.sqlite3-wal
+
 # Generated DBs (UCI Clickstream, etc.)
 data/**/*.db
 data/**/*.db-shm

@@ -5,11 +5,19 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   Required for eval and serve after Fetch. Pipeline: Fetch → build_fixture → pretrain → eval.
 
+  When RECGPT_SQLITE_PATH is set, also flushes items, embeddings, tokens, and train/test
+  sequences to SQLite (ETNF tables). Run `mix ecto.migrate` once before using SQLite.
+
   ## Options
     * `--items` - Path to items.json (default: data/steam/items.json)
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
     * `--limit` - Max items to process (default: 100; do not exceed per run to avoid NIF issues)
+    * `--ramp` - Slowly increase limit from --ramp-start until all items or failure
+    * `--ramp-start` - First limit when using --ramp (default: 100)
+    * `--ramp-step` - Linear step size (default: 100). Ignored if --ramp-mult is set.
+    * `--ramp-mult` - Multiplier for geometric progression (e.g. 2 → 100, 200, 400, 800, ...). Overrides linear step.
+    * `--ramp-max` - Stop ramp at this limit (default: all items in items.json)
   """
   use Mix.Task
 
@@ -19,9 +27,106 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [items: :string, out: :string, ckpt: :string, limit: :integer]
+        switches: [
+          items: :string,
+          out: :string,
+          ckpt: :string,
+          limit: :integer,
+          ramp: :boolean,
+          ramp_start: :integer,
+          ramp_step: :integer,
+          ramp_max: :integer,
+          ramp_mult: :integer
+        ]
       )
 
+    if opts[:ramp] do
+      run_ramp(opts)
+    else
+      run_once(opts)
+    end
+  end
+
+  defp run_ramp(opts) do
+    items_path = opts[:items] || resolve("data/steam/items.json")
+    out_path = opts[:out] || resolve("data/steam/fixture.json")
+    ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
+    start_limit = opts[:ramp_start] || @default_limit
+    step = opts[:ramp_step] || 100
+    mult = opts[:ramp_mult]
+
+    unless File.regular?(items_path) do
+      Mix.raise("items file not found: #{items_path}. Run Fetch first.")
+    end
+
+    unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
+      Mix.raise("checkpoint not found: #{ckpt_dir}. Export a checkpoint first.")
+    end
+
+    Application.ensure_all_started(:nx)
+    Application.ensure_all_started(:bumblebee)
+
+    raw = File.read!(items_path) |> Jason.decode!()
+    total = raw["num_items"] || length(raw["items"] || [])
+
+    cap =
+      if is_integer(opts[:ramp_max]) and opts[:ramp_max] > 0,
+        do: min(opts[:ramp_max], total),
+        else: total
+
+    limits = ramp_limits(start_limit, step, cap, mult)
+    Mix.shell().info("Ramping limit: #{inspect(limits)} toward #{cap} items...")
+
+    last_ok =
+      Enum.reduce_while(limits, nil, fn limit, acc ->
+        Mix.shell().info("Trying limit #{limit}...")
+
+        if build_one(items_path, ckpt_dir, out_path, limit) do
+          {:cont, limit}
+        else
+          Mix.shell().error("Failed at limit #{limit}.")
+          {:halt, acc}
+        end
+      end)
+
+    if last_ok do
+      Mix.shell().info("Done. Last successful limit: #{last_ok}. Fixture has #{last_ok} items.")
+    end
+  end
+
+  defp ramp_limits(start, _step, cap, mult) when start <= cap and is_integer(mult) and mult > 1 do
+    Stream.unfold(start, fn n ->
+      if n <= cap do
+        next = min(n * mult, cap)
+        if next <= n, do: {n, nil}, else: {n, next}
+      else
+        nil
+      end
+    end)
+    |> Enum.to_list()
+  end
+
+  defp ramp_limits(start, step, cap, _) when start <= cap do
+    Stream.iterate(start, &(&1 + step)) |> Stream.take_while(&(&1 <= cap)) |> Enum.to_list()
+  end
+
+  defp build_one(items_path, ckpt_dir, out_path, limit) do
+    opts = [limit: limit]
+
+    opts =
+      if System.get_env("RECGPT_SQLITE_PATH"), do: Keyword.put(opts, :sqlite, true), else: opts
+
+    fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, opts)
+    RecGPT.FixtureBuild.write_fixture(fixture, out_path)
+    Mix.shell().info("  Wrote #{out_path} (num_items=#{fixture["num_items"]})")
+    true
+  rescue
+    e ->
+      Mix.shell().error("  Error: #{Exception.message(e)}")
+      false
+  end
+
+  defp run_once(opts) do
     items_path = opts[:items] || resolve("data/steam/items.json")
     out_path = opts[:out] || resolve("data/steam/fixture.json")
     ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
@@ -46,8 +151,13 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}..."
     )
 
+    opts = [limit: limit]
+
+    opts =
+      if System.get_env("RECGPT_SQLITE_PATH"), do: Keyword.put(opts, :sqlite, true), else: opts
+
     try do
-      fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, limit: limit)
+      fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, opts)
       :ok = RecGPT.FixtureBuild.write_fixture(fixture, out_path)
       Mix.shell().info("Wrote #{out_path} (num_items=#{fixture["num_items"]})")
     rescue

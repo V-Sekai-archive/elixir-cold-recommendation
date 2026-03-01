@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
   ## Environment
     * RECGPT_FIXTURE, RECGPT_CKPT_EXPORT - override paths
+    * RECGPT_MAX_MEMORY_MB - max VM memory in MB before circuit break (default: 4096)
 
   ## Output
     Prints n, Hit@1, Hit@5, Hit@10, MRR, and random baseline (1/N) so you can compare.
@@ -51,9 +52,22 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
     with {:ok, state} <- RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path),
          {:ok, test_cases} <- RecGPT.Eval.load_test_cases(test_path) do
-      metrics = RecGPT.Eval.evaluate(state, test_cases, top_k: 10)
+      test_cases = RecGPT.Eval.filter_to_catalog(test_cases, state.num_items)
+
+      eval_opts = [
+        top_k: 10,
+        resource_check_interval: 100,
+        resource_check_opts: resource_check_opts()
+      ]
+
+      metrics = RecGPT.Eval.evaluate(state, test_cases, eval_opts)
 
       Mix.shell().info("Evaluation (standard test set)")
+
+      if Map.get(metrics, :halted) do
+        Mix.shell().info("  (circuit break: #{metrics.halted})")
+      end
+
       Mix.shell().info("  n = #{metrics.n}")
 
       Mix.shell().info(
@@ -72,9 +86,15 @@ defmodule Mix.Tasks.Recgpt.Eval do
       if File.regular?(cold_test_path) do
         case RecGPT.Eval.load_test_cases(cold_test_path) do
           {:ok, cold_test_cases} ->
-            cold_metrics = RecGPT.Eval.evaluate(state, cold_test_cases, top_k: 10)
+            cold_test_cases = RecGPT.Eval.filter_to_catalog(cold_test_cases, state.num_items)
+            cold_metrics = RecGPT.Eval.evaluate(state, cold_test_cases, eval_opts)
             Mix.shell().info("")
             Mix.shell().info("Cold test")
+
+            if Map.get(cold_metrics, :halted) do
+              Mix.shell().info("  (circuit break: #{cold_metrics.halted})")
+            end
+
             Mix.shell().info("  n = #{cold_metrics.n}")
 
             Mix.shell().info(
@@ -97,6 +117,19 @@ defmodule Mix.Tasks.Recgpt.Eval do
     else
       {:error, reason} ->
         Mix.raise("Eval failed: #{inspect(reason)}")
+    end
+  end
+
+  defp resource_check_opts do
+    case System.get_env("RECGPT_MAX_MEMORY_MB") do
+      nil ->
+        []
+
+      s ->
+        case Integer.parse(s) do
+          {n, _} when n > 0 -> [max_memory_mb: n]
+          _ -> []
+        end
     end
   end
 

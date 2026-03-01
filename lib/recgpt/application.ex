@@ -4,7 +4,13 @@ defmodule RecGPT.Application do
 
   @impl Application
   def start(_type, _args) do
-    children = []
+    children =
+      if Application.get_env(:recgpt, RecGPT.Repo)[:database] do
+        [RecGPT.Repo]
+      else
+        []
+      end
+
     opts = [strategy: :one_for_one, name: RecGPT.Supervisor]
     Supervisor.start_link(children, opts)
   end
