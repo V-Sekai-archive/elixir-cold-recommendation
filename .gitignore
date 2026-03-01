@@ -59,3 +59,7 @@ data/recgpt_ckpt_export/*
 
 # Pipeline / runtime data (Steam, checkpoints, fixture, exports)
 data/
+
+# Embedding sanity-check dumps (mix recgpt.compare_embeddings --dump-row N, scripts/embed_one.py)
+item*_elixir.raw
+item*_sentence_transformers.npy

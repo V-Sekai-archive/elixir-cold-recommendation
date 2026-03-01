@@ -105,19 +105,18 @@ defmodule RecGPT.AxonTrain do
         {input, labels}, {params, opt_state, i, last_log_sec} ->
           {new_params, new_opt_state, loss} = step_jit.(params, opt_state, input, labels)
 
-          if log_every > 0 and rem(i, log_every) == 0 do
-            require Logger
-            Logger.info("Batch #{i}, loss: #{Nx.to_number(loss)}")
-          end
-
+          loss_num = Nx.to_number(loss)
           now_sec = System.monotonic_time(:second)
 
-          last_log_sec =
-            if log_interval_sec > 0 and now_sec - last_log_sec >= log_interval_sec do
-              msg =
-                "Step #{i}, loss: #{Nx.to_number(loss)}, elapsed #{now_sec - start_sec}s"
+          # Show progress occasionally: first step, every log_every batches, or every log_interval_sec
+          if log_every > 0 and rem(i, log_every) == 0 do
+            require Logger
+            Logger.info("Batch #{i}, loss: #{loss_num}")
+          end
 
-              # Overwrite same line with \r; pad with spaces so previous content is cleared
+          last_log_sec =
+            if log_interval_sec > 0 and (i == 0 or now_sec - last_log_sec >= log_interval_sec) do
+              msg = "Step #{i}, loss: #{Float.round(loss_num, 6)}, elapsed #{now_sec - start_sec}s"
               padded = String.pad_trailing(msg, 80)
               IO.write(:stdio, "\r" <> padded)
               now_sec

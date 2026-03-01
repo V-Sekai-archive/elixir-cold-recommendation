@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--fixture` - Fixture JSON path (default: data/steam/fixture.json)
     * `--train` - train_sequences.json path (default: data/steam/train_sequences.json)
     * `--items` - items.json for building embeddings (default: data/steam/items.json)
+    * `--limit` - Max items to encode for training (default: fixture num_items). Prevents loading 30+ GB when items.json is large.
     * `--out` - Output export dir (required)
     * `--iterations` - Max training steps (default: 100)
     * `--batch-size` - Batch size (default: 8)
@@ -29,6 +30,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           fixture: :string,
           train: :string,
           items: :string,
+          limit: :integer,
           out: :string,
           iterations: :integer,
           batch_size: :integer,
@@ -80,7 +82,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     token_id_list =
       (fixture["token_id_list"] || []) |> Enum.map(&Enum.map(&1, fn x -> round(x) end))
 
-    _num_items = fixture["num_items"] || length(token_id_list)
+    fixture_num_items = fixture["num_items"] || length(token_id_list)
 
     train_raw = File.read!(train_path) |> Jason.decode!()
     sequences = train_raw["sequences"] || []
@@ -97,13 +99,22 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       Mix.shell().info("Encoding item text from #{items_path}...")
       raw = File.read!(items_path) |> Jason.decode!()
       items = raw["items"] || []
-      n = raw["num_items"] || length(items)
+      items_n = raw["num_items"] || length(items)
+      # Cap at fixture size so we never encode more than we have token_id_list for (avoids 30+ GB when items.json is huge).
+      n =
+        case opts[:limit] do
+          nil -> min(items_n, fixture_num_items)
+          limit when limit < fixture_num_items ->
+            Mix.raise("--limit #{limit} < fixture num_items #{fixture_num_items}; pretrain needs at least as many items as the fixture.")
+          limit -> min(items_n, fixture_num_items) |> min(limit)
+        end
+      if n < items_n, do: Mix.shell().info("Capping to #{n} items (fixture has #{fixture_num_items}).")
 
       item_text_dict =
         items
         |> Enum.take(n)
         |> Enum.with_index()
-        |> Map.new(fn {item, idx} -> {idx, item["title"] || item["text"] || ""} end)
+        |> Map.new(fn {item, idx} -> {idx, RecGPT.Embedding.recgpt_item_text(item)} end)
 
       item_embeddings = RecGPT.Embedding.encode_item_text_dict(item_text_dict)
 

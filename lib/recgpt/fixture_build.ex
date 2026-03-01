@@ -2,8 +2,10 @@ defmodule RecGPT.FixtureBuild do
   @moduledoc """
   Build fixture.json from items.json: Embedding.encode_item_text_dict + FSQ → token_id_list.
 
-  Used by `mix recgpt.build_fixture`. Output format matches Serve.load_fixture (num_items, token_id_list).
-  When RECGPT_SQLITE_PATH is set (or opts[:sqlite]), flushes items, embeddings, and tokens to SQLite per batch.
+  Item text is always built with RecGPT-style format (str(dict) with braces stripped) so embeddings
+  match the dataset's item_text_embeddings.npy. Used by `mix recgpt.build_fixture`. Output format
+  matches Serve.load_fixture (num_items, token_id_list). When RECGPT_SQLITE_PATH is set (or opts[:sqlite]),
+  flushes items, embeddings, and tokens to SQLite per batch.
   """
 
   alias RecGPT.Catalog.Sync
@@ -119,10 +121,7 @@ defmodule RecGPT.FixtureBuild do
     items
     |> Enum.take(num_items)
     |> Enum.with_index()
-    |> Map.new(fn {item, idx} ->
-      title = item["title"] || item["text"] || item["raw"] || ""
-      {idx, title}
-    end)
+    |> Map.new(fn {item, idx} -> {idx, Embedding.recgpt_item_text(item)} end)
   end
 
   defp load_fsq_params(ckpt_dir) do
