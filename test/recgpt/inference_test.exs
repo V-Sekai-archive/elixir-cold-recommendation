@@ -4,6 +4,8 @@ defmodule RecGPT.InferenceTest do
 
   alias RecGPT.Decode
   alias RecGPT.Inference
+  alias RecGPT.InferenceDefn
+  alias RecGPT.InferenceParams
   alias RecGPT.Trie
 
   defp dummy_params do
@@ -198,6 +200,29 @@ defmodule RecGPT.InferenceTest do
     diff = Nx.subtract(logits_full, logits_inc) |> Nx.abs() |> Nx.reduce_max()
     assert Nx.to_number(diff) < 1.0e-4,
            "full forward last position should match incremental (diff max #{Nx.to_number(diff)})"
+  end
+
+  @tag :integration
+  test "EXLA Defn forward_with_cache matches Inference.forward for stub params" do
+    unless Code.ensure_loaded?(EXLA) do
+      raise "EXLA not loaded; run with EXLA in deps to enable this test"
+    end
+
+    params = dummy_params()
+    full_params = InferenceParams.build_defn_params(params, 0)
+    jit_fn = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+
+    batch_token_ids = Nx.tensor([[10, 20, 30]], type: {:s, 32})
+    batch_aux = Nx.broadcast(0.0, {1, 3, 192}) |> Nx.as_type({:f, 32})
+    embed_mask = Nx.broadcast(1.0, {1, 3, 1}) |> Nx.as_type({:f, 32})
+
+    logits_inference = Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
+    {logits_defn, _cache} = jit_fn.(batch_token_ids, batch_aux, embed_mask, full_params)
+
+    assert Nx.shape(logits_defn) == {1, 15_361}
+    diff = Nx.subtract(logits_inference, logits_defn) |> Nx.abs() |> Nx.reduce_max()
+    assert Nx.to_number(diff) < 1.0e-4,
+           "Inference and Defn stub forward should match (diff max #{Nx.to_number(diff)})"
   end
 
   @tag :integration

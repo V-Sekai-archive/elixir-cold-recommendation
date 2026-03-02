@@ -82,8 +82,10 @@ Paths default to `data/steam/` and `thirdparty/checkpoints/recgpt`. Env: `RECGPT
 | **RecGPT.FixtureBuild** | Build fixture from items.json. `build/2`, `write_fixture/2`. |
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. |
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
-| **RecGPT.Inference** | Forward pass: token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
-| **RecGPT.Serve** | Load state (fixture + checkpoint); implements `RecGPT.RecommendationService`. Predict RPC uses RecommendationService (default: Serve). |
+| **RecGPT.Inference** | Forward pass (training): token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
+| **RecGPT.InferenceParams** | Build defn-friendly full params (atom keys). Stub checkpoints get identity layers so one code path. |
+| **RecGPT.InferenceDefn** | Defn entry points for serve: `forward_with_cache/4`, `forward_incremental/5` (EXLA JIT). |
+| **RecGPT.Serve** | Load state (fixture + checkpoint); EXLA JIT only. Implements `RecGPT.RecommendationService`. |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
 | **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |
@@ -94,11 +96,25 @@ Full list and details: [docs/04_recgpt_library.md](docs/04_recgpt_library.md).
 
 ## Dependencies
 
-- **Nx**, **Axon** — Tensors and training.
+- **Nx**, **EXLA**, **Axon** — Tensors, EXLA backend/compiler, and training. Inference and serve use EXLA only.
 - **Bumblebee** (GitHub `main`) — MPNet text embeddings.
 - **Jason**, **Npy** — JSON and `.npy` checkpoint files.
 - **grpc** — gRPC server for `mix recgpt.serve`.
 - **Req** — HTTP (e.g. fetch_ckpt, fetch_steam).
+
+---
+
+## Dev container (EXLA)
+
+Inference and serve run on **EXLA** only (no Torchx). Use the dev container for a supported EXLA environment:
+
+1. Open the project in VS Code/Cursor and run **Reopen in Container** (or use the `.devcontainer/devcontainer.json` image with your tooling).
+2. The container forwards ports 50051 and 50052; `postCreateCommand` runs `mix deps.get`.
+3. Inside the container: `mix test`, `mix recgpt.serve` (with `RECGPT_FIXTURE` and `RECGPT_CKPT_EXPORT` set).
+
+**GPU (CUDA):** The dev container requests GPU access (`--gpus all`) and sets `EXLA_TARGET=cuda12` so EXLA can use the GPU. On the host, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) so Docker can expose the GPU. If you have no GPU or want CPU-only, set `EXLA_TARGET=cpu` and `XLA_TARGET=cpu` in your environment (or in `remoteEnv` in devcontainer.json).
+
+EXLA compiles the inference graph on first use; the first request may be slower.
 
 ---
 

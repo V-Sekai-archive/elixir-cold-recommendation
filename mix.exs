@@ -11,7 +11,7 @@ defmodule RecGPT.MixProject do
     [
       app: :recgpt,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
@@ -40,7 +40,7 @@ defmodule RecGPT.MixProject do
       {:grpc, "~> 0.11"},
       {:protobuf, "~> 0.14"},
       {:nx, "~> 0.11", override: true},
-      {:torchx, "~> 0.11"},
+      {:exla, "~> 0.10"},
       {:axon, "~> 0.7"},
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},

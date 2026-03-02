@@ -1,0 +1,190 @@
+defmodule RecGPT.InferenceParams do
+  @moduledoc """
+  Builds defn-friendly full param maps (atom keys) for RecGPT.InferenceDefn.
+
+  Always returns a single full_params map. When n_layers is 0 (stub checkpoint),
+  the 12 transformer layers get identity weights so the same forward_with_cache /
+  forward_incremental entry points apply.
+  """
+
+  @n_embd 768
+  @n_head 12
+  @head_dim 64
+  @vocab_size 15_361
+  @max_pos 1024
+
+  @doc """
+  Build full params for Defn from checkpoint string-key map.
+
+  - `params_map`: from `RecGPT.CheckpointLoader.load_from_export/1`
+  - `n_layers`: 0 (stub) or 12 (full). Use `RecGPT.Inference.n_layers_from_params/1` to get it.
+
+  Returns a map of atom keys. When n_layers is 0, layer keys get identity tensors
+  (LayerNorm weight=1/bias=0; attn/mlp zeros so block output is 0).
+  """
+  @spec build_defn_params(map(), 0 | 12) :: map()
+  def build_defn_params(params_map, n_layers) when n_layers in [0, 12] do
+    wte = get_wte(params_map)
+    wpe = get_wpe(params_map)
+    ln_f = get_ln_f(params_map)
+    ae = get_ae(params_map)
+    pred_head = get_pred_head(params_map)
+
+    base = %{
+      wte: wte,
+      wpe: wpe,
+      ln_f_weight: ln_f.weight,
+      ln_f_bias: ln_f.bias,
+      ae_linear_weight: ae.linear_weight,
+      ae_linear_bias: ae.linear_bias,
+      ae_norm_weight: ae.norm_weight,
+      ae_norm_bias: ae.norm_bias,
+      pred_head_weight: pred_head.weight,
+      pred_head_bias: pred_head.bias
+    }
+
+    layers =
+      if n_layers == 0 do
+        identity_layers()
+      else
+        real_layers(params_map)
+      end
+
+    Map.merge(base, layers)
+  end
+
+  defp get_wte(params) do
+    wte =
+      params["gpt2model.wte"] || params["gpt2model.wte.weight"] || params["wte"] ||
+        params["wte.weight"]
+
+    if is_nil(wte), do: raise("missing wte in params")
+    {rows, _} = Nx.shape(wte)
+    if rows >= @vocab_size, do: Nx.slice_along_axis(wte, 0, @vocab_size, axis: 0), else: wte
+  end
+
+  defp get_wpe(params) do
+    wpe =
+      params["gpt2model.wpe"] || params["gpt2model.wpe.weight"] || params["transformer.wpe"] ||
+        params["transformer.wpe.weight"]
+
+    case wpe do
+      nil ->
+        Nx.broadcast(0.0, {@max_pos, @n_embd}) |> Nx.as_type({:f, 32})
+      t ->
+        {rows, cols} = Nx.shape(t)
+        t = if cols == @n_embd and rows != @n_embd, do: t, else: Nx.transpose(t)
+        {rows, _} = Nx.shape(t)
+        if rows >= @max_pos do
+          Nx.slice_along_axis(t, 0, @max_pos, axis: 0)
+        else
+          padded = Nx.broadcast(0.0, {@max_pos, @n_embd}) |> Nx.as_type({:f, 32})
+          Nx.put_slice(padded, [0, 0], t)
+        end
+    end
+  end
+
+  defp get_ln_f(params) do
+    w = params["gpt2model.ln_f.weight"] || params["transformer.ln_f.weight"]
+    b = params["gpt2model.ln_f.bias"] || params["transformer.ln_f.bias"]
+    %{
+      weight: w && ensure_shape(w, {@n_embd}) || ones({@n_embd}),
+      bias: b && ensure_shape(b, {@n_embd}) || zeros({@n_embd})
+    }
+  end
+
+  defp get_ae(params) do
+    w = params["ae.linear.weight"] || params["ae.weight"] || params["linear_layer.weight"]
+    b = params["ae.linear.bias"] || params["ae.bias"]
+    nw = params["ae.norm.weight"] || params["norm_aux.weight"]
+    nb = params["ae.norm.bias"] || params["norm_aux.bias"]
+    %{
+      linear_weight: w && ensure_shape(w, {@n_embd, 192}) || zeros({@n_embd, 192}),
+      linear_bias: b && ensure_shape(b, {@n_embd}) || zeros({@n_embd}),
+      norm_weight: nw && ensure_shape(nw, {@n_embd}) || ones({@n_embd}),
+      norm_bias: nb && ensure_shape(nb, {@n_embd}) || zeros({@n_embd})
+    }
+  end
+
+  defp get_pred_head(params) do
+    w = params["pred_head.weight"]
+    b = params["pred_head.bias"]
+    if is_nil(w), do: raise("missing pred_head.weight in params")
+    %{
+      weight: ensure_shape(w, {@n_embd, @vocab_size}),
+      bias: b && ensure_shape(b, {@vocab_size}) || zeros({@vocab_size})
+    }
+  end
+
+  defp identity_layers do
+    Enum.reduce(0..11, %{}, fn i, acc ->
+      prefix = "layer_#{i}_"
+      Map.merge(acc, %{
+        :"#{prefix}ln_1_weight" => ones({@n_embd}),
+        :"#{prefix}ln_1_bias" => zeros({@n_embd}),
+        :"#{prefix}attn_c_attn_weight" => zeros({2304, @n_embd}),
+        :"#{prefix}attn_c_attn_bias" => zeros({2304}),
+        :"#{prefix}attn_c_proj_weight" => zeros({@n_embd, @n_embd}),
+        :"#{prefix}attn_c_proj_bias" => zeros({@n_embd}),
+        :"#{prefix}ln_2_weight" => ones({@n_embd}),
+        :"#{prefix}ln_2_bias" => zeros({@n_embd}),
+        :"#{prefix}mlp_c_fc_weight" => zeros({3072, @n_embd}),
+        :"#{prefix}mlp_c_fc_bias" => zeros({3072}),
+        :"#{prefix}mlp_c_proj_weight" => zeros({@n_embd, 3072}),
+        :"#{prefix}mlp_c_proj_bias" => zeros({@n_embd})
+      })
+    end)
+  end
+
+  defp real_layers(params_map) do
+    prefix = gpt2_prefix(params_map)
+    if is_nil(prefix), do: raise("expected full checkpoint with gpt2model.h or transformer.h")
+
+    Enum.reduce(0..11, %{}, fn i, acc ->
+      base = prefix <> "h.#{i}."
+      Map.merge(acc, %{
+        :"layer_#{i}_ln_1_weight" => get_param(params_map, base <> "ln_1.weight", {@n_embd}),
+        :"layer_#{i}_ln_1_bias" => get_param(params_map, base <> "ln_1.bias", {@n_embd}),
+        :"layer_#{i}_attn_c_attn_weight" =>
+          get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd}),
+        :"layer_#{i}_attn_c_attn_bias" => get_param(params_map, base <> "attn.c_attn.bias", {2304}),
+        :"layer_#{i}_attn_c_proj_weight" =>
+          get_param(params_map, base <> "attn.c_proj.weight", {@n_embd, @n_embd}),
+        :"layer_#{i}_attn_c_proj_bias" =>
+          get_param(params_map, base <> "attn.c_proj.bias", {@n_embd}),
+        :"layer_#{i}_ln_2_weight" => get_param(params_map, base <> "ln_2.weight", {@n_embd}),
+        :"layer_#{i}_ln_2_bias" => get_param(params_map, base <> "ln_2.bias", {@n_embd}),
+        :"layer_#{i}_mlp_c_fc_weight" =>
+          get_param(params_map, base <> "mlp.c_fc.weight", {3072, @n_embd}),
+        :"layer_#{i}_mlp_c_fc_bias" => get_param(params_map, base <> "mlp.c_fc.bias", {3072}),
+        :"layer_#{i}_mlp_c_proj_weight" =>
+          get_param(params_map, base <> "mlp.c_proj.weight", {@n_embd, 3072}),
+        :"layer_#{i}_mlp_c_proj_bias" =>
+          get_param(params_map, base <> "mlp.c_proj.bias", {@n_embd})
+      })
+    end)
+  end
+
+  defp get_param(params_map, key, expected_shape) do
+    t = params_map[key]
+    if is_nil(t), do: raise("missing #{key} in params")
+    ensure_shape(t, expected_shape)
+  end
+
+  defp gpt2_prefix(params) do
+    keys = Map.keys(params)
+    cond do
+      Enum.any?(keys, &String.starts_with?(&1, "gpt2model.h.")) -> "gpt2model."
+      Enum.any?(keys, &String.starts_with?(&1, "transformer.h.")) -> "transformer."
+      true -> nil
+    end
+  end
+
+  defp ensure_shape(tensor, expected) do
+    shape = Nx.shape(tensor)
+    if shape == expected, do: tensor, else: Nx.transpose(tensor)
+  end
+
+  defp zeros(shape), do: Nx.broadcast(0.0, shape) |> Nx.as_type({:f, 32})
+  defp ones(shape), do: Nx.broadcast(1.0, shape) |> Nx.as_type({:f, 32})
+end

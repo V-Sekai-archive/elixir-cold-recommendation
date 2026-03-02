@@ -1,8 +1,9 @@
-# RecGPT: use Torchx with CUDA so tensors and training use GPU RAM.
-# Build Torchx with LIBTORCH_TARGET (e.g. cu129) for CUDA. Fitting in 24 GB: --batch-size 4 or 8, cap catalog (e.g. --limit 100).
+# RecGPT: EXLA only. All Nx ops and Defn run on EXLA (host or CUDA per default_client).
 import Config
 
-config :nx, default_backend: {Torchx.Backend, device: :cuda}
+config :nx, default_backend: EXLA.Backend
+config :nx, :default_defn_options, [compiler: EXLA]
+config :exla, :default_client, :host
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.
 # Default 1 and 0 = one request at a time (no batching).

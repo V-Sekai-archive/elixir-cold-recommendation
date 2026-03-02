@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.16.1-erlang-26.0.2-debian-bookworm-20240801 AS builder
+FROM hexpm/elixir:1.18.0-erlang-27.2.1-debian-bookworm-20251103 AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y build-essential
 ENV MIX_ENV=prod

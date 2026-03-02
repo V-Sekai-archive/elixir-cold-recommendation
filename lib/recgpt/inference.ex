@@ -199,6 +199,16 @@ defmodule RecGPT.Inference do
     end
   end
 
+  @doc """
+  Returns the number of GPT-2 transformer layers in params (0 when no layer keys present).
+  Used by Serve/InferenceParams to build full defn params.
+  """
+  @spec n_layers_from_params(map()) :: non_neg_integer()
+  def n_layers_from_params(params) do
+    prefix = gpt2_prefix(params)
+    if is_nil(prefix), do: 0, else: count_gpt2_layers(params, prefix)
+  end
+
   defp gpt2_n_layers(params) do
     prefix = gpt2_prefix(params)
     if is_nil(prefix), do: 0, else: count_gpt2_layers(params, prefix)

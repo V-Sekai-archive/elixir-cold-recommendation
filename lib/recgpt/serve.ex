@@ -12,6 +12,8 @@ defmodule RecGPT.Serve do
   alias RecGPT.CheckpointLoader
   alias RecGPT.Decode
   alias RecGPT.Inference
+  alias RecGPT.InferenceDefn
+  alias RecGPT.InferenceParams
   alias RecGPT.Trie
 
   @padding_id 15_360
@@ -47,12 +49,13 @@ defmodule RecGPT.Serve do
   @spec load_state(String.t(), String.t(), String.t() | nil) ::
           {:ok, state()} | {:error, String.t()}
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
-    with {:ok, params} <- load_checkpoint(ckpt_export_dir),
+    with :ok <- ensure_exla(),
+         {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
-         {:ok, item_text} <- load_catalog(catalog_path, num_items) do
+         {:ok, item_text} <- load_catalog(catalog_path, num_items),
+         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params) do
       trie = Trie.build(token_id_list)
-      get_logits_fn = build_get_logits_fn(params)
-      get_logits_batch_fn = build_get_logits_batch_fn(params)
+      get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
       state = %__MODULE__{
         params: params,
@@ -75,11 +78,12 @@ defmodule RecGPT.Serve do
   """
   @spec load_state_from_db(String.t(), String.t() | nil) :: {:ok, state()} | {:error, String.t()}
   def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
-    with {:ok, params} <- load_checkpoint(ckpt_export_dir),
+    with :ok <- ensure_exla(),
+         {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
-         {:ok, item_text} <- load_catalog(catalog_path, num_items) do
-      get_logits_fn = build_get_logits_fn(params)
-      get_logits_batch_fn = build_get_logits_batch_fn(params)
+         {:ok, item_text} <- load_catalog(catalog_path, num_items),
+         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params) do
+      get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
       state = %__MODULE__{
         params: params,
@@ -123,6 +127,14 @@ defmodule RecGPT.Serve do
       end)
 
     {:ok, trie, token_id_map, num_items}
+  end
+
+  defp ensure_exla do
+    if Code.ensure_loaded?(EXLA) do
+      :ok
+    else
+      {:error, "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
+    end
   end
 
   defp load_checkpoint(dir) do
@@ -175,50 +187,70 @@ defmodule RecGPT.Serve do
     end
   end
 
-  defp build_get_logits_fn(params) do
+  defp build_get_logits_fn_from_batch(get_logits_batch_fn) do
     fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
+      {logits, _cache} = get_logits_batch_fn.([token_list], nil)
+      Nx.squeeze(logits, axes: [0])
     end
   end
 
   defp build_get_logits_batch_fn(params) do
-    fn list_of_token_lists, cache
-       when is_list(list_of_token_lists) and list_of_token_lists != [] ->
-      max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
-      padded =
-        Enum.map(list_of_token_lists, fn tokens ->
-          len = length(tokens)
-          padding = List.duplicate(@padding_id, max_len - len)
-          padding ++ tokens
-        end)
-      batch = Nx.tensor(padded, type: {:s, 32})
-      {batch_size, seq_len} = Nx.shape(batch)
-      batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
+    try do
+      n_layers = Inference.n_layers_from_params(params)
+      full_params = InferenceParams.build_defn_params(params, n_layers)
 
-      if cache == nil do
-        # Full forward and capture KV-cache for next steps (when Inference has GPT-2 layers).
-        case Inference.forward_with_cache(batch, batch_aux, embed_mask, params) do
-          {logits, []} -> {logits, nil}
-          {logits, new_cache} -> {logits, new_cache}
+      jit_with_cache =
+        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+
+      jit_incremental =
+        Nx.Defn.jit(&InferenceDefn.forward_incremental/5, compiler: EXLA)
+
+      batch_fn = fn list_of_token_lists, cache
+                    when is_list(list_of_token_lists) and list_of_token_lists != [] ->
+        max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
+        padded =
+          Enum.map(list_of_token_lists, fn tokens ->
+            len = length(tokens)
+            padding = List.duplicate(@padding_id, max_len - len)
+            padding ++ tokens
+          end)
+        batch = Nx.tensor(padded, type: {:s, 32})
+        {batch_size, seq_len} = Nx.shape(batch)
+        batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
+        embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
+
+        if cache == nil do
+          {logits, cache_tuple} = jit_with_cache.(batch, batch_aux, embed_mask, full_params)
+          cache_list = cache_tuple_to_list(cache_tuple)
+          {logits, cache_list}
+        else
+          cache_tuple = cache_list_to_tuple(cache)
+          last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
+          batch_one = Nx.tensor(last_tokens, type: {:s, 32})
+          aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
+          mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
+          cache_to_use = maybe_replicate_cache(cache, batch_size)
+          cache_tuple_to_use = cache_list_to_tuple(cache_to_use)
+          {logits, new_cache_tuple} =
+            jit_incremental.(batch_one, aux_one, mask_one, full_params, cache_tuple_to_use)
+          new_cache = cache_tuple_to_list(new_cache_tuple)
+          {logits, new_cache}
         end
-      else
-        # Incremental: only run the last token through with past KV-cache.
-        last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
-        batch_one = Nx.tensor(last_tokens, type: {:s, 32})
-        aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
-        mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
-        # If cache has batch=1 and we have beam_width, replicate cache.
-        cache_to_use = maybe_replicate_cache(cache, batch_size)
-        {logits, new_cache} =
-          Inference.forward_incremental(batch_one, aux_one, mask_one, params, cache_to_use)
-        {logits, new_cache}
       end
+
+      {:ok, batch_fn}
+    rescue
+      e ->
+        {:error, "EXLA JIT or defn params failed: #{inspect(e)}"}
     end
+  end
+
+  defp cache_tuple_to_list(cache_tuple) do
+    Tuple.to_list(cache_tuple)
+  end
+
+  defp cache_list_to_tuple(cache_list) do
+    List.to_tuple(cache_list)
   end
 
   defp replicate_cache(cache, batch_size) do
