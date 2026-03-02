@@ -1,4 +1,4 @@
-﻿# Parity by layer
+# Parity by layer
 
 Sub-proposal of the [documentation index](README.md). Per-layer task lists and validation for RecGPT parity. Overview and mapping: [09 Parity overview](09_parity_overview.md).
 

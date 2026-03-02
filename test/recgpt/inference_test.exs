@@ -171,7 +171,10 @@ defmodule RecGPT.InferenceTest do
         "gpt2model.h.0.mlp.c_proj.weight",
         Nx.iota({768, 3072}) |> Nx.divide(768 * 3072) |> Nx.as_type({:f, 32})
       )
-      |> Map.put("gpt2model.h.0.mlp.c_proj.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        "gpt2model.h.0.mlp.c_proj.bias",
+        Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32})
+      )
       |> Map.put("gpt2model.ln_f.weight", Nx.broadcast(1.0, {768}) |> Nx.as_type({:f, 32}))
       |> Map.put("gpt2model.ln_f.bias", Nx.broadcast(0.0, {768}) |> Nx.as_type({:f, 32}))
 
@@ -186,18 +189,23 @@ defmodule RecGPT.InferenceTest do
     prefix_ids = Nx.tensor([[10, 20]], type: {:s, 32})
     prefix_aux = Nx.broadcast(0.0, {1, 2, 192}) |> Nx.as_type({:f, 32})
     prefix_mask = Nx.broadcast(1.0, {1, 2, 1}) |> Nx.as_type({:f, 32})
-    {_logits_prefix, cache} = Inference.forward_with_cache(prefix_ids, prefix_aux, prefix_mask, params)
+
+    {_logits_prefix, cache} =
+      Inference.forward_with_cache(prefix_ids, prefix_aux, prefix_mask, params)
 
     last_token = Nx.tensor([[30]], type: {:s, 32})
     last_aux = Nx.broadcast(0.0, {1, 1, 192}) |> Nx.as_type({:f, 32})
     last_mask = Nx.broadcast(1.0, {1, 1, 1}) |> Nx.as_type({:f, 32})
-    {logits_inc, _} = Inference.forward_incremental(last_token, last_aux, last_mask, params, cache)
+
+    {logits_inc, _} =
+      Inference.forward_incremental(last_token, last_aux, last_mask, params, cache)
 
     # Full forward last position must match incremental (same context + last token)
     assert Nx.shape(logits_full) == {1, 15_361}
     assert Nx.shape(logits_inc) == {1, 15_361}
 
     diff = Nx.subtract(logits_full, logits_inc) |> Nx.abs() |> Nx.reduce_max()
+
     assert Nx.to_number(diff) < 1.0e-4,
            "full forward last position should match incremental (diff max #{Nx.to_number(diff)})"
   end
@@ -221,6 +229,7 @@ defmodule RecGPT.InferenceTest do
 
     assert Nx.shape(logits_defn) == {1, 15_361}
     diff = Nx.subtract(logits_inference, logits_defn) |> Nx.abs() |> Nx.reduce_max()
+
     assert Nx.to_number(diff) < 1.0e-4,
            "Inference and Defn stub forward should match (diff max #{Nx.to_number(diff)})"
   end

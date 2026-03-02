@@ -26,7 +26,11 @@ defmodule RecGPT.HealthServer do
 
       {:error, _} = err ->
         require Logger
-        Logger.warning("Health server failed to listen on #{port}: #{inspect(err)} (gRPC still available)")
+
+        Logger.warning(
+          "Health server failed to listen on #{port}: #{inspect(err)} (gRPC still available)"
+        )
+
         err
     end
   end

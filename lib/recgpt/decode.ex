@@ -76,8 +76,8 @@ defmodule RecGPT.Decode do
   def beam_search_top_k(_get_logits_fn, _trie, _context_token_ids, _top_k, batch_fn)
       when not is_function(batch_fn, 2) do
     raise ArgumentError,
-      "beam_search_top_k/5 requires batch_fn (2-arity: list, cache -> {logits, new_cache}). " <>
-        "No unbatched path. Use Serve.recommend/3 or provide a batched inference function."
+          "beam_search_top_k/5 requires batch_fn (2-arity: list, cache -> {logits, new_cache}). " <>
+            "No unbatched path. Use Serve.recommend/3 or provide a batched inference function."
   end
 
   def beam_search_top_k(get_logits_fn, trie, context_token_ids, top_k, batch_fn)

@@ -11,9 +11,16 @@ defmodule Recgpt.V1.PredictionServiceTest do
     Application.put_env(:recgpt, :serve_state, state)
     # Start the batch collector so Server.predict can call it (same as production).
     case Process.whereis(RecGPT.PredictBatchCollector) do
-      nil -> {:ok, _pid} = GenServer.start_link(RecGPT.PredictBatchCollector, [], name: RecGPT.PredictBatchCollector)
-      _ -> :ok
+      nil ->
+        {:ok, _pid} =
+          GenServer.start_link(RecGPT.PredictBatchCollector, [],
+            name: RecGPT.PredictBatchCollector
+          )
+
+      _ ->
+        :ok
     end
+
     on_exit(fn -> Application.delete_env(:recgpt, :serve_state) end)
     :ok
   end

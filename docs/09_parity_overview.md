@@ -1,4 +1,4 @@
-﻿# Parity overview
+# Parity overview
 
 Sub-proposal of the [documentation index](README.md). At-a-glance status and mapping from the [RecGPT reference](https://github.com/HKUDS/RecGPT) to the **recgpt** Elixir package. Per-layer detail: [10 Parity by layer](10_parity_layers.md).
 

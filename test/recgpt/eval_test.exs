@@ -41,9 +41,16 @@ defmodule RecGPT.EvalTest do
     test "evaluate with recommend_fn (gRPC path) uses PredictionService.Server" do
       state = FrozenHelpers.build_stub_state()
       Application.put_env(:recgpt, :serve_state, state)
+
       case Process.whereis(RecGPT.PredictBatchCollector) do
-        nil -> {:ok, _} = GenServer.start_link(RecGPT.PredictBatchCollector, [], name: RecGPT.PredictBatchCollector)
-        _ -> :ok
+        nil ->
+          {:ok, _} =
+            GenServer.start_link(RecGPT.PredictBatchCollector, [],
+              name: RecGPT.PredictBatchCollector
+            )
+
+        _ ->
+          :ok
       end
 
       grpc_fn = fn ctx, k ->

@@ -133,7 +133,8 @@ defmodule RecGPT.Serve do
     if Code.ensure_loaded?(EXLA) do
       :ok
     else
-      {:error, "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
+      {:error,
+       "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
     end
   end
 
@@ -208,12 +209,14 @@ defmodule RecGPT.Serve do
       batch_fn = fn list_of_token_lists, cache
                     when is_list(list_of_token_lists) and list_of_token_lists != [] ->
         max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
+
         padded =
           Enum.map(list_of_token_lists, fn tokens ->
             len = length(tokens)
             padding = List.duplicate(@padding_id, max_len - len)
             padding ++ tokens
           end)
+
         batch = Nx.tensor(padded, type: {:s, 32})
         {batch_size, seq_len} = Nx.shape(batch)
         batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
@@ -231,8 +234,10 @@ defmodule RecGPT.Serve do
           mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
           cache_to_use = maybe_replicate_cache(cache, batch_size)
           cache_tuple_to_use = cache_list_to_tuple(cache_to_use)
+
           {logits, new_cache_tuple} =
             jit_incremental.(batch_one, aux_one, mask_one, full_params, cache_tuple_to_use)
+
           new_cache = cache_tuple_to_list(new_cache_tuple)
           {logits, new_cache}
         end
@@ -256,6 +261,7 @@ defmodule RecGPT.Serve do
   defp replicate_cache(cache, batch_size) do
     Enum.map(cache, fn {k, v} ->
       {b, n_head, len, hd} = Nx.shape(k)
+
       if b == 1 do
         k_exp = Nx.broadcast(k, {batch_size, n_head, len, hd})
         v_exp = Nx.broadcast(v, {batch_size, n_head, len, hd})
@@ -268,7 +274,9 @@ defmodule RecGPT.Serve do
 
   defp maybe_replicate_cache(cache, batch_size) do
     case cache do
-      [] -> []
+      [] ->
+        []
+
       [{k, _} | _] ->
         b = elem(Nx.shape(k), 0)
         if b == 1 and batch_size > 1, do: replicate_cache(cache, batch_size), else: cache
@@ -282,6 +290,7 @@ defmodule RecGPT.Serve do
         list_of_token_lists
         |> Enum.map(fn seq -> get_logits_fn.(seq) |> Nx.squeeze(axes: [0]) end)
         |> Nx.stack(axis: 0)
+
       {logits, nil}
     end
   end

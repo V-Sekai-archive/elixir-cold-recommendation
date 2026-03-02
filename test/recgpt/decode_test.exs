@@ -136,6 +136,7 @@ defmodule RecGPT.DecodeTest do
         list
         |> Enum.map(fn seq -> get_logits.(seq) |> Nx.squeeze(axes: [0]) end)
         |> Nx.stack(axis: 0)
+
       {logits, nil}
     end
   end

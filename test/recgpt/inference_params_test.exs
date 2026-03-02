@@ -8,6 +8,7 @@ defmodule RecGPT.InferenceParamsTest do
     wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
     head_w = Nx.iota({768, 15_361}) |> Nx.divide(768 * 15_361) |> Nx.as_type({:f, 32})
     head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
+
     %{
       "wte" => wte,
       "pred_head.weight" => head_w,

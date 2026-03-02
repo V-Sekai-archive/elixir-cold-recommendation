@@ -71,10 +71,12 @@ defmodule RecGPT.InferenceParams do
     case wpe do
       nil ->
         Nx.broadcast(0.0, {@max_pos, @n_embd}) |> Nx.as_type({:f, 32})
+
       t ->
         {rows, cols} = Nx.shape(t)
         t = if cols == @n_embd and rows != @n_embd, do: t, else: Nx.transpose(t)
         {rows, _} = Nx.shape(t)
+
         if rows >= @max_pos do
           Nx.slice_along_axis(t, 0, @max_pos, axis: 0)
         else
@@ -87,9 +89,10 @@ defmodule RecGPT.InferenceParams do
   defp get_ln_f(params) do
     w = params["gpt2model.ln_f.weight"] || params["transformer.ln_f.weight"]
     b = params["gpt2model.ln_f.bias"] || params["transformer.ln_f.bias"]
+
     %{
-      weight: w && ensure_shape(w, {@n_embd}) || ones({@n_embd}),
-      bias: b && ensure_shape(b, {@n_embd}) || zeros({@n_embd})
+      weight: (w && ensure_shape(w, {@n_embd})) || ones({@n_embd}),
+      bias: (b && ensure_shape(b, {@n_embd})) || zeros({@n_embd})
     }
   end
 
@@ -98,11 +101,12 @@ defmodule RecGPT.InferenceParams do
     b = params["ae.linear.bias"] || params["ae.bias"]
     nw = params["ae.norm.weight"] || params["norm_aux.weight"]
     nb = params["ae.norm.bias"] || params["norm_aux.bias"]
+
     %{
-      linear_weight: w && ensure_shape(w, {@n_embd, 192}) || zeros({@n_embd, 192}),
-      linear_bias: b && ensure_shape(b, {@n_embd}) || zeros({@n_embd}),
-      norm_weight: nw && ensure_shape(nw, {@n_embd}) || ones({@n_embd}),
-      norm_bias: nb && ensure_shape(nb, {@n_embd}) || zeros({@n_embd})
+      linear_weight: (w && ensure_shape(w, {@n_embd, 192})) || zeros({@n_embd, 192}),
+      linear_bias: (b && ensure_shape(b, {@n_embd})) || zeros({@n_embd}),
+      norm_weight: (nw && ensure_shape(nw, {@n_embd})) || ones({@n_embd}),
+      norm_bias: (nb && ensure_shape(nb, {@n_embd})) || zeros({@n_embd})
     }
   end
 
@@ -110,15 +114,17 @@ defmodule RecGPT.InferenceParams do
     w = params["pred_head.weight"]
     b = params["pred_head.bias"]
     if is_nil(w), do: raise("missing pred_head.weight in params")
+
     %{
       weight: ensure_shape(w, {@n_embd, @vocab_size}),
-      bias: b && ensure_shape(b, {@vocab_size}) || zeros({@vocab_size})
+      bias: (b && ensure_shape(b, {@vocab_size})) || zeros({@vocab_size})
     }
   end
 
   defp identity_layers do
     Enum.reduce(0..11, %{}, fn i, acc ->
       prefix = "layer_#{i}_"
+
       Map.merge(acc, %{
         :"#{prefix}ln_1_weight" => ones({@n_embd}),
         :"#{prefix}ln_1_bias" => zeros({@n_embd}),
@@ -142,12 +148,14 @@ defmodule RecGPT.InferenceParams do
 
     Enum.reduce(0..11, %{}, fn i, acc ->
       base = prefix <> "h.#{i}."
+
       Map.merge(acc, %{
         :"layer_#{i}_ln_1_weight" => get_param(params_map, base <> "ln_1.weight", {@n_embd}),
         :"layer_#{i}_ln_1_bias" => get_param(params_map, base <> "ln_1.bias", {@n_embd}),
         :"layer_#{i}_attn_c_attn_weight" =>
           get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd}),
-        :"layer_#{i}_attn_c_attn_bias" => get_param(params_map, base <> "attn.c_attn.bias", {2304}),
+        :"layer_#{i}_attn_c_attn_bias" =>
+          get_param(params_map, base <> "attn.c_attn.bias", {2304}),
         :"layer_#{i}_attn_c_proj_weight" =>
           get_param(params_map, base <> "attn.c_proj.weight", {@n_embd, @n_embd}),
         :"layer_#{i}_attn_c_proj_bias" =>
@@ -173,6 +181,7 @@ defmodule RecGPT.InferenceParams do
 
   defp gpt2_prefix(params) do
     keys = Map.keys(params)
+
     cond do
       Enum.any?(keys, &String.starts_with?(&1, "gpt2model.h.")) -> "gpt2model."
       Enum.any?(keys, &String.starts_with?(&1, "transformer.h.")) -> "transformer."

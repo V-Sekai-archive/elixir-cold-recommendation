@@ -2,7 +2,7 @@
 import Config
 
 config :nx, default_backend: EXLA.Backend
-config :nx, :default_defn_options, [compiler: EXLA]
+config :nx, :default_defn_options, compiler: EXLA
 config :exla, :default_client, :host
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.

@@ -61,7 +61,13 @@ defmodule RecGPT.Inference do
 
       n_layers ->
         {hidden, cache} =
-          forward_hidden_with_cache(batch_token_ids, batch_aux_embeds, embed_mask, params, n_layers)
+          forward_hidden_with_cache(
+            batch_token_ids,
+            batch_aux_embeds,
+            embed_mask,
+            params,
+            n_layers
+          )
 
         last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
         last_hidden = hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
@@ -190,7 +196,9 @@ defmodule RecGPT.Inference do
         params["transformer.wpe.weight"]
 
     case wpe do
-      nil -> hidden
+      nil ->
+        hidden
+
       _ ->
         # hidden (batch, 1, 768); add pe at position
         pe_row = Nx.slice_along_axis(wpe, position, 1, axis: 0)
@@ -265,8 +273,9 @@ defmodule RecGPT.Inference do
   defp run_gpt2_blocks_incremental(hidden, params, n_layers, past_key_values) do
     prefix = gpt2_prefix(params)
 
-    Enum.reduce(Enum.zip(0..(n_layers - 1), past_key_values), {hidden, []}, fn {i, {past_k, past_v}},
-                                                                                 {h, acc_cache} ->
+    Enum.reduce(Enum.zip(0..(n_layers - 1), past_key_values), {hidden, []}, fn {i,
+                                                                                {past_k, past_v}},
+                                                                               {h, acc_cache} ->
       {out, new_kv} = gpt2_block_incremental(h, params, prefix, i, past_k, past_v)
       {out, acc_cache ++ [new_kv]}
     end)
@@ -336,6 +345,7 @@ defmodule RecGPT.Inference do
     k = Nx.reshape(k, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+
     # Batched attention: q (batch, n_head, seq, head_dim), k (batch, n_head, seq, head_dim) -> (batch, n_head, seq, seq)
     # Use dot/6 with batch_axes [0, 1] so we get batched matmul; dot/4 would outer-product to 6D.
     k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
@@ -356,8 +366,10 @@ defmodule RecGPT.Inference do
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
+
     # Batched: probs (batch, n_head, seq_q, seq_k) @ v (batch, n_head, seq_k, head_dim); contract seq_k (axis 3 of probs, axis 2 of v)
     out = Nx.dot(probs, [3], [0, 1], v, [2], [0, 1])
+
     out =
       out
       |> Nx.transpose(axes: [0, 2, 1, 3])
@@ -390,21 +402,25 @@ defmodule RecGPT.Inference do
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
     mask = Nx.greater(col, row)
+
     mask =
       Nx.select(
         mask,
         Nx.broadcast(Nx.tensor(-1.0e10, type: {:f, 32}), {seq, seq}),
         Nx.broadcast(0.0, {seq, seq})
       )
+
     mask = Nx.reshape(mask, {1, 1, seq, seq}) |> Nx.as_type({:f, 32})
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
     out = Nx.dot(probs, [3], [0, 1], v, [2], [0, 1])
+
     out =
       out
       |> Nx.transpose(axes: [0, 2, 1, 3])
       |> Nx.reshape({batch, seq, @n_embd})
+
     c_proj_w = params[base <> "attn.c_proj.weight"]
     c_proj_b = params[base <> "attn.c_proj.bias"]
     c_proj_w = ensure_shape(c_proj_w, {@n_embd, @n_embd})
@@ -431,11 +447,13 @@ defmodule RecGPT.Inference do
     new_k = Nx.concatenate([past_k, k], axis: 2)
     new_v = Nx.concatenate([past_v, v], axis: 2)
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+
     # Batched: q (batch, n_head, 1, head_dim), new_k (batch, n_head, seq_len, head_dim) -> (batch, n_head, 1, seq_len)
     new_k_t = Nx.transpose(new_k, axes: [0, 1, 3, 2])
     scores = Nx.dot(q, [3], [0, 1], new_k_t, [2], [0, 1]) |> Nx.divide(scale)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
+
     # Batched: probs (batch, n_head, 1, seq_len) @ new_v (batch, n_head, seq_len, head_dim); contract seq_len (axis 3 of probs, axis 2 of new_v)
     out = Nx.dot(probs, [3], [0, 1], new_v, [2], [0, 1])
     out = Nx.transpose(out, axes: [0, 2, 1, 3]) |> Nx.reshape({batch, 1, @n_embd})

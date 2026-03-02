@@ -47,6 +47,7 @@ defmodule RecGPT.PredictBatchCollector do
       state
       |> Map.put(:timer_ref, nil)
       |> flush(state.queue)
+
     {:noreply, state}
   end
 
@@ -66,6 +67,7 @@ defmodule RecGPT.PredictBatchCollector do
         else
           state.timer_ref
         end
+
       %{state | queue: queue, timer_ref: timer_ref}
     end
   end
@@ -91,6 +93,7 @@ defmodule RecGPT.PredictBatchCollector do
               if trace? do
                 {us, res} =
                   :timer.tc(fn -> RecGPT.Serve.recommend(state, context_ids, max_results) end)
+
                 {res, us}
               else
                 {RecGPT.Serve.recommend(state, context_ids, max_results), nil}
@@ -98,9 +101,11 @@ defmodule RecGPT.PredictBatchCollector do
             rescue
               e ->
                 require Logger
+
                 Logger.error(
                   "Recommend failed context=#{inspect(context_ids)}: #{Exception.format(:error, e)}"
                 )
+
                 {{:error, Exception.message(e)}, nil}
             end
 
@@ -119,11 +124,13 @@ defmodule RecGPT.PredictBatchCollector do
             m when is_map(m) -> m["title"] || m["name"] || to_string(id)
             _ -> to_string(id)
           end
+
         %Recgpt.V1.ItemSummary{item_id: id, display_name: name}
       end)
 
     if recommend_us do
       require Logger
+
       Logger.info(
         "Predict trace context=#{inspect(context_ids)} top_k=#{max_results} " <>
           "recommend_us=#{recommend_us} total_ms=#{Float.round(recommend_us / 1000, 2)}"
@@ -136,6 +143,7 @@ defmodule RecGPT.PredictBatchCollector do
   defp build_reply({:error, _} = err, _recommend_us, _state, _context_ids, _max_results), do: err
 
   defp cancel_timer(nil), do: :ok
+
   defp cancel_timer(ref) do
     Process.cancel_timer(ref)
     :ok
