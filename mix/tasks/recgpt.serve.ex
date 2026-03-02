@@ -72,6 +72,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
         Mix.shell().info("gRPC: 0.0.0.0:#{grpc_port} (recgpt.v1.PredictionService/Predict)")
 
         children = [
+          {RecGPT.PredictBatchCollector, []},
           {GRPC.Server.Supervisor,
            endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
         ]

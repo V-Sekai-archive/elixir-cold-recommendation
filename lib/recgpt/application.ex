@@ -45,6 +45,7 @@ defmodule RecGPT.ReleaseTasks do
     health_port = env_port("RECGPT_HEALTH_PORT", 50_052)
 
     children = [
+      {RecGPT.PredictBatchCollector, []},
       {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
     ]
 

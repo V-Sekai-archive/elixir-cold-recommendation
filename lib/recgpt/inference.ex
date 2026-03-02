@@ -323,19 +323,9 @@ defmodule RecGPT.Inference do
     k = Nx.reshape(k, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
-    # Per-head matmul: for each of (batch*n_head), (seq, head_dim) @ (head_dim, seq) -> (seq, seq)
-    q_flat = Nx.reshape(q, {batch * @n_head, seq, @head_dim})
-    k_flat = Nx.reshape(k, {batch * @n_head, seq, @head_dim}) |> Nx.transpose(axes: [0, 2, 1])
-
-    scores =
-      for i <- 0..(batch * @n_head - 1) do
-        q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        k_i = k_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(q_i, [1], k_i, [0]) |> Nx.divide(scale)
-      end
-      |> Nx.stack(axis: 0)
-
-    scores = Nx.reshape(scores, {batch, @n_head, seq, seq})
+    # Batched attention: q (batch, n_head, seq, head_dim), k (batch, n_head, seq, head_dim) -> (batch, n_head, seq, seq)
+    k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
+    scores = Nx.dot(q, [3], k_t, [2]) |> Nx.divide(scale)
     # Causal mask: position i may attend only to j <= i. Mask (seq, seq): -1e10 where j > i
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
@@ -352,19 +342,10 @@ defmodule RecGPT.Inference do
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    probs_flat = Nx.reshape(probs, {batch * @n_head, seq, seq})
-    v_flat = Nx.reshape(v, {batch * @n_head, seq, @head_dim})
-
+    # Batched: probs (batch, n_head, seq, seq) @ v (batch, n_head, seq, head_dim) -> (batch, n_head, seq, head_dim)
+    out = Nx.dot(probs, [2], v, [2])
     out =
-      for i <- 0..(batch * @n_head - 1) do
-        p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        v_i = v_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(p_i, [1], v_i, [0])
-      end
-      |> Nx.stack(axis: 0)
-
-    out =
-      Nx.reshape(out, {batch, @n_head, seq, @head_dim})
+      out
       |> Nx.transpose(axes: [0, 2, 1, 3])
       |> Nx.reshape({batch, seq, @n_embd})
 
@@ -390,16 +371,8 @@ defmodule RecGPT.Inference do
     k = Nx.reshape(k, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
-    q_flat = Nx.reshape(q, {batch * @n_head, seq, @head_dim})
-    k_flat = Nx.reshape(k, {batch * @n_head, seq, @head_dim}) |> Nx.transpose(axes: [0, 2, 1])
-    scores =
-      for i <- 0..(batch * @n_head - 1) do
-        q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        k_i = k_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(q_i, [1], k_i, [0]) |> Nx.divide(scale)
-      end
-      |> Nx.stack(axis: 0)
-    scores = Nx.reshape(scores, {batch, @n_head, seq, seq})
+    k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
+    scores = Nx.dot(q, [3], k_t, [2]) |> Nx.divide(scale)
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
     mask = Nx.greater(col, row)
@@ -413,17 +386,9 @@ defmodule RecGPT.Inference do
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    probs_flat = Nx.reshape(probs, {batch * @n_head, seq, seq})
-    v_flat = Nx.reshape(v, {batch * @n_head, seq, @head_dim})
+    out = Nx.dot(probs, [2], v, [2])
     out =
-      for i <- 0..(batch * @n_head - 1) do
-        p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        v_i = v_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(p_i, [1], v_i, [0])
-      end
-      |> Nx.stack(axis: 0)
-    out =
-      Nx.reshape(out, {batch, @n_head, seq, @head_dim})
+      out
       |> Nx.transpose(axes: [0, 2, 1, 3])
       |> Nx.reshape({batch, seq, @n_embd})
     c_proj_w = params[base <> "attn.c_proj.weight"]
@@ -452,29 +417,13 @@ defmodule RecGPT.Inference do
     new_k = Nx.concatenate([past_k, k], axis: 2)
     new_v = Nx.concatenate([past_v, v], axis: 2)
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
-    seq_len = elem(Nx.shape(new_k), 2)
-    q_flat = Nx.reshape(q, {batch * @n_head, 1, @head_dim})
-    k_flat = Nx.reshape(new_k, {batch * @n_head, seq_len, @head_dim})
-    scores_flat =
-      for i <- 0..(batch * @n_head - 1) do
-        q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        k_i = k_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(q_i, [1], k_i, [1]) |> Nx.divide(scale)
-      end
-      |> Nx.stack(axis: 0)
-    scores = Nx.reshape(scores_flat, {batch, @n_head, 1, seq_len})
+    # Batched: q (batch, n_head, 1, head_dim), new_k (batch, n_head, seq_len, head_dim) -> (batch, n_head, 1, seq_len)
+    new_k_t = Nx.transpose(new_k, axes: [0, 1, 3, 2])
+    scores = Nx.dot(q, [3], new_k_t, [2]) |> Nx.divide(scale)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    probs_flat = Nx.reshape(probs, {batch * @n_head, 1, seq_len})
-    v_flat = Nx.reshape(new_v, {batch * @n_head, seq_len, @head_dim})
-    out_flat =
-      for i <- 0..(batch * @n_head - 1) do
-        p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        v_i = v_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
-        Nx.dot(p_i, [1], v_i, [0])
-      end
-      |> Nx.stack(axis: 0)
-    out = Nx.reshape(out_flat, {batch, @n_head, 1, @head_dim})
+    # Batched: probs (batch, n_head, 1, seq_len) @ new_v (batch, n_head, seq_len, head_dim) -> (batch, n_head, 1, head_dim)
+    out = Nx.dot(probs, [2], new_v, [2])
     out = Nx.transpose(out, axes: [0, 2, 1, 3]) |> Nx.reshape({batch, 1, @n_embd})
     c_proj_w = params[base <> "attn.c_proj.weight"]
     c_proj_b = params[base <> "attn.c_proj.bias"]
