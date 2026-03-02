@@ -131,6 +131,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 29  | [29_staff_api.md](29_staff_api.md)                                         | Staff API for catalogues, sequences, fixture, pretrain.            | RecGPT.StaffApi behaviour; list/upsert items; sync sequences; build_fixture; pretrain; set_canonical_texts. |
 | 30  | [30_waffle_ecto_usage.md](30_waffle_ecto_usage.md)                         | Blob storage with Ecto and optional object store.                    | waffle_ecto + Waffle: schema, cast_attachments, local/S3 config.                                             |
 | 31  | [31_ycsb_storage_classification.md](31_ycsb_storage_classification.md)    | Classify storage by YCSB workload types and throughput.            | YCSB A–F; database/store fit; RecGPT artifact mapping.                                                        |
+| 32  | [32_spmd_decode_flow.md](32_spmd_decode_flow.md)                           | Minimize CPU–device sync in beam search; keep trie and scoring on device. | Trie tensors; SPMD beam search; single sync; lib/ modules (Trie, Decode, Serve).                           |
 
 ---
 
@@ -158,6 +159,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | Embedding parity and workaround                 | [26 Embedding mismatch](26_embedding_mismatch.md)                                                                                                 |
 | Parity with released model (dataset .npy + VAE) | [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md) — use `--embeddings-npy` and `--vae-ckpt` when building fixture.              |
 | **Build a staff API (catalogues, pretrain, etc.)** | [29 Staff API](29_staff_api.md) — RecGPT.StaffApi: list/upsert items, sync sequences, build_fixture, pretrain. |
+| Understand SPMD decode (trie tensors, single sync) | [32 SPMD decode flow](32_spmd_decode_flow.md) — Trie.to_tensors, Decode.beam_search_top_k_spmd, Serve.recommend. |
 | Read the architecture blueprint                 | [11 Paradigm](11_recgpt_paradigm.md), [12 Dynamic state](12_dynamic_state_ets.md), [13 Infrastructure](13_infrastructure_serving.md)              |
 
 ---

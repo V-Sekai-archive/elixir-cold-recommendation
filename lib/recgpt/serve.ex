@@ -396,18 +396,6 @@ defmodule RecGPT.Serve do
     end
   end
 
-  # Fallback when state has no get_logits_batch_fn (e.g. stub): one forward per sequence, then stack. Same API, no KV-cache.
-  defp build_fallback_batch_fn(get_logits_fn) do
-    fn list_of_token_lists, _cache ->
-      logits =
-        list_of_token_lists
-        |> Enum.map(fn seq -> get_logits_fn.(seq) |> Nx.squeeze(axes: [0]) end)
-        |> Nx.stack(axis: 0)
-
-      {logits, nil}
-    end
-  end
-
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
   Uses state.token_id_list when present, else state.token_id_map (when loaded from DB).
@@ -453,44 +441,9 @@ defmodule RecGPT.Serve do
       when is_list(list_of_contexts) and is_integer(top_k) and top_k >= 1 do
     top_k = min(top_k, 20)
 
-    if state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_batch_tensor_fn do
-      # SPMD path: one recommend (SPMD decode) per context
-      Enum.map(list_of_contexts, fn ctx ->
-        recommend(state, ctx, top_k)
-      end)
-    else
-      batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
-      non_empty =
-        list_of_contexts
-        |> Enum.with_index()
-        |> Enum.filter(fn {ctx, _} -> ctx != [] end)
-
-      if non_empty == [] do
-        Enum.map(list_of_contexts, fn _ -> {:error, "item_ids must be non-empty"} end)
-      else
-        context_token_ids =
-          Enum.map(non_empty, fn {ctx, _} -> item_ids_to_context_token_ids(ctx, state) end)
-
-        results =
-          Decode.beam_search_top_k_batched(state.trie, context_token_ids, top_k, batch_fn)
-
-        idx_to_result =
-          non_empty
-          |> Enum.zip(results)
-          |> Map.new(fn {{_, idx}, r} -> {idx, r} end)
-
-        Enum.map(0..(length(list_of_contexts) - 1), fn i ->
-          if Enum.at(list_of_contexts, i) == [] do
-            {:error, "item_ids must be non-empty"}
-          else
-            case Map.get(idx_to_result, i, :not_found) do
-              {:ok, list} -> {:ok, list}
-              :not_found -> {:ok, []}
-            end
-          end
-        end)
-      end
-    end
+    Enum.map(list_of_contexts, fn ctx ->
+      recommend(state, ctx, top_k)
+    end)
   end
 
   @doc """
@@ -505,16 +458,19 @@ defmodule RecGPT.Serve do
     else
       top_k = min(top_k, 20)
 
-      context_token_ids = item_ids_to_context_token_ids(item_ids, state)
-      batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
+      unless state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_batch_tensor_fn do
+        raise "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"
+      end
 
       result =
-        Decode.beam_search_top_k(
-          state.get_logits_fn,
-          state.trie,
-          context_token_ids,
+        Decode.beam_search_top_k_spmd(
+          state.trie_tensors,
+          state.item_id_to_tokens_tensor,
+          item_ids,
           top_k,
-          batch_fn
+          state.get_logits_batch_tensor_fn,
+          state.inference_backend,
+          state.trie
         )
 
       case result do

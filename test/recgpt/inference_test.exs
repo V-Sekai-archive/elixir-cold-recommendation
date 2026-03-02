@@ -265,7 +265,7 @@ defmodule RecGPT.InferenceTest do
 
   @tag :integration
   @tag :load_ckpt
-  test "load checkpoint + trie + beam_search returns next item_id (requires data/recgpt_ckpt_export)" do
+  test "load checkpoint + trie + beam_search_top_k_spmd returns next item_id (requires data/recgpt_ckpt_export)" do
     export_dir = ckpt_export_dir()
     manifest_path = Path.join(export_dir, "manifest.json")
 
@@ -278,23 +278,31 @@ defmodule RecGPT.InferenceTest do
     end
 
     params = RecGPT.CheckpointLoader.load_from_export(export_dir)
-    # Catalog: two items so beam search has two valid paths
     token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
     trie = Trie.build(token_id_list)
+    trie_tensors = Trie.to_tensors(trie, 15_361)
+    item_id_to_tokens = Nx.tensor(token_id_list, type: {:s, 32})
 
-    get_logits_fn = fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
+    batch_tensor_fn = fn batch_tensor, cache ->
+      {batch_size, seq_len} = Nx.shape(batch_tensor)
+      batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
+      logits = Inference.forward(batch_tensor, batch_aux, embed_mask, params)
+      {logits, cache}
     end
 
-    # Context = first item's tokens; predict next item (should resolve to item 0 or 1)
-    context = [100, 200, 300, 400]
-    result = Decode.beam_search(get_logits_fn, trie, context, 4)
+    # Context [0] = first item; predict next (item 0 or 1)
+    result = Decode.beam_search_top_k_spmd(
+      trie_tensors,
+      item_id_to_tokens,
+      [0],
+      1,
+      batch_tensor_fn,
+      Nx.default_backend(),
+      trie
+    )
 
-    assert result in [{:ok, 0}, {:ok, 1}]
+    assert result in [{:ok, [0]}, {:ok, [1]}]
   end
 
   defp ckpt_export_dir do

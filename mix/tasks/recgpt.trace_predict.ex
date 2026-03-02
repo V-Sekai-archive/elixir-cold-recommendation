@@ -91,92 +91,32 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
         {:error, reason} -> Mix.raise("Load failed: #{inspect(reason)}")
       end
 
-    use_spmd = state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_batch_tensor_fn
-    Mix.shell().info("Tracing one recommend: context=#{inspect(context_ids)}, top_k=#{top_k}#{if use_spmd, do: " (SPMD)", else: ""}")
+    Mix.shell().info("Tracing one recommend: context=#{inspect(context_ids)}, top_k=#{top_k}")
     Mix.shell().info("")
 
-    {context_us, beam_search_us, inference_us, inference_calls, result} =
-      if use_spmd do
-        # SPMD path: entire decode on device, one sync at end; trace tensor forward only
-        {:ok, agent} = Agent.start_link(fn -> {0, 0} end)
-        traced_tensor_fn = fn batch_tensor, cache ->
-          {us, res} = :timer.tc(fn -> state.get_logits_batch_tensor_fn.(batch_tensor, cache) end)
-          Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
-          res
-        end
+    {:ok, agent} = Agent.start_link(fn -> {0, 0} end)
+    traced_tensor_fn = fn batch_tensor, cache ->
+      {us, res} = :timer.tc(fn -> state.get_logits_batch_tensor_fn.(batch_tensor, cache) end)
+      Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
+      res
+    end
 
-        context_us = 0
-        {beam_search_us, result} =
-          :timer.tc(fn ->
-            RecGPT.Decode.beam_search_top_k_spmd(
-              state.trie_tensors,
-              state.item_id_to_tokens_tensor,
-              context_ids,
-              top_k,
-              traced_tensor_fn,
-              state.inference_backend,
-              state.trie
-            )
-          end)
+    context_us = 0
+    {beam_search_us, result} =
+      :timer.tc(fn ->
+        RecGPT.Decode.beam_search_top_k_spmd(
+          state.trie_tensors,
+          state.item_id_to_tokens_tensor,
+          context_ids,
+          top_k,
+          traced_tensor_fn,
+          state.inference_backend,
+          state.trie
+        )
+      end)
 
-        {inference_us, inference_calls} = Agent.get(agent, fn {t, n} -> {t, n} end)
-        Agent.stop(agent)
-        {context_us, beam_search_us, inference_us, inference_calls, result}
-      else
-        # List-based path (e.g. load_state_from_db without SPMD tensors)
-        {:ok, agent} = Agent.start_link(fn -> {0, 0} end)
-        original_fn = state.get_logits_fn
-        traced_fn = fn token_list ->
-          {us, res} = :timer.tc(fn -> original_fn.(token_list) end)
-          Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
-          res
-        end
-
-        traced_batch_fn =
-          if state.get_logits_batch_fn do
-            orig = state.get_logits_batch_fn
-            fn list_of_lists, cache ->
-              {us, res} = :timer.tc(fn -> orig.(list_of_lists, cache) end)
-              Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
-              res
-            end
-          else
-            single = state.get_logits_fn
-            fn list_of_lists, _cache ->
-              {us, res} =
-                :timer.tc(fn ->
-                  logits =
-                    list_of_lists
-                    |> Enum.map(fn seq -> single.(seq) |> Nx.squeeze(axes: [0]) end)
-                    |> Nx.stack(axis: 0)
-                  {logits, nil}
-                end)
-              Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
-              res
-            end
-          end
-
-        traced_state = %{state | get_logits_fn: traced_fn, get_logits_batch_fn: traced_batch_fn}
-        {context_us, context_token_ids} =
-          :timer.tc(fn ->
-            RecGPT.Serve.item_ids_to_context_token_ids(context_ids, traced_state)
-          end)
-
-        {beam_search_us, result} =
-          :timer.tc(fn ->
-            RecGPT.Decode.beam_search_top_k(
-              traced_state.get_logits_fn,
-              traced_state.trie,
-              context_token_ids,
-              top_k,
-              traced_state.get_logits_batch_fn
-            )
-          end)
-
-        {inference_us, inference_calls} = Agent.get(agent, fn {t, n} -> {t, n} end)
-        Agent.stop(agent)
-        {context_us, beam_search_us, inference_us, inference_calls, result}
-      end
+    {inference_us, inference_calls} = Agent.get(agent, fn {t, n} -> {t, n} end)
+    Agent.stop(agent)
 
     item_ids =
       case result do
