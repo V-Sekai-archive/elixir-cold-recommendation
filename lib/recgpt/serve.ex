@@ -39,14 +39,20 @@ defmodule RecGPT.Serve do
   @type state :: %__MODULE__{
           params: map(),
           trie: map(),
-          trie_tensors: %{next_state: Nx.Tensor.t(), item_at_leaf: Nx.Tensor.t(), num_states: non_neg_integer()} | nil,
+          trie_tensors:
+            %{
+              next_state: Nx.Tensor.t(),
+              item_at_leaf: Nx.Tensor.t(),
+              num_states: non_neg_integer()
+            }
+            | nil,
           token_id_list: [[non_neg_integer()]],
           token_id_map: %{non_neg_integer() => [non_neg_integer()]} | nil,
           item_id_to_tokens_tensor: Nx.Tensor.t() | nil,
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
           get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
-          get_logits_batch_fn: (([[non_neg_integer()]], term()) -> {Nx.Tensor.t(), term()}) | nil,
+          get_logits_batch_fn: ([[non_neg_integer()]], term() -> {Nx.Tensor.t(), term()}) | nil,
           get_logits_batch_tensor_fn: (Nx.Tensor.t(), term() -> {Nx.Tensor.t(), term()}) | nil,
           inference_backend: term() | nil
         }
@@ -114,9 +120,11 @@ defmodule RecGPT.Serve do
       trie_tensors = transfer_trie_tensors(trie_tensors, inference_backend)
 
       item_id_to_tokens_tensor =
-        for i <- 0..(num_items - 1), do: Map.get(token_id_map, i, [0, 0, 0, 0])
-        |> Nx.tensor(type: {:s, 32})
-        |> Nx.backend_transfer(inference_backend)
+        for i <- 0..(num_items - 1),
+            do:
+              Map.get(token_id_map, i, [0, 0, 0, 0])
+              |> Nx.tensor(type: {:s, 32})
+              |> Nx.backend_transfer(inference_backend)
 
       get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend)
 
@@ -171,9 +179,12 @@ defmodule RecGPT.Serve do
   defp ensure_exla do
     if Code.ensure_loaded?(EXLA) do
       case Application.ensure_all_started(:exla) do
-        {:ok, _} -> :ok
+        {:ok, _} ->
+          :ok
+
         {:error, {app, reason}} ->
-          {:error, "EXLA required for inference. exla app failed to start: #{inspect(app)} - #{inspect(reason)}"}
+          {:error,
+           "EXLA required for inference. exla app failed to start: #{inspect(app)} - #{inspect(reason)}"}
       end
     else
       {:error,
@@ -215,6 +226,7 @@ defmodule RecGPT.Serve do
 
         length(token_id_list) > 1 ->
           first_tokens = token_id_list |> Enum.map(&List.first/1) |> Enum.uniq()
+
           if length(first_tokens) == 1 do
             {:error,
              "Fixture has single-path trie (all items share the same first token). " <>
@@ -290,6 +302,7 @@ defmodule RecGPT.Serve do
         if cache == nil do
           {logits, cache_list} =
             Inference.forward_with_cache(batch, batch_aux, embed_mask, params)
+
           {logits, cache_list}
         else
           last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
@@ -325,8 +338,6 @@ defmodule RecGPT.Serve do
     end
   end
 
-  defp maybe_transfer_to_inference_backend(tensors, nil), do: tensors
-
   defp maybe_transfer_to_inference_backend({a, b, c}, backend) do
     {
       Nx.backend_transfer(a, backend),
@@ -337,6 +348,7 @@ defmodule RecGPT.Serve do
 
   defp replicate_cache(cache, batch_size) do
     cache_list = if is_tuple(cache), do: Tuple.to_list(cache), else: cache
+
     Enum.map(cache_list, fn {k, v} ->
       {b, n_head, len, hd} = Nx.shape(k)
 
@@ -380,10 +392,12 @@ defmodule RecGPT.Serve do
 
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)
+
       aux =
         Nx.broadcast(0.0, {batch_size, seq_len, 192})
         |> Nx.as_type({:f, 32})
         |> Nx.backend_transfer(inference_backend)
+
       mask =
         Nx.broadcast(1.0, {batch_size, seq_len, 1})
         |> Nx.as_type({:f, 32})
@@ -394,14 +408,17 @@ defmodule RecGPT.Serve do
         {logits, cache_tuple}
       else
         last_tokens = batch_tensor |> Nx.slice_along_axis(seq_len - 1, 1, axis: 1)
+
         aux_one =
           Nx.broadcast(0.0, {batch_size, 1, 192})
           |> Nx.as_type({:f, 32})
           |> Nx.backend_transfer(inference_backend)
+
         mask_one =
           Nx.broadcast(1.0, {batch_size, 1, 1})
           |> Nx.as_type({:f, 32})
           |> Nx.backend_transfer(inference_backend)
+
         cache_to_use = maybe_replicate_cache(cache, batch_size)
         cache_tuple = ensure_cache_tuple(cache_to_use)
         {logits, new_cache} = jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple)
@@ -409,8 +426,6 @@ defmodule RecGPT.Serve do
       end
     end
   end
-
-  defp transfer_defn_params_to_backend(defn_params, nil), do: defn_params
 
   defp transfer_defn_params_to_backend(defn_params, backend) do
     Map.new(defn_params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
@@ -481,7 +496,8 @@ defmodule RecGPT.Serve do
     else
       top_k = min(top_k, 20)
 
-      unless state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_batch_tensor_fn do
+      unless state.trie_tensors && state.item_id_to_tokens_tensor &&
+               state.get_logits_batch_tensor_fn do
         raise "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"
       end
 

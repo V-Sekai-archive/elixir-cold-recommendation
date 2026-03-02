@@ -292,15 +292,16 @@ defmodule RecGPT.InferenceTest do
     end
 
     # Context [0] = first item; predict next (item 0 or 1)
-    result = Decode.beam_search_top_k_spmd(
-      trie_tensors,
-      item_id_to_tokens,
-      [0],
-      1,
-      batch_tensor_fn,
-      Nx.default_backend(),
-      trie
-    )
+    result =
+      Decode.beam_search_top_k_spmd(
+        trie_tensors,
+        item_id_to_tokens,
+        [0],
+        1,
+        batch_tensor_fn,
+        Nx.default_backend(),
+        trie
+      )
 
     assert result in [{:ok, [0]}, {:ok, [1]}]
   end

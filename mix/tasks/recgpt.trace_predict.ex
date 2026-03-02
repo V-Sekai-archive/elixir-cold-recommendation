@@ -30,6 +30,8 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   """
   use Mix.Task
 
+  @dialyzer {:nowarn_function, run: 1}
+
   @impl true
   def run(args) do
     {opts, _, _} =

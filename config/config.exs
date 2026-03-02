@@ -14,7 +14,9 @@ config :recgpt, :predict_batch_timeout_ms, 0
 
 # Checkpoint integrity: SHA256 must match. Compute with: mix recgpt.ckpt_sha256 --ckpt data/recgpt_ckpt_export
 # Or set RECGPT_CKPT_SHA256 env var.
-config :recgpt, :ckpt_expected_sha256, "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
+config :recgpt,
+       :ckpt_expected_sha256,
+       "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
 
 # SQLite catalog/token storage (optional). Set RECGPT_SQLITE_PATH to use. Run mix ecto.migrate.
 config :recgpt, ecto_repos: [RecGPT.Repo]

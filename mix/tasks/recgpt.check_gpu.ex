@@ -16,14 +16,13 @@ defmodule Mix.Tasks.Recgpt.CheckGpu do
     Application.ensure_all_started(:nx)
 
     unless Code.ensure_loaded?(EXLA) do
-      Mix.raise(
-        "EXLA not loaded. Add {:exla, \"~> 0.10\"} to deps."
-      )
+      Mix.raise("EXLA not loaded. Add {:exla, \"~> 0.10\"} to deps.")
     end
 
     case Application.ensure_all_started(:exla) do
       {:ok, _} ->
         do_check()
+
       {:error, {app, reason}} ->
         IO.puts("Nx default_backend: #{inspect(Nx.default_backend())}")
         IO.puts("EXLA application failed to start: #{inspect(app)} - #{inspect(reason)}")

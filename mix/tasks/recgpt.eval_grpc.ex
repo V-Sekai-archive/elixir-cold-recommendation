@@ -69,7 +69,9 @@ defmodule Mix.Tasks.Recgpt.EvalGrpc do
 
     test_path =
       opts[:test] ||
-        RecGPT.Catalog.Artifact.resolve_path(if(opts[:cold], do: "cold_test_sequences", else: "test_sequences")) ||
+        RecGPT.Catalog.Artifact.resolve_path(
+          if(opts[:cold], do: "cold_test_sequences", else: "test_sequences")
+        ) ||
         if(opts[:cold],
           do: Path.join(data_dir, "cold_test_sequences.json"),
           else: Path.join(data_dir, "test_sequences.json")

@@ -148,6 +148,7 @@ defmodule RecGPT.InferenceParams do
       layer_map =
         if i < n_layers do
           base = prefix <> "h.#{i}."
+
           %{
             :"layer_#{i}_ln_1_weight" => get_param(params_map, base <> "ln_1.weight", {@n_embd}),
             :"layer_#{i}_ln_1_bias" => get_param(params_map, base <> "ln_1.bias", {@n_embd}),
@@ -179,6 +180,7 @@ defmodule RecGPT.InferenceParams do
 
   defp identity_layer_at(i) do
     prefix = "layer_#{i}_"
+
     %{
       :"#{prefix}ln_1_weight" => ones({@n_embd}),
       :"#{prefix}ln_1_bias" => zeros({@n_embd}),

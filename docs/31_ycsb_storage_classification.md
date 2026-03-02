@@ -24,7 +24,6 @@ Throughput numbers here are **estimates** for comparison; run your own benchmark
 
 ## YCSB workload types (quick reference)
 
-
 | Type  | Name / mix        | Description                                                                            |
 | ----- | ----------------- | -------------------------------------------------------------------------------------- |
 | **A** | Update heavy      | 50% read, 50% update. Point reads and point updates; mixed read/write.                 |
@@ -33,7 +32,6 @@ Throughput numbers here are **estimates** for comparison; run your own benchmark
 | **D** | Read latest       | 95% read, 5% insert. Reads tend to hit recently inserted keys (e.g. time-ordered).     |
 | **E** | Scan              | 95% scan (range), 5% insert. Range or scan operations over many keys.                  |
 | **F** | Read-modify-write | 50% read, 50% read-modify-write. Read key, compute, write back (e.g. counters, state). |
-
 
 **How to classify:** Ask: What is the **dominant** operation on this store? (Point read by key → B or C. Bulk read one blob → C. Stream/scan over keys → E. Update in place → A or F.) If the hot path has **no writes**, prefer C. If it’s **refresh or occasional update**, B. If it’s **read then write back**, F.
 
@@ -52,7 +50,6 @@ Throughput numbers here are **estimates** for comparison; run your own benchmark
 
 Throughput is order-of-magnitude; actual numbers depend on payload size, hardware, and configuration. Use for **comparison**, not as a guarantee.
 
-
 | Database / store          | Strong workloads                    | Why                                                                                                                                     | Weaker fit                                                                                                                                             | Throughput (est.)             |
 | ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | **Redix (Redis)**         | **B**, **C**, **A**                 | In-memory; sub-ms point GET/SET; pipelining for batch reads. Good for mixed read/update when data fits in RAM.                          | **E** (scan): range/scan not primary. **D** (read latest): no native “recent key” unless you maintain it.                                              | ~50k ops/sec per core         |
@@ -63,13 +60,11 @@ Throughput is order-of-magnitude; actual numbers depend on payload size, hardwar
 | **Object store (S3/GCS)** | **C**, bulk write                   | Authoritative for blobs; each node downloads to local file cache. No shared KV.                                                         | **F**: append/overwrite only; not for fine-grained read-modify-write.                                                                                  | ~3.5k requests/sec per prefix |
 | **File (local)**          | **C**, bulk write                   | Cache of object store or authoritative when local-only.                                                                                 | Same as object store for semantics; file is the cache layer when object store exists.                                                                  | ~10k (local I/O)              |
 
-
 ---
 
 ## RecGPT (this repo): YCSB by artifact
 
 Applying the technique to RecGPT pipeline and serve:
-
 
 | Mode            | Store / artifact              | YCSB       | Access pattern                                         | Object store                          | File (cache)                     | ETS                         | SQLite                      | Throughput (est.)                          |
 | --------------- | ----------------------------- | ---------- | ------------------------------------------------------ | ------------------------------------- | -------------------------------- | --------------------------- | --------------------------- | ------------------------------------------ |
@@ -80,7 +75,6 @@ Applying the technique to RecGPT pipeline and serve:
 | **Pretraining** | Fixture                       | **C**      | Read for encoding; no writes.                          | Same as zero-shot                     | Same as zero-shot                | Hot path                    | Durable catalog             | ~500k lookup; ~10k file load               |
 | **Pretraining** | Params (in-memory)            | **F**      | Read → forward/backward → update params.               | —                                     | —                                | Single-node (Nx/ETS)        | —                           | ~500k in-process                           |
 | **Pretraining** | Checkpoint (on-disk export)   | **A-like** | Bulk write at save; no read-from-disk during training. | Upload blobs; authoritative           | manifest + .npy (cache or local) | —                           | Manifest/metadata only      | ~10k file write; ~3.5k object store upload |
-
 
 **Summary:** Data and fixture are **Workload C** (read-only or stream); in-memory params are **F** (read-modify-write). Use **object store** + **file (cache)** + **ETS** or **SQLite** as in [13 Infrastructure](13_infrastructure_serving.md); batch object-store ops (one GET/PUT per artifact) to keep request count low.
 
@@ -93,4 +87,3 @@ Applying the technique to RecGPT pipeline and serve:
 - [thirdparty polymarket_sportradar_arb_reference](../thirdparty/polymarket_sportradar_arb_reference.md) — YCSB tables and RecGPT mapping (source for this technique).
 - [YCSB](https://github.com/brianfrankcooper/YCSB) — Yahoo! Cloud Serving Benchmark (workload definitions).
 - [Documentation index](README.md).
-

@@ -60,8 +60,10 @@ defmodule RecGPT.CheckpointLoader do
     manifest = File.read!(manifest_path) |> Jason.decode!()
 
     expected = expected_ckpt_sha256()
+
     if expected do
       actual = compute_sha256(export_dir, manifest)
+
       if actual != expected do
         raise "Checkpoint SHA256 mismatch: expected #{expected}, got #{actual}. " <>
                 "Run mix recgpt.ckpt_sha256 --ckpt #{export_dir} to get the correct hash."
@@ -76,6 +78,7 @@ defmodule RecGPT.CheckpointLoader do
         {:ok, npy} ->
           tensor = npy_to_tensor_binary_backend(npy)
           Map.put(acc, key, tensor)
+
         {:error, reason} ->
           raise "Failed to load #{path}: #{inspect(reason)}"
       end
@@ -88,6 +91,7 @@ defmodule RecGPT.CheckpointLoader do
     type = npy_descr_to_nx_type(descr)
     prev = Nx.default_backend()
     Nx.default_backend(Nx.BinaryBackend)
+
     try do
       data
       |> Nx.from_binary(type)

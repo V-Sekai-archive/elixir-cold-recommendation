@@ -14,6 +14,7 @@ defmodule RecGPT.ArtifactUploader do
 
   def storage_dir(_version, {_file, scope}) do
     base = "uploads/artifacts"
+
     if is_struct(scope) and Map.get(scope, :id) do
       "#{base}/#{scope.id}"
     else

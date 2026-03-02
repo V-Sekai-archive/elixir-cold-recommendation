@@ -82,7 +82,7 @@ flowchart TB
 | **3. Fixture**        | [18](18_layer_fixture.md)        | `FixtureBuild`                                                    | Items JSON + checkpoint (for FSQ params) to fixture.json (num_items, token_id_list).                          | Unit tests: stub Embedding/CheckpointLoader or use real files.                                 |
 | **4. Model**          | [19](19_layer_model.md)          | `Inference`, `Training`, `AxonTrain`                              | Forward pass, loss, training loop. Params from checkpoint.                                                    | Unit tests: stub params for Inference; Training uses FSQ; AxonTrain uses Inference + Training. |
 | **5. Recommendation** | [20](20_layer_recommendation.md) | `Trie`, `Decode`, `Serve`                                         | Trie from token_id_list; beam search (Decode) with get_logits from Inference; Serve = load_state + recommend. | Unit tests: Trie/Decode with stub get_logits; Serve with stub state or full stack.             |
-| **6. Application**    | [21](21_layer_application.md)    | `Eval`, `Recgpt.V1.PredictionService.Server`, `GRPCEndpoint`      | Eval and gRPC use RecGPT.RecommendationService (default: Serve.recommend).       | Unit tests: stub serve_state; optional :recommendation_impl mock. Integration: real stack.          |
+| **6. Application**    | [21](21_layer_application.md)    | `Eval`, `Recgpt.V1.PredictionService.Server`, `GRPCEndpoint`      | Eval and gRPC use RecGPT.RecommendationService (default: Serve.recommend).                                    | Unit tests: stub serve_state; optional :recommendation_impl mock. Integration: real stack.     |
 
 ---
 

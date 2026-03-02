@@ -9,9 +9,9 @@ defmodule RecGPT.Catalog.Artifact do
   use Waffle.Ecto.Schema
 
   schema "artifacts" do
-    field :name, :string
-    field :path, :string
-    field :file, RecGPT.ArtifactUploader.Type
+    field(:name, :string)
+    field(:path, :string)
+    field(:file, RecGPT.ArtifactUploader.Type)
     timestamps()
   end
 
@@ -27,8 +27,12 @@ defmodule RecGPT.Catalog.Artifact do
 
     try do
       case repo.get_by(__MODULE__, name: name) do
-        nil -> nil
-        %__MODULE__{path: nil} -> nil
+        nil ->
+          nil
+
+        %__MODULE__{path: nil} ->
+          nil
+
         %__MODULE__{path: path} when is_binary(path) ->
           if absolute_path?(path), do: path, else: Path.expand(path, cwd)
       end

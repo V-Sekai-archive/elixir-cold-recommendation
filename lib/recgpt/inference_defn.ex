@@ -134,89 +134,270 @@ defmodule RecGPT.InferenceDefn do
   defnp block_with_cache_0(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_0(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_1(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_1(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_2(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_2(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_3(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_3(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_4(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_4(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_5(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_5(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_6(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_6(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_7(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_7(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_8(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_8(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_9(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_9(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_10(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_10(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_with_cache_11(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_11(params)
-    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_with_cache_impl(
+      hidden,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
-  defnp block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
-         ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b) do
+  defnp block_with_cache_impl(
+          hidden,
+          ln1_w,
+          ln1_b,
+          c_attn_w,
+          c_attn_b,
+          c_proj_w,
+          c_proj_b,
+          ln2_w,
+          ln2_b,
+          c_fc_w,
+          c_fc_b,
+          c_proj_mlp_w,
+          c_proj_mlp_b
+        ) do
     attn_in = layer_norm(hidden, ln1_w, ln1_b)
     {attn_out, kv} = attn_with_cache(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b)
     h = Nx.add(hidden, attn_out)
@@ -384,93 +565,289 @@ defmodule RecGPT.InferenceDefn do
   defnp block_incremental_impl_0(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_0(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_1(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_1(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_2(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_2(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_3(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_3(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_4(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_4(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_5(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_5(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_6(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_6(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_7(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_7(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_8(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_8(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_9(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_9(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_10(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_10(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
   defnp block_incremental_impl_11(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_11(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+
+    block_incremental_impl_body(
+      hidden,
+      past_kv,
+      ln1_w,
+      ln1_b,
+      c_attn_w,
+      c_attn_b,
+      c_proj_w,
+      c_proj_b,
+      ln2_w,
+      ln2_b,
+      c_fc_w,
+      c_fc_b,
+      c_proj_mlp_w,
+      c_proj_mlp_b
+    )
   end
 
-  defnp block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
-         c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b) do
+  defnp block_incremental_impl_body(
+          hidden,
+          past_kv,
+          ln1_w,
+          ln1_b,
+          c_attn_w,
+          c_attn_b,
+          c_proj_w,
+          c_proj_b,
+          ln2_w,
+          ln2_b,
+          c_fc_w,
+          c_fc_b,
+          c_proj_mlp_w,
+          c_proj_mlp_b
+        ) do
     {past_k, past_v} = past_kv
     attn_in = layer_norm(hidden, ln1_w, ln1_b)
+
     {attn_out, new_kv} =
       attn_incremental(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v)
+
     h = Nx.add(hidden, attn_out)
     mlp_in = layer_norm(h, ln2_w, ln2_b)
     mlp_out = mlp(mlp_in, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)

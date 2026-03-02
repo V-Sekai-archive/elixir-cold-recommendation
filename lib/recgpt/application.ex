@@ -30,6 +30,7 @@ defmodule RecGPT.ReleaseTasks do
 
     fixture_path =
       System.get_env("RECGPT_FIXTURE") || RecGPT.Catalog.Artifact.resolve_path("fixture")
+
     ckpt_dir =
       System.get_env("RECGPT_CKPT_EXPORT") || System.get_env("RECGPT_CKPT_PATH") ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint")

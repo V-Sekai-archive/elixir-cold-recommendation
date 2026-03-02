@@ -33,7 +33,15 @@ defmodule RecGPT.Decode do
           term(),
           map() | nil
         ) :: {:ok, [non_neg_integer()]} | :not_found
-  def beam_search_top_k_spmd(trie_tensors, item_id_to_tokens, context_item_ids, top_k, batch_tensor_fn, backend, trie \\ nil)
+  def beam_search_top_k_spmd(
+        trie_tensors,
+        item_id_to_tokens,
+        context_item_ids,
+        top_k,
+        batch_tensor_fn,
+        backend,
+        trie \\ nil
+      )
       when is_map(trie_tensors) and top_k >= 1 and is_function(batch_tensor_fn, 2) do
     {context_tokens, context_len} =
       if is_list(context_item_ids) and context_item_ids == [] do
@@ -75,18 +83,37 @@ defmodule RecGPT.Decode do
 
     # Steps 1, 2, 3 (step 3 uses item_at_leaf for valid mask and returns item_ids)
     {_state_ids, prefix_tokens, beam_scores, _cache, item_ids} =
-      Enum.reduce(1..3, {new_state_ids, prefix_tokens, beam_scores, cache, nil}, fn step, {state_ids, prefixes, scores, c, _} ->
-        spmd_step(next_state, item_at_leaf, batch_tensor_fn, context_tokens, context_len,
-          state_ids, prefixes, scores, step, beam_width, vocab_size, c, backend)
+      Enum.reduce(1..3, {new_state_ids, prefix_tokens, beam_scores, cache, nil}, fn step,
+                                                                                    {state_ids,
+                                                                                     prefixes,
+                                                                                     scores, c,
+                                                                                     _} ->
+        spmd_step(
+          next_state,
+          item_at_leaf,
+          batch_tensor_fn,
+          context_tokens,
+          context_len,
+          state_ids,
+          prefixes,
+          scores,
+          step,
+          beam_width,
+          vocab_size,
+          c,
+          backend
+        )
       end)
 
     # Single sync: transfer item_ids, scores, and prefix_tokens (4 tokens per candidate) to host
     item_ids_list = Nx.to_flat_list(item_ids)
     scores_list = Nx.to_flat_list(beam_scores)
+
     prefix_tokens =
       prefix_tokens
       |> Nx.backend_transfer(Nx.BinaryBackend)
       |> Nx.to_flat_list()
+
     prefix_tokens_list = Enum.chunk_every(prefix_tokens, 4)
 
     candidates =
@@ -110,17 +137,33 @@ defmodule RecGPT.Decode do
   end
 
   defp resolve_item_id(nil, _tokens), do: -1
+
   defp resolve_item_id(trie, tokens) when length(tokens) == 4 do
     [t0, t1, t2, t3] = Enum.map(tokens, &round/1)
+
     case Trie.lookup(trie, [t0, t1, t2, t3]) do
       {:ok, id} -> id
       :not_found -> -1
     end
   end
+
   defp resolve_item_id(_trie, _), do: -1
 
-  defp spmd_step(next_state, item_at_leaf, batch_tensor_fn, context_tokens, context_len,
-         state_ids, prefix_tokens, beam_scores, step, beam_width, vocab_size, cache, backend) do
+  defp spmd_step(
+         next_state,
+         item_at_leaf,
+         batch_tensor_fn,
+         context_tokens,
+         context_len,
+         state_ids,
+         prefix_tokens,
+         beam_scores,
+         step,
+         beam_width,
+         vocab_size,
+         cache,
+         backend
+       ) do
     k = Nx.axis_size(prefix_tokens, 0)
     prefix_len = step
     context_broadcast = Nx.broadcast(context_tokens, {k, context_len})
@@ -131,6 +174,7 @@ defmodule RecGPT.Decode do
     # Clamp so we never pass -1 as row index (when valid pairs < beam_width we can get -1 state_ids)
     state_ids_safe = Nx.max(state_ids, 0)
     idx_2d = Nx.new_axis(state_ids_safe, -1)
+
     {valid_rows, transition_tensor} =
       if step == 3 do
         {Nx.gather(item_at_leaf, idx_2d) |> Nx.reshape({beam_width, vocab_size}), item_at_leaf}
@@ -154,6 +198,7 @@ defmodule RecGPT.Decode do
     # For step 3: item_id = item_at_leaf[current_state_at_beam, token]; same.
     state_at_top = Nx.gather(state_ids, Nx.new_axis(batch_indices, -1)) |> Nx.reshape({:auto})
     state_at_top_safe = Nx.max(state_at_top, 0)
+
     new_state_ids =
       if step == 3 do
         gather_2d(item_at_leaf, state_at_top_safe, token_ids) |> Nx.squeeze(axes: [1])
@@ -164,6 +209,7 @@ defmodule RecGPT.Decode do
     old_prefixes =
       Nx.gather(prefix_tokens, Nx.new_axis(batch_indices, -1))
       |> Nx.reshape({beam_width, prefix_len})
+
     new_col = Nx.reshape(token_ids, {beam_width, 1})
     new_prefix_tokens = Nx.concatenate([old_prefixes, new_col], axis: 1)
 
@@ -175,7 +221,12 @@ defmodule RecGPT.Decode do
     row_2d = Nx.new_axis(row_indices, -1)
     rows = Nx.gather(tensor, row_2d)
     rows = if Nx.rank(rows) == 1, do: Nx.reshape(rows, {1, :auto}), else: rows
-    rows = if Nx.rank(rows) == 3, do: Nx.reshape(rows, {Nx.axis_size(rows, 0), Nx.axis_size(rows, 2)}), else: rows
+
+    rows =
+      if Nx.rank(rows) == 3,
+        do: Nx.reshape(rows, {Nx.axis_size(rows, 0), Nx.axis_size(rows, 2)}),
+        else: rows
+
     k = Nx.axis_size(col_indices, 0)
     {num_rows, vocab_size} = Nx.shape(rows)
     rows = if num_rows == 1 and k > 1, do: Nx.broadcast(rows, {k, vocab_size}), else: rows

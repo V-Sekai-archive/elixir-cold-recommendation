@@ -56,6 +56,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     catalog_path =
       (opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())) ||
         RecGPT.Catalog.Artifact.resolve_path("items")
+
     out_path = opts[:out] && Path.expand(opts[:out], File.cwd!())
     top_k = opts[:top_k] || 5
 
