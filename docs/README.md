@@ -123,7 +123,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | —   | [embedding_vs_eval.md](embedding_vs_eval.md)                               | Divide: embeddings vs eval.                                        | Generating embeddings (parity, .npy) vs testing recommendation performance (Hit@k, MRR, serve).           |
 | —   | [22_freeze_inputs_layer_isolation.md](22_freeze_inputs_layer_isolation.md) | Isolate layers with frozen inputs (unit/property tests).           | Problem/Proposed; Unit tests and property testing; Layer boundaries; Implementation; See also.            |
 | 23  | [23_quality_assurance.md](23_quality_assurance.md)                         | Run the QA checklist before merge or release.                      | Compile, format, Credo, unit tests, Dialyzer; Steam top-k; CI.                                            |
-| 24  | [24_first_step_plan.md](24_first_step_plan.md)                             | First step: Steam test vectors (baseline).                         | Why Steam first; get data, build fixture, run eval; outcome.                                             |
+| 24  | [24_first_step_plan.md](24_first_step_plan.md)                             | First step: Steam test vectors (baseline).                         | Why Steam first; get data, build fixture, run eval; outcome.                                              |
 | 25  | [25_mvp_guard_rails.md](25_mvp_guard_rails.md)                             | Keep rope bridge on track.                                         | Guard rails (tombstones); no multi-rank/sharding until minimal loop closed.                               |
 | 26  | [26_embedding_mismatch.md](26_embedding_mismatch.md)                       | Embedding parity gap and workaround.                               | Text format; compare_embeddings; use dataset .npy.                                                        |
 | 28  | [28_thirdparty_vs_elixir_parity.md](28_thirdparty_vs_elixir_parity.md)     | Parity with released model (dataset .npy + VAE).                   | Embeddings and FSQ sources; use dataset .npy + VAE for FSQ; Elixir-only path.                             |
@@ -132,26 +132,26 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 
 ## Quick reference (actionable)
 
-| I want to…                                   | See                                                                                                                                           |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Call the recommendation API (gRPC)**       | [01 gRPC API](01_grpc_api.md), [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto), `mix recgpt.serve`                       |
-| Run the full pipeline                        | [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md), [../README.md](../README.md#pipeline)             |
-| Find a module's purpose and API              | [04 RecGPT library](04_recgpt_library.md)                                                                                                     |
-| Generate or use test/fixture JSON            | [05 Eval data shapes](05_eval_data_shapes.md)                                                                                                 |
-| Run eval and interpret metrics               | [06 Evaluation and testing](06_evaluation_and_testing.md)                                                                                     |
-| Separate embeddings from eval (divide)       | [embedding_vs_eval.md](embedding_vs_eval.md) — generating embeddings vs testing recommendation performance                                    |
-| Understand cold vs regular splits            | [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md)                                                                         |
-| Export or load a checkpoint                  | [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)                                                                                        |
-| Use SQLite/Ecto for catalog storage          | [13 Infrastructure](13_infrastructure_serving.md#catalog-storage-object-store-semantics)                                                      |
-| Design catalog/DB schema (ETNF)              | [ETNF database design](etnf_database_design.md)                                                                                               |
-| Understand layers and test strategy          | [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)–[21](21_layer_application.md) layer docs.                            |
-| Isolate layers with frozen inputs            | [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md)                                                                   |
-| Make the library top tier                    | [22 Top-tier recommendations](22_top_tier_recommendations.md)                                                                                 |
-| Run the QA checklist                         | [23 Quality assurance](23_quality_assurance.md)                                                                                               |
-| First step (Steam baseline), MVP guard rails | [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md); one-shot: `mix recgpt.first_step` (requires checkpoint) |
-| Embedding parity and workaround              | [26 Embedding mismatch](26_embedding_mismatch.md)                                                                                             |
-| Parity with released model (dataset .npy + VAE) | [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md) — use `--embeddings-npy` and `--vae-ckpt` when building fixture.          |
-| Read the architecture blueprint              | [11 Paradigm](11_recgpt_paradigm.md), [12 Dynamic state](12_dynamic_state_ets.md), [13 Infrastructure](13_infrastructure_serving.md)          |
+| I want to…                                      | See                                                                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Call the recommendation API (gRPC)**          | [01 gRPC API](01_grpc_api.md), [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto), `mix recgpt.serve`                           |
+| Run the full pipeline                           | [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md), [../README.md](../README.md#pipeline)                 |
+| Find a module's purpose and API                 | [04 RecGPT library](04_recgpt_library.md)                                                                                                         |
+| Generate or use test/fixture JSON               | [05 Eval data shapes](05_eval_data_shapes.md)                                                                                                     |
+| Run eval and interpret metrics                  | [06 Evaluation and testing](06_evaluation_and_testing.md)                                                                                         |
+| Separate embeddings from eval (divide)          | [embedding_vs_eval.md](embedding_vs_eval.md) — generating embeddings vs testing recommendation performance                                        |
+| Understand cold vs regular splits               | [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md)                                                                             |
+| Export or load a checkpoint                     | [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)                                                                                            |
+| Use SQLite/Ecto for catalog storage             | [13 Infrastructure](13_infrastructure_serving.md#catalog-storage-object-store-semantics)                                                          |
+| Design catalog/DB schema (ETNF)                 | [ETNF database design](etnf_database_design.md)                                                                                                   |
+| Understand layers and test strategy             | [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)–[21](21_layer_application.md) layer docs.                                |
+| Isolate layers with frozen inputs               | [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md)                                                                       |
+| Make the library top tier                       | [22 Top-tier recommendations](22_top_tier_recommendations.md)                                                                                     |
+| Run the QA checklist                            | [23 Quality assurance](23_quality_assurance.md)                                                                                                   |
+| First step (Steam baseline), MVP guard rails    | [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md); one-shot: `mix recgpt.first_step` (requires checkpoint) |
+| Embedding parity and workaround                 | [26 Embedding mismatch](26_embedding_mismatch.md)                                                                                                 |
+| Parity with released model (dataset .npy + VAE) | [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md) — use `--embeddings-npy` and `--vae-ckpt` when building fixture.              |
+| Read the architecture blueprint                 | [11 Paradigm](11_recgpt_paradigm.md), [12 Dynamic state](12_dynamic_state_ets.md), [13 Infrastructure](13_infrastructure_serving.md)              |
 
 ---
 

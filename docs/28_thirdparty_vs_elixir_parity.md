@@ -12,10 +12,10 @@ Recommendation and eval results depend on **embeddings** and **FSQ (tokenization
 
 ## Why results can differ
 
-| Cause | Correct (parity) | If not aligned | Effect |
-| ----- | ----------------- | --------------- | ----- |
-| **Item embeddings** | Use `item_text_embeddings.npy` from the dataset. | Bumblebee (our encoder) gives different 768-d vectors. Our Bumblebee vs dataset .npy has **~0.60 mean cosine similarity** (see [26 Embedding mismatch](26_embedding_mismatch.md)). | Different 768-d vectors → different FSQ codes → different token_id_list → different recommendations. |
-| **FSQ params** | Load **FSQ from the VAE** checkpoint (`vae_len4_fsq88865_ep90.pt`). The VAE contains the FSQ `quantizer` (project_in, project_out). | Fixture build loading FSQ from the **RecGPT checkpoint export** fails: the RecGPT .pt does not include the VAE; the export has no FSQ weights, so Elixir falls back to **dummy** project_in/project_out. | Dummy FSQ → wrong token_id_list → wrong wte lookup and recommendations. |
+| Cause               | Correct (parity)                                                                                                                    | If not aligned                                                                                                                                                                                           | Effect                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Item embeddings** | Use `item_text_embeddings.npy` from the dataset.                                                                                    | Bumblebee (our encoder) gives different 768-d vectors. Our Bumblebee vs dataset .npy has **~0.60 mean cosine similarity** (see [26 Embedding mismatch](26_embedding_mismatch.md)).                       | Different 768-d vectors → different FSQ codes → different token_id_list → different recommendations. |
+| **FSQ params**      | Load **FSQ from the VAE** checkpoint (`vae_len4_fsq88865_ep90.pt`). The VAE contains the FSQ `quantizer` (project_in, project_out). | Fixture build loading FSQ from the **RecGPT checkpoint export** fails: the RecGPT .pt does not include the VAE; the export has no FSQ weights, so Elixir falls back to **dummy** project_in/project_out. | Dummy FSQ → wrong token_id_list → wrong wte lookup and recommendations.                              |
 
 So for parity: (1) use the **dataset** `item_text_embeddings.npy` when building the fixture, and (2) load **FSQ from the VAE** checkpoint when building the fixture.
 
@@ -27,22 +27,26 @@ To get the same token_id_list and recommendations as the released model:
 
 1. **Use the dataset embeddings**  
    Build the fixture with the same embeddings Python uses:
+
    ```bash
    mix recgpt.build_fixture --embeddings-npy path/to/item_text_embeddings.npy
    ```
+
    (e.g. from a RecGPT_dataset clone or after fetch). Do not rely on Bumblebee for parity with the released checkpoint.
 
 2. **Load FSQ from the VAE checkpoint**  
    The RecGPT export does not contain FSQ; the VAE .pt does. Pass the VAE path when building the fixture:
+
    ```bash
    mix recgpt.build_fixture --vae-ckpt path/to/vae_len4_fsq88865_ep90.pt
    ```
+
    Or set `RECGPT_VAE_CKPT` to that path. Elixir then uses `RecGPT.FSQ.load_params_from_vae_pt/1` so the same FSQ codebook as Python is used.
 
 3. **Run eval and serve**  
    After building the fixture with the above:
    - **Serve:** `mix recgpt.serve` — recommendations use `RecGPT.Inference.forward/4` and `RecGPT.Decode.beam_search/4`. Set `RECGPT_FIXTURE` and checkpoint so the server loads the fixture built with .npy + VAE.
-   - **Eval:** `mix recgpt.eval` loads state with `RecGPT.Serve.load_state/2` (fixture + checkpoint) and calls `RecGPT.Eval.evaluate/3` with test cases (e.g. from `test_sequences.json`). Use the same fixture (built with `--embeddings-npy` and `--vae-ckpt`) so token_id_list and recommendations match.
+   - **Eval:** `mix recgpt.eval` loads state with `RecGPT.Serve.load_state/2` (fixture + checkpoint) and calls `RecGPT.Eval.evaluate/3` with test cases (e.g. from `test_sequences.json`). Use the same fixture (built with canonical texts and `--vae-ckpt`) so token_id_list and recommendations match.
 
 So: **same embeddings (.npy) + same FSQ (from VAE)** = parity with the released model.
 
@@ -58,9 +62,9 @@ So: **same embeddings (.npy) + same FSQ (from VAE)** = parity with the released 
 
 ## Summary
 
-| Goal | Action |
-| ---- | ------ |
-| **Match released model** | Build fixture with `--embeddings-npy` (dataset .npy) and `--vae-ckpt` (VAE .pt). Run eval/serve as usual. |
+| Goal                        | Action                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Match released model**    | Build fixture with `--embeddings-npy` (dataset .npy) and `--vae-ckpt` (VAE .pt). Run eval/serve as usual.                                                     |
 | **Why it was wrong before** | FSQ was taken from the RecGPT export (which has no FSQ) → dummy weights → wrong token IDs. And/or Bumblebee embeddings were used instead of the dataset .npy. |
 
 ---

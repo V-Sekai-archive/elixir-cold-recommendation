@@ -72,9 +72,9 @@ Maintain one **module reference** (this document) with overview tables by area, 
 
 API: gRPC only. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [01 gRPC API](01_grpc_api.md).
 
-| Module                                 | Purpose                                                               |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| **RecGPT.GRPCEndpoint**                | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.             |
+| Module                                 | Purpose                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| **RecGPT.GRPCEndpoint**                | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.                 |
 | **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; uses `RecGPT.PythonShim.predict/2` (Python). |
 
 ---

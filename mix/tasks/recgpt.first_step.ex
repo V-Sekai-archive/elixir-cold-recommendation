@@ -2,17 +2,17 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
   @shortdoc "Run the first step (Steam baseline): fetch → build_fixture → eval"
   @moduledoc """
   Runs the full first step from [docs/24_first_step_plan.md](docs/24_first_step_plan.md):
-  1. Fetch Steam data to steam dir (and download item_text_embeddings.npy if missing).
-  2. Build fixture with dataset embeddings (Elixir; for catalog/fixture artifacts).
+  1. Fetch Steam data to steam dir.
+  2. Build fixture with canonical texts (Elixir Bumblebee + VAE FSQ; semantic IDs match released model).
   3. Run eval in **Elixir** (RecGPT.Serve + RecGPT.Eval) and print metrics.
 
-  **Prerequisite:** Checkpoint must exist (e.g. from `mix recgpt.fetch_ckpt` and
-  `mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`).
+  **Prerequisites:** Checkpoint export (manifest + .npy), VAE checkpoint, canonical_item_texts in SQLite.
+  See docs/24_first_step_plan.md for setup (fetch_ckpt, export_ckpt, fetch_vae_ckpt, dump_canonical_to_sqlite.py).
 
   ## Options
 
     * `--steam-dir` - Directory for Steam data and fixture (default: data/steam)
-    * `--ckpt` - Checkpoint export dir or .pt path (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export dir (default: thirdparty/checkpoints/recgpt)
     * `--vae-ckpt` - Path to VAE checkpoint .pt (optional; env RECGPT_VAE_CKPT)
     * `--skip-fetch` - Use existing steam dir; do not run fetch_steam
     * `--skip-build` - Use existing fixture; do not run build_fixture
@@ -25,8 +25,6 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
       mix recgpt.first_step --skip-fetch --skip-build
   """
   use Mix.Task
-
-  @dataset_npy_url "https://huggingface.co/datasets/hkuds/RecGPT_dataset/resolve/main/test/steam/item_text_embeddings.npy"
 
   @impl true
   def run(args) do
@@ -46,7 +44,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
     Application.ensure_all_started(:nx)
 
     steam_dir = opts[:steam_dir] || "data/steam"
-    ckpt_dir = opts[:ckpt] || Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+    ckpt_dir = opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") || Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
     vae_ckpt = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT")
     steam_dir = Path.expand(steam_dir, File.cwd!())
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
@@ -56,10 +54,10 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
     unless opts[:skip_fetch] do
       run_fetch(steam_dir)
-      ensure_npy!(steam_dir)
     end
 
     unless opts[:skip_build] do
+      ensure_canonical_texts!()
       run_build_fixture(steam_dir, ckpt_dir, opts[:limit], vae_ckpt_path)
     end
 
@@ -88,33 +86,26 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
     end
   end
 
-  defp ensure_npy!(steam_dir) do
-    npy_path = Path.join(steam_dir, "item_text_embeddings.npy")
-    if File.regular?(npy_path) do
-      :ok
-    else
-      Mix.shell().info("Downloading item_text_embeddings.npy (~92 MB) to #{steam_dir}...")
-      Application.ensure_all_started(:req)
-      case Req.get(@dataset_npy_url) do
-        {:ok, %{status: 200, body: body}} ->
-          File.mkdir_p!(steam_dir)
-          File.write!(npy_path, body)
-          Mix.shell().info("Wrote #{npy_path}")
+  defp ensure_canonical_texts! do
+    Application.ensure_all_started(:recgpt)
+    case RecGPT.Steam.CanonicalItemText.load_from_repo(RecGPT.Repo) do
+      [] ->
+        Mix.raise("""
+        canonical_item_texts is empty. Run once:
+          mix ecto.migrate
+          uv run python scripts/dump_canonical_to_sqlite.py --pkl data/steam/item_text_dict.pkl --verify
+        (Fetch must have run first so item_text_dict.pkl exists.)
+        """)
 
-        {:ok, %{status: code}} ->
-          Mix.raise("HTTP #{code} for #{@dataset_npy_url}")
-
-        {:error, reason} ->
-          Mix.raise("Download failed: #{inspect(reason)}")
-      end
+      _ ->
+        :ok
     end
   end
 
   defp run_build_fixture(steam_dir, ckpt_dir, limit, vae_ckpt_path) do
-    Mix.shell().info("Step 2: Build fixture (dataset embeddings)...")
+    Mix.shell().info("Step 2: Build fixture (canonical texts + VAE FSQ)...")
     items_path = Path.join(steam_dir, "items.json")
     out_path = Path.join(steam_dir, "fixture.json")
-    npy_path = Path.join(steam_dir, "item_text_embeddings.npy")
 
     unless File.regular?(items_path) do
       Mix.raise("items.json not found at #{items_path}. Run without --skip-fetch first.")
@@ -122,16 +113,11 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
     argv =
       ["--items", items_path, "--out", out_path, "--ckpt", ckpt_dir]
-      |> maybe_append("--embeddings-npy", npy_path, File.regular?(npy_path))
       |> maybe_append("--vae-ckpt", vae_ckpt_path, is_binary(vae_ckpt_path) and vae_ckpt_path != "")
       |> maybe_append("--limit", to_string(limit || 10000), true)
 
     Mix.Task.reenable("recgpt.build_fixture")
     Mix.Task.run("recgpt.build_fixture", argv)
-
-    unless File.regular?(npy_path) do
-      Mix.shell().info("  (item_text_embeddings.npy not found; build used Bumblebee encoder.)")
-    end
   end
 
   defp maybe_append(argv, _key, _value, false), do: argv
