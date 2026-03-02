@@ -56,7 +56,8 @@ defmodule RecGPT.Decode do
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state
     item_at_leaf = trie_tensors.item_at_leaf
-    beam_width = max(4, top_k)
+    # Adaptive: cap at 12 to avoid over-beam; use top_k+2 for small top_k exploration
+    beam_width = max(4, min(top_k + 2, 12))
     root_state = Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
     # Step 0: one candidate (state 0), forward context only

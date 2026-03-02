@@ -1,6 +1,6 @@
 # Plan: EXLA JIT disk cache
 
-**Profit:** 3.0 | **Effort:** Low | **Gain:** High (setup)
+**Status:** Done | **Profit:** 3.0 | **Effort:** Low | **Gain:** High (setup)
 
 Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 

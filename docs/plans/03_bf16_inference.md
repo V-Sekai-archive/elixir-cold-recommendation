@@ -1,6 +1,6 @@
 # Plan: BF16 inference
 
-**Profit:** 1.5 | **Effort:** Medium | **Gain:** High
+**Status:** Done | **Profit:** 1.5 | **Effort:** Medium | **Gain:** High
 
 Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 

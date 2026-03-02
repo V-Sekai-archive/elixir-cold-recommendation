@@ -1,6 +1,6 @@
 # Plan: True multi-context batching
 
-**Profit:** 1.2 | **Effort:** Medium–high | **Gain:** High
+**Status:** Todo | **Est. gain:** 2–5× throughput under load (no single-request latency) | **Profit:** 1.2 | **Effort:** Medium–high | **Gain:** High
 
 Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 

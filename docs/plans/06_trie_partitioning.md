@@ -1,6 +1,6 @@
 # Plan: Trie partitioning for 13M
 
-**Profit:** 1.3 | **Effort:** High | **Gain:** Enables 13M
+**Status:** Todo | **Est. gain:** Enables 13M; partition load may add 10–50 ms | **Profit:** 1.3 | **Effort:** High | **Gain:** Enables 13M
 
 Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 

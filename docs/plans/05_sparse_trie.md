@@ -1,6 +1,6 @@
 # Plan: STATIC-style sparse trie
 
-**Profit:** 1.3 | **Effort:** High | **Gain:** Critical for 13M
+**Status:** Todo | **Est. gain:** Latency TBD; critical for 13M memory | **Profit:** 1.3 | **Effort:** High | **Gain:** Critical for 13M
 
 Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 
