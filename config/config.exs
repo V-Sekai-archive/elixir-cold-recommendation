@@ -1,5 +1,5 @@
 # RecGPT: EXLA backend for Nx (CUDA in devcontainer). All Nx/Defn run on EXLA.
-# For low latency: default_client :cuda. With :host (CPU), Predict ~1–2s; with :cuda ~100ms after first-request JIT.
+# For low latency: default_client :cuda. With :host (CPU), Predict ~1–2s; with :cuda ~300–400ms after setup (COG, 12-layer).
 # Devcontainer: .devcontainer/ has Dockerfile + devcontainer.json (EXLA/CUDA 12.9).
 import Config
 

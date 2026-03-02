@@ -4,9 +4,9 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   Runs a single Predict-style recommendation and prints a timing breakdown so you
   can see where time is spent and what to optimize.
 
-  The first run can be slow: EXLA does one-time CUDA/XLA init and JIT-compiles
-  kernels (ptxas). Subsequent runs are faster. Most time is usually in inference
-  (4 forward passes for beam search).
+  Aligns with Replicate COG stages: setup (one-time load + JIT compile) ~20–30s;
+  predict (per-request inference) ~300–400ms on 12-layer + RTX 4090. Most time
+  is usually in inference (4 forward passes for beam search).
 
   Loads state (fixture + checkpoint + optional catalog), runs one recommend with
   the given context and top_k, and reports:
@@ -92,6 +92,14 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       end
 
     Mix.shell().info("Tracing one recommend: context=#{inspect(context_ids)}, top_k=#{top_k}")
+    Mix.shell().info("")
+
+    # Setup: JIT-compile kernels before timed predict (COG setup ~20–30s; predict ~300–400ms on 12-layer + RTX 4090)
+    Mix.shell().info("Setup (compile kernels)...")
+    case RecGPT.Serve.recommend(state, context_ids, top_k) do
+      {:ok, _} -> :ok
+      {:error, _} -> :ok
+    end
     Mix.shell().info("")
 
     {:ok, agent} = Agent.start_link(fn -> {0, 0} end)

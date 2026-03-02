@@ -267,7 +267,7 @@ defmodule RecGPT.Serve do
 
   defp build_get_logits_batch_fn(params, inference_backend) do
     try do
-      # Use non-defn Inference (no JIT / Nx.Defn) so EXLA is used as plain backend only.
+      # List-based batch fn (non-JIT); SPMD uses get_logits_batch_tensor_fn (JIT).
       batch_fn = fn list_of_token_lists, cache
                     when is_list(list_of_token_lists) and list_of_token_lists != [] ->
         max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()

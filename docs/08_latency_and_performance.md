@@ -1,5 +1,7 @@
 # Latency and performance vs industry
 
+Terminology aligns with [Replicate COG](https://replicate.com/docs/guides/build/push-a-model): **setup** = one-time load + JIT compile; **predict** = per-request inference. Cold (setup) ~20–30s; warm (predict) ~300–400ms on 12-layer + RTX 4090.
+
 ## What we did wrong (and what we fixed)
 
 Industry-grade recommendation APIs typically target **single-digit to low double-digit ms** per request (e.g. P50 &lt; 50 ms). Our initial implementation was **~150–200+ ms** per request. Main causes:

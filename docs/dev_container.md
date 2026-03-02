@@ -8,4 +8,4 @@ Inference and serve run on **EXLA** (XLA). The dev container provides a Linux en
 
 **Windows:** Run `mix deps.get` and `mix compile` on the host. EXLA uses the host (CPU) client by default. For GPU on Windows, set `EXLA_TARGET` and ensure CUDA drivers match the EXLA build.
 
-**Latency:** On CPU (host client), one Predict can be ~1–2s. With CUDA (when available), latency is typically lower after the first JIT.
+**Latency:** On CPU (host client), one Predict can be ~1–2s. With CUDA (RTX 4090, 12-layer): setup ~20–30s, predict ~300–400ms (Replicate COG: setup = one-time compile, predict = per-request).
