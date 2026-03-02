@@ -1,13 +1,13 @@
 defmodule Mix.Tasks.Recgpt.CheckGpu do
-  @shortdoc "Check if Nx/EXLA is using GPU (CUDA)"
+  @shortdoc "Check if Nx/Torchx is loaded and which device is used"
   @moduledoc """
-  Verifies EXLA is loaded and that a CUDA client is available.
-  Optionally checks that the default Nx backend allocates on GPU.
+  Verifies Torchx is loaded and reports the default Nx backend.
+  On Windows/Linux, Torchx uses LibTorch (CPU or CUDA when available).
 
   Run: mix recgpt.check_gpu
 
-  Requires EXLA with XLA_TARGET=cuda12 (or cuda13) and a CUDA-capable GPU
-  when checking for GPU. With XLA_TARGET=cpu, the task reports CPU-only.
+  Requires {:torchx, "~> 0.11"} in deps. LibTorch is bundled; CUDA is used
+  automatically if the Torchx build includes it and drivers are present.
   """
   use Mix.Task
 
@@ -15,20 +15,20 @@ defmodule Mix.Tasks.Recgpt.CheckGpu do
   def run(_args) do
     Application.ensure_all_started(:nx)
 
-    unless Code.ensure_loaded?(EXLA) do
+    unless Code.ensure_loaded?(Torchx) do
       Mix.raise(
-        "EXLA not loaded. Add {:exla, \"~> 0.10\"} to deps and set XLA_TARGET (e.g. cuda12 or cpu)."
+        "Torchx not loaded. Add {:torchx, \"~> 0.11\"} to deps."
       )
     end
 
-    case Application.ensure_all_started(:exla) do
+    case Application.ensure_all_started(:torchx) do
       {:ok, _} ->
         do_check()
       {:error, {app, reason}} ->
         IO.puts("Nx default_backend: #{inspect(Nx.default_backend())}")
-        IO.puts("EXLA application failed to start: #{inspect(app)} - #{inspect(reason)}")
+        IO.puts("Torchx application failed to start: #{inspect(app)} - #{inspect(reason)}")
         IO.puts("")
-        IO.puts("Result: EXLA not running (check NIF/CUDA libs, XLA_TARGET, and troubleshooting in EXLA README).")
+        IO.puts("Result: Torchx not running (check LibTorch install and Torchx README).")
     end
   end
 
@@ -36,38 +36,19 @@ defmodule Mix.Tasks.Recgpt.CheckGpu do
     backend = Nx.default_backend()
     IO.puts("Nx default_backend: #{inspect(backend)}")
 
-    # Try to use EXLA with CUDA client; if it works, GPU is available
-    cuda_available =
-      try do
-        t = Nx.tensor([1.0, 2.0, 3.0])
-        _on_cuda = Nx.backend_transfer(t, {EXLA.Backend, client: :cuda})
-        true
-      rescue
-        _ -> false
-      catch
-        _ -> false
-      end
-
-    if cuda_available do
-      IO.puts("EXLA CUDA client: available")
-    else
-      IO.puts("EXLA CUDA client: not available (XLA_TARGET may be cpu or CUDA not installed)")
-    end
-
-    # Sample tensor on default backend
     t = Nx.tensor([1.0, 2.0, 3.0])
     backend_str = inspect(t)
     IO.puts("Sample tensor: #{backend_str}")
 
-    on_gpu = String.contains?(String.downcase(backend_str), "cuda") or cuda_available
+    # Torchx may show device in backend name or tensor inspect
+    on_cuda = String.contains?(String.downcase(backend_str), "cuda")
 
-    cond do
-      cuda_available and on_gpu ->
-        IO.puts("")
-        IO.puts("Result: EXLA GPU (CUDA) available.")
-      true ->
-        IO.puts("")
-        IO.puts("Result: EXLA loaded; running on CPU (no CUDA client). Set XLA_TARGET=cuda12 and ensure GPU drivers for GPU.")
+    if on_cuda do
+      IO.puts("")
+      IO.puts("Result: Torchx loaded; using CUDA.")
+    else
+      IO.puts("")
+      IO.puts("Result: Torchx loaded; using CPU (or device not shown in inspect).")
     end
   end
 end

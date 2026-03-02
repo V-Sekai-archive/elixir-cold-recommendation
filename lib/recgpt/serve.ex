@@ -49,7 +49,7 @@ defmodule RecGPT.Serve do
   @spec load_state(String.t(), String.t(), String.t() | nil) ::
           {:ok, state()} | {:error, String.t()}
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_exla(),
+    with :ok <- ensure_torchx(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
@@ -78,7 +78,7 @@ defmodule RecGPT.Serve do
   """
   @spec load_state_from_db(String.t(), String.t() | nil) :: {:ok, state()} | {:error, String.t()}
   def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_exla(),
+    with :ok <- ensure_torchx(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
@@ -129,12 +129,12 @@ defmodule RecGPT.Serve do
     {:ok, trie, token_id_map, num_items}
   end
 
-  defp ensure_exla do
-    if Code.ensure_loaded?(EXLA) do
+  defp ensure_torchx do
+    if Code.ensure_loaded?(Torchx) do
       :ok
     else
       {:error,
-       "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
+       "Torchx required for inference. Add {:torchx, \"~> 0.11\"} to deps and ensure it compiles."}
     end
   end
 
@@ -200,11 +200,12 @@ defmodule RecGPT.Serve do
       n_layers = Inference.n_layers_from_params(params)
       full_params = InferenceParams.build_defn_params(params, n_layers)
 
+      # Use Nx.Defn.Evaluator: Torchx is a backend, not a Defn.Compiler (no __jit__/5).
       jit_with_cache =
-        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: Nx.Defn.Evaluator)
 
       jit_incremental =
-        Nx.Defn.jit(&InferenceDefn.forward_incremental/5, compiler: EXLA)
+        Nx.Defn.jit(&InferenceDefn.forward_incremental/5, compiler: Nx.Defn.Evaluator)
 
       batch_fn = fn list_of_token_lists, cache
                     when is_list(list_of_token_lists) and list_of_token_lists != [] ->
@@ -245,7 +246,7 @@ defmodule RecGPT.Serve do
       {:ok, batch_fn}
     rescue
       e ->
-        {:error, "EXLA JIT or defn params failed: #{inspect(e)}"}
+        {:error, "Torchx JIT or defn params failed: #{inspect(e)}"}
     end
   end
 

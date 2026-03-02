@@ -211,14 +211,14 @@ defmodule RecGPT.InferenceTest do
   end
 
   @tag :integration
-  test "EXLA Defn forward_with_cache matches Inference.forward for stub params" do
-    unless Code.ensure_loaded?(EXLA) do
-      raise "EXLA not loaded; run with EXLA in deps to enable this test"
+  test "Torchx Defn forward_with_cache matches Inference.forward for stub params" do
+    unless Code.ensure_loaded?(Torchx) do
+      raise "Torchx not loaded; run with Torchx in deps to enable this test"
     end
 
     params = dummy_params()
     full_params = InferenceParams.build_defn_params(params, 0)
-    jit_fn = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+    jit_fn = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: Nx.Defn.Evaluator)
 
     batch_token_ids = Nx.tensor([[10, 20, 30]], type: {:s, 32})
     batch_aux = Nx.broadcast(0.0, {1, 3, 192}) |> Nx.as_type({:f, 32})

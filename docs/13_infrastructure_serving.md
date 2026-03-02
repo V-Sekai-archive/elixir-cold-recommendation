@@ -46,6 +46,10 @@ The catalog (item id and title for display names) is stored as JSON: shape `{"nu
 
 When designing schemas for catalog or embedding storage, follow **Essential Tuple Normal Form (ETNF)** so relations stay in BCNF and every explicitly declared join dependency has a superkey component—see [ETNF database design](etnf_database_design.md).
 
+**Blob/artifact storage (Ecto + optional object store):** For storing file or object references in Ecto and uploading to local disk or S3/GCS, use **[waffle_ecto](https://hex.pm/packages/waffle_ecto)** with [Waffle](https://hex.pm/packages/waffle). Ecto holds the path/URL; Waffle handles the storage backend. See [30 waffle_ecto usage](30_waffle_ecto_usage.md).
+
+**Classifying storage by access pattern:** To choose a store by read/write/scan mix and throughput, use YCSB workload types (A–F) and the database fit table. See [31 YCSB storage classification](31_ycsb_storage_classification.md).
+
 #### Ra vs Khepri (RabbitMQ stack)
 
 - **Ra** ([ra](https://hex.pm/packages/ra)) — Raft consensus library. You implement a **state machine** (via `ra_machine` behaviour); Ra replicates it across a cluster. Used by RabbitMQ for quorum queues, streams, and by Khepri as its engine. Use Ra when you need custom replicated state and are willing to implement the machine.

@@ -1,11 +1,10 @@
-# RecGPT: EXLA only. All Nx ops and Defn run on EXLA (host or CUDA per default_client).
-# For low latency (~100ms): use GPU — set default_client to :cuda (e.g. in config/dev.exs or env).
-# With :host (CPU), one Predict can be ~1–2s; with :cuda, typically ~100ms after first-request JIT.
+# RecGPT: Torchx backend. Nx ops run on LibTorch (CPU or CUDA on Windows/Linux).
+# Defn uses Nx.Defn.Evaluator so defn code runs on the default backend (Torchx.Backend).
+# Torchx does not implement Nx.Defn.Compiler (__jit__/5); do not set compiler: Torchx.
 import Config
 
-config :nx, default_backend: EXLA.Backend
-config :nx, :default_defn_options, compiler: EXLA
-config :exla, :default_client, :cuda
+config :nx, default_backend: Torchx.Backend
+config :nx, :default_defn_options, compiler: Nx.Defn.Evaluator
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.
 # Default 1 and 0 = one request at a time (no batching).

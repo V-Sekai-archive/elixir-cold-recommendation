@@ -129,6 +129,8 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 26  | [26_embedding_mismatch.md](26_embedding_mismatch.md)                       | Embedding parity gap and workaround.                               | Text format; compare_embeddings; use dataset .npy.                                                        |
 | 28  | [28_thirdparty_vs_elixir_parity.md](28_thirdparty_vs_elixir_parity.md)     | Parity with released model (dataset .npy + VAE).                   | Embeddings and FSQ sources; use dataset .npy + VAE for FSQ; Elixir-only path.                             |
 | 29  | [29_staff_api.md](29_staff_api.md)                                         | Staff API for catalogues, sequences, fixture, pretrain.            | RecGPT.StaffApi behaviour; list/upsert items; sync sequences; build_fixture; pretrain; set_canonical_texts. |
+| 30  | [30_waffle_ecto_usage.md](30_waffle_ecto_usage.md)                         | Blob storage with Ecto and optional object store.                    | waffle_ecto + Waffle: schema, cast_attachments, local/S3 config.                                             |
+| 31  | [31_ycsb_storage_classification.md](31_ycsb_storage_classification.md)    | Classify storage by YCSB workload types and throughput.            | YCSB A–F; database/store fit; RecGPT artifact mapping.                                                        |
 
 ---
 
@@ -145,6 +147,8 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | Understand cold vs regular splits               | [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md)                                                                             |
 | Export or load a checkpoint                     | [08 Checkpoint layout](08_recgpt_checkpoint_layout.md)                                                                                            |
 | Use SQLite/Ecto for catalog storage             | [13 Infrastructure](13_infrastructure_serving.md#catalog-storage-object-store-semantics)                                                          |
+| Store blobs with Ecto (local or S3/GCS)        | [30 waffle_ecto usage](30_waffle_ecto_usage.md) — waffle_ecto + Waffle for attachments and optional object store.                                  |
+| Classify storage by YCSB types and throughput  | [31 YCSB storage classification](31_ycsb_storage_classification.md) — workload types A–F, database fit, RecGPT artifact mapping.                    |
 | Design catalog/DB schema (ETNF)                 | [ETNF database design](etnf_database_design.md)                                                                                                   |
 | Understand layers and test strategy             | [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)–[21](21_layer_application.md) layer docs.                                |
 | Isolate layers with frozen inputs               | [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md)                                                                       |

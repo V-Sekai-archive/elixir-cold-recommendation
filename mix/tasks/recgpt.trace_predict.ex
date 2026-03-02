@@ -200,7 +200,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       Mix.shell().info("  inference % of total: #{pct}%  (avg #{avg_inference_us} μs/forward)")
 
       Mix.shell().info(
-        "  → Beam search uses batched path (4 forward passes). Speed up: GPU, KV-cache."
+        "  → Beam search uses batched path (#{inference_calls} forward passes). Speed up: GPU, KV-cache."
       )
     end
 
