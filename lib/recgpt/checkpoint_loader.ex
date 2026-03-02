@@ -16,11 +16,35 @@ defmodule RecGPT.CheckpointLoader do
 
   Tensors are created with Nx.BinaryBackend so loading works regardless
   of the default Nx backend; callers can then transfer params to EXLA (e.g. in Serve).
+
+  ## Checkpoint integrity
+  When `config :recgpt, :ckpt_expected_sha256` or `RECGPT_CKPT_SHA256` is set,
+  load_from_export/1 verifies the checkpoint hash before loading. Compute the hash with
+  `mix recgpt.ckpt_sha256 --ckpt path`.
   """
+
+  @doc """
+  Compute deterministic SHA256 of checkpoint (manifest + all .npy files in sorted order).
+  Used for integrity verification. Returns lowercase hex string.
+  """
+  def compute_sha256(export_dir, manifest) when is_binary(export_dir) and is_map(manifest) do
+    # Sort by key for determinism; hash each file and concatenate binary hashes
+    combined =
+      manifest
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.reduce(<<>>, fn {_key, meta}, acc ->
+        path = Path.join(export_dir, meta["file"])
+        blob = File.read!(path)
+        acc <> :crypto.hash(:sha256, blob)
+      end)
+
+    :crypto.hash(:sha256, combined) |> Base.encode16(case: :lower)
+  end
 
   @doc """
   Load checkpoint from an export directory. Returns %{key => Nx.Tensor}.
   Uses BinaryBackend; transfer to EXLA in Serve if desired.
+  Verifies SHA256 when config :recgpt, :ckpt_expected_sha256 or RECGPT_CKPT_SHA256 is set.
   """
   def load_from_export(export_dir) when is_binary(export_dir) do
     do_load_from_export(export_dir)
@@ -34,6 +58,15 @@ defmodule RecGPT.CheckpointLoader do
     end
 
     manifest = File.read!(manifest_path) |> Jason.decode!()
+
+    expected = expected_ckpt_sha256()
+    if expected do
+      actual = compute_sha256(export_dir, manifest)
+      if actual != expected do
+        raise "Checkpoint SHA256 mismatch: expected #{expected}, got #{actual}. " <>
+                "Run mix recgpt.ckpt_sha256 --ckpt #{export_dir} to get the correct hash."
+      end
+    end
 
     Enum.reduce(manifest, %{}, fn {key, meta}, acc ->
       fname = meta["file"]
@@ -62,6 +95,10 @@ defmodule RecGPT.CheckpointLoader do
     after
       Nx.default_backend(prev)
     end
+  end
+
+  defp expected_ckpt_sha256 do
+    System.get_env("RECGPT_CKPT_SHA256") || Application.get_env(:recgpt, :ckpt_expected_sha256)
   end
 
   defp npy_descr_to_nx_type(descr) do

@@ -12,6 +12,8 @@ defmodule RecGPT.Serve do
   alias RecGPT.CheckpointLoader
   alias RecGPT.Decode
   alias RecGPT.Inference
+  alias RecGPT.InferenceDefn
+  alias RecGPT.InferenceParams
   alias RecGPT.Trie
 
   @padding_id 15_360
@@ -334,7 +336,8 @@ defmodule RecGPT.Serve do
   end
 
   defp replicate_cache(cache, batch_size) do
-    Enum.map(cache, fn {k, v} ->
+    cache_list = if is_tuple(cache), do: Tuple.to_list(cache), else: cache
+    Enum.map(cache_list, fn {k, v} ->
       {b, n_head, len, hd} = Nx.shape(k)
 
       if b == 1 do
@@ -352,7 +355,9 @@ defmodule RecGPT.Serve do
       [] ->
         []
 
-      [{k, _} | _] ->
+      cache when is_tuple(cache) or is_list(cache) ->
+        first = if is_tuple(cache), do: elem(cache, 0), else: hd(cache)
+        {k, _} = first
         b = elem(Nx.shape(k), 0)
         if b == 1 and batch_size > 1, do: replicate_cache(cache, batch_size), else: cache
     end
@@ -367,6 +372,12 @@ defmodule RecGPT.Serve do
   end
 
   defp build_get_logits_batch_tensor_fn(params, inference_backend) do
+    n_layers = Inference.n_layers_from_params(params)
+    defn_params = InferenceParams.build_defn_params(params, n_layers)
+    defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
+    jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
+    jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/5)
+
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)
       aux =
@@ -379,7 +390,8 @@ defmodule RecGPT.Serve do
         |> Nx.backend_transfer(inference_backend)
 
       if cache == nil do
-        Inference.forward_with_cache(batch_tensor, aux, mask, params)
+        {logits, cache_tuple} = jit_full.(batch_tensor, aux, mask, defn_params)
+        {logits, cache_tuple}
       else
         last_tokens = batch_tensor |> Nx.slice_along_axis(seq_len - 1, 1, axis: 1)
         aux_one =
@@ -391,10 +403,21 @@ defmodule RecGPT.Serve do
           |> Nx.as_type({:f, 32})
           |> Nx.backend_transfer(inference_backend)
         cache_to_use = maybe_replicate_cache(cache, batch_size)
-        Inference.forward_incremental(last_tokens, aux_one, mask_one, params, cache_to_use)
+        cache_tuple = ensure_cache_tuple(cache_to_use)
+        {logits, new_cache} = jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple)
+        {logits, new_cache}
       end
     end
   end
+
+  defp transfer_defn_params_to_backend(defn_params, nil), do: defn_params
+
+  defp transfer_defn_params_to_backend(defn_params, backend) do
+    Map.new(defn_params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
+  end
+
+  defp ensure_cache_tuple(cache) when is_list(cache), do: List.to_tuple(cache)
+  defp ensure_cache_tuple(cache) when is_tuple(cache), do: cache
 
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
