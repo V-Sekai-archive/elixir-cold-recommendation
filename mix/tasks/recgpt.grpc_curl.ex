@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Recgpt.GrpcCurl do
       mix recgpt.grpc_curl --port 50051 --context "0,1" --max-results 10
 
   If the task hangs, the server is likely not running; start it in another terminal first.
+  If you see "cannot convert a scalar tensor to a list", restart the serve process so it loads the latest code.
 
   ## Options
     * `--port` - gRPC port (default: 50051, or RECGPT_GRPC_PORT)

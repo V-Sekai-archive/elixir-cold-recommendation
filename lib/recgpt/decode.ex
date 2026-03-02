@@ -211,14 +211,14 @@ defmodule RecGPT.Decode do
     if entries == [] do
       {beam, new_cache}
     else
-      # Single batched gather: index = batch_idx * vocab_size + token_id (row-major).
-      flat_indices =
-        Enum.map(entries, fn {b, t, _, _} -> b * vocab_size + t end)
-
+      # Per-entry index = batch_idx * vocab_size + token_id (row-major).
       flat_logits = Nx.reshape(logits, {batch_size * vocab_size})
-      indices_t = Nx.tensor(flat_indices, type: {:s, 64})
-      scores_t = Nx.gather(flat_logits, Nx.new_axis(indices_t, -1)) |> Nx.squeeze()
-      scores_list = Nx.to_list(scores_t)
+      # Per-index slice + to_number so we never call to_list on EXLA tensor (avoids scalar/wrong-shape).
+      scores_list =
+        Enum.map(entries, fn {b, t, _, _} ->
+          idx = b * vocab_size + t
+          flat_logits |> Nx.slice_along_axis(idx, 1, axis: 0) |> Nx.squeeze() |> Nx.to_number()
+        end)
 
       all_candidates =
         Enum.zip(entries, scores_list)

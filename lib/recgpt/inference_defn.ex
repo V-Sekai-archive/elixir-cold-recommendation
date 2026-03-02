@@ -1,6 +1,6 @@
 defmodule RecGPT.InferenceDefn do
   @moduledoc """
-  Defn entry points for Torchx JIT: forward_with_cache/4 and forward_incremental/5 only.
+  Defn entry points for EXLA JIT: forward_with_cache/4 and forward_incremental/5 only.
 
   Params must be from RecGPT.InferenceParams.build_defn_params/2 (atom keys, full structure).
   Cache is a tuple of 12 `{k, v}` elements, each k/v shape `(batch, n_head, seq_len, head_dim)`.

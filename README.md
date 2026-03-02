@@ -25,7 +25,7 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 | **Mix tasks** | [docs/mix_tasks.md](docs/mix_tasks.md) |
 | **Modules** | [docs/modules_overview.md](docs/modules_overview.md) |
 | **Dependencies** | [docs/dependencies.md](docs/dependencies.md) |
-| **Dev container (Torchx)** | [docs/dev_container.md](docs/dev_container.md) |
+| **Dev container (EXLA)** | [docs/dev_container.md](docs/dev_container.md) |
 | **Tests** | [docs/tests.md](docs/tests.md) |
 | **gRPC API** | [docs/grpc_serve.md](docs/grpc_serve.md), [docs/01_grpc_api.md](docs/01_grpc_api.md) |
 | **Versioning & references** | [docs/versioning_and_references.md](docs/versioning_and_references.md) |

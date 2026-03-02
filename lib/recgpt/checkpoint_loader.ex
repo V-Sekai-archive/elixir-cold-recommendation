@@ -14,13 +14,13 @@ defmodule RecGPT.CheckpointLoader do
   Returns a map of key => Nx.Tensor. The inference model (RecGPT.Inference) expects
   keys such as: wte (FSQ embed table), ae.* (aux encoder), gpt2model.* (GPT-2), pred_head.* (head).
 
-  Tensors are created with Nx.BinaryBackend (no Torchx.from_blob) so loading works regardless
-  of the default Nx backend; callers can then transfer params to GPU (e.g. in Serve).
+  Tensors are created with Nx.BinaryBackend so loading works regardless
+  of the default Nx backend; callers can then transfer params to EXLA (e.g. in Serve).
   """
 
   @doc """
   Load checkpoint from an export directory. Returns %{key => Nx.Tensor}.
-  Uses BinaryBackend to avoid Torchx.from_blob; transfer to Torchx/CUDA in Serve if desired.
+  Uses BinaryBackend; transfer to EXLA in Serve if desired.
   """
   def load_from_export(export_dir) when is_binary(export_dir) do
     do_load_from_export(export_dir)
@@ -49,8 +49,8 @@ defmodule RecGPT.CheckpointLoader do
     end)
   end
 
-  # Build Nx tensor from %Npy{} using BinaryBackend only (no Torchx.from_blob). Same descr→type
-  # mapping as Npy.npy2tensor/1; caller can backend_transfer to Torchx/CUDA.
+  # Build Nx tensor from %Npy{} using BinaryBackend only. Same descr→type
+  # mapping as Npy.npy2tensor/1; caller can backend_transfer to EXLA.
   defp npy_to_tensor_binary_backend(%Npy{descr: descr, shape: shape, data: data}) do
     type = npy_descr_to_nx_type(descr)
     prev = Nx.default_backend()

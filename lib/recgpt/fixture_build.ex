@@ -9,7 +9,6 @@ defmodule RecGPT.FixtureBuild do
   """
 
   alias RecGPT.Catalog.Sync
-  alias RecGPT.CheckpointLoader
   alias RecGPT.Embedding
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
@@ -183,23 +182,49 @@ defmodule RecGPT.FixtureBuild do
     |> Map.new(fn {item, idx} -> {idx, Embedding.recgpt_item_text(item)} end)
   end
 
-  defp load_fsq_params(ckpt_dir, opts) do
-    params =
-      case opts[:vae_ckpt] do
-        path when is_binary(path) and path != "" ->
-          FSQ.load_params_from_vae_pt(path)
+  @vae_default_filename "vae_len4_fsq88865_ep90.pt"
 
-        _ ->
-          ckpt_params = CheckpointLoader.load_from_export(ckpt_dir)
-          FSQ.load_params(ckpt_params)
-      end
+  defp load_fsq_params(_ckpt_dir, opts) do
+    vae_path = resolve_vae_ckpt_path(opts)
+    unless vae_path do
+      raise "VAE checkpoint required for FSQ. No VAE path found (tried --vae-ckpt, RECGPT_VAE_CKPT, " <>
+              "thirdparty/checkpoints/vae/#{@vae_default_filename}, data/#{@vae_default_filename}). " <>
+              "Run: mix recgpt.fetch_vae_ckpt  or set RECGPT_VAE_CKPT=path/to/#{@vae_default_filename}"
+    end
 
-    if fsq_params_ok?(params) do
+    params = FSQ.load_params_from_vae_pt(vae_path)
+    if fsq_params_ok?(params) and not fsq_params_dummy?(params) do
       params
     else
-      raise "FSQ params not found. Pass --vae-ckpt path/to/vae_len4_fsq88865_ep90.pt when building fixture so token_id_list matches the Python pipeline."
+      raise "FSQ params from VAE are invalid or dummy (zero kernels). Check #{vae_path}"
     end
   end
+
+  # Prefer opts[:vae_ckpt], then RECGPT_VAE_CKPT, then default paths so FSQ is loaded when we have the VAE.
+  defp resolve_vae_ckpt_path(opts) do
+    cond do
+      path = opts[:vae_ckpt] ->
+        path = path |> to_string() |> String.trim()
+        if path != "" and File.regular?(path), do: path, else: nil
+
+      path = System.get_env("RECGPT_VAE_CKPT") ->
+        path = path |> String.trim()
+        if path != "" and File.regular?(path), do: path, else: nil
+
+      true ->
+        cwd = File.cwd!()
+        [Path.join([cwd, "thirdparty", "checkpoints", "vae", @vae_default_filename]),
+         Path.join([cwd, "data", @vae_default_filename])]
+        |> Enum.find(&File.regular?/1)
+    end
+  end
+
+  defp fsq_params_dummy?(%{"project_in" => %{"kernel" => k}, "project_out" => %{"kernel" => o}}) do
+    Nx.all_close(k, Nx.broadcast(0.0, Nx.shape(k))) |> Nx.to_number() == 1 and
+      (Nx.all_close(o, Nx.broadcast(0.0, Nx.shape(o))) |> Nx.to_number() == 1)
+  end
+
+  defp fsq_params_dummy?(_), do: true
 
   defp fsq_params_ok?(%{"project_in" => %{"kernel" => k}, "project_out" => %{"kernel" => o}})
        when not is_nil(k) and not is_nil(o),

@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--items` - Path to items.json (default: data/steam/items.json)
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: thirdparty/checkpoints/recgpt)
-    * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). Use so FSQ token_id_list matches the Python pipeline (required for all-Elixir parity). Env: RECGPT_VAE_CKPT.
+    * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). FSQ from VAE is required for correct token_id_list. Env: RECGPT_VAE_CKPT. If unset, tries thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt and data/vae_len4_fsq88865_ep90.pt.
     * `--canonical-texts` - Use item texts from canonical_item_texts table (default: on). Run mix recgpt.dump_canonical_texts first. Use `--no-canonical-texts` to use items.json text instead.
     * `--embeddings-npy` - Use this item_text_embeddings.npy from the dataset instead of encoding with Bumblebee (ensures token_id_list matches the released checkpoint)
     * `--limit` - Max items to process (default: 100; do not exceed per run to avoid NIF issues)

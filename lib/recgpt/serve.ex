@@ -47,9 +47,9 @@ defmodule RecGPT.Serve do
   @spec load_state(String.t(), String.t(), String.t() | nil) ::
           {:ok, state()} | {:error, String.t()}
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_torchx(),
+    with :ok <- ensure_exla(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
-         {params, inference_backend} <- maybe_transfer_params_to_cuda(params),
+         {params, inference_backend} <- maybe_transfer_params_to_exla(params),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
          {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params, inference_backend) do
@@ -77,9 +77,9 @@ defmodule RecGPT.Serve do
   """
   @spec load_state_from_db(String.t(), String.t() | nil) :: {:ok, state()} | {:error, String.t()}
   def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_torchx(),
+    with :ok <- ensure_exla(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
-         {params, inference_backend} <- maybe_transfer_params_to_cuda(params),
+         {params, inference_backend} <- maybe_transfer_params_to_exla(params),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
          {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params, inference_backend) do
@@ -129,12 +129,16 @@ defmodule RecGPT.Serve do
     {:ok, trie, token_id_map, num_items}
   end
 
-  defp ensure_torchx do
-    if Code.ensure_loaded?(Torchx) do
-      :ok
+  defp ensure_exla do
+    if Code.ensure_loaded?(EXLA) do
+      case Application.ensure_all_started(:exla) do
+        {:ok, _} -> :ok
+        {:error, {app, reason}} ->
+          {:error, "EXLA required for inference. exla app failed to start: #{inspect(app)} - #{inspect(reason)}"}
+      end
     else
       {:error,
-       "Torchx required for inference. Add {:torchx, \"~> 0.11\"} to deps and ensure it compiles."}
+       "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
     end
   end
 
@@ -148,18 +152,12 @@ defmodule RecGPT.Serve do
     end
   end
 
-  # Load on CPU (default backend); move params to CUDA for inference when available. Does not change Nx.default_backend.
-  defp maybe_transfer_params_to_cuda(params) do
-    if Code.ensure_loaded?(Torchx) and
-         function_exported?(Torchx, :device_available?, 1) and
-         Torchx.device_available?(:cuda) do
-      cuda_backend = {Torchx.Backend, device: :cuda}
-      params_cuda =
-        Map.new(params, fn {k, v} -> {k, Nx.backend_transfer(v, cuda_backend)} end)
-      {params_cuda, cuda_backend}
-    else
-      {params, nil}
-    end
+  # Load on BinaryBackend; transfer params to EXLA (client from config, e.g. :cuda or :host) for inference.
+  defp maybe_transfer_params_to_exla(params) do
+    client = Application.get_env(:exla, :default_client, :host)
+    backend = {EXLA.Backend, client: client}
+    params_exla = Map.new(params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
+    {params_exla, backend}
   end
 
   defp load_fixture(path) do
@@ -170,7 +168,26 @@ defmodule RecGPT.Serve do
         (fixture["token_id_list"] || []) |> Enum.map(&Enum.map(&1, fn x -> round(x) end))
 
       num_items = fixture["num_items"] || length(token_id_list)
-      {:ok, token_id_list, num_items}
+
+      # Single-path trie: multiple items but only one unique first token -> beam never expands.
+      cond do
+        token_id_list == [] ->
+          {:ok, token_id_list, num_items}
+
+        length(token_id_list) > 1 ->
+          first_tokens = token_id_list |> Enum.map(&List.first/1) |> Enum.uniq()
+          if length(first_tokens) == 1 do
+            {:error,
+             "Fixture has single-path trie (all items share the same first token). " <>
+               "Rebuild with VAE FSQ: mix recgpt.fetch_vae_ckpt then mix recgpt.build_fixture " <>
+               "--items data/steam/items.json --out #{path} --ckpt <ckpt_dir>"}
+          else
+            {:ok, token_id_list, num_items}
+          end
+
+        true ->
+          {:ok, token_id_list, num_items}
+      end
     else
       {:error, "fixture not found: #{path}"}
     end
@@ -211,7 +228,7 @@ defmodule RecGPT.Serve do
 
   defp build_get_logits_batch_fn(params, inference_backend) do
     try do
-      # Use non-defn Inference (no JIT / Nx.Defn) so Torchx is used as plain backend only.
+      # Use non-defn Inference (no JIT / Nx.Defn) so EXLA is used as plain backend only.
       batch_fn = fn list_of_token_lists, cache
                     when is_list(list_of_token_lists) and list_of_token_lists != [] ->
         max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()

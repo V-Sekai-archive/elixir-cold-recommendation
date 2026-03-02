@@ -4,6 +4,10 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   Runs a single Predict-style recommendation and prints a timing breakdown so you
   can see where time is spent and what to optimize.
 
+  The first run can be slow: EXLA does one-time CUDA/XLA init and JIT-compiles
+  kernels (ptxas). Subsequent runs are faster. Most time is usually in inference
+  (4 forward passes for beam search).
+
   Loads state (fixture + checkpoint + optional catalog), runs one recommend with
   the given context and top_k, and reports:
   - context_to_tokens_us: building context token sequence from item IDs
@@ -19,12 +23,10 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     * `--catalog` - Optional path to items JSON
     * `--context` - Comma-separated context item IDs (default: 0)
     * `--top-k` - Max recommendations (default: 10)
-    * `--stub` - Use stub state (fast, no real inference)
 
   ## Examples
       mix recgpt.trace_predict
       mix recgpt.trace_predict --context "0,1" --top-k 10
-      mix recgpt.trace_predict --stub
   """
   use Mix.Task
 
@@ -37,28 +39,13 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
           ckpt: :string,
           catalog: :string,
           context: :string,
-          top_k: :integer,
-          stub: :boolean
+          top_k: :integer
         ]
       )
 
     Application.ensure_all_started(:recgpt)
     Application.ensure_all_started(:nx)
 
-    # Resolve paths: opts > artifact catalogue > default
-    fixture_path =
-      opts[:fixture] ||
-        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
-        Path.expand(Path.join(File.cwd!(), "data/steam/fixture.json"), File.cwd!())
-
-    ckpt_dir =
-      opts[:ckpt] ||
-        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        Path.expand(Path.join(File.cwd!(), "data/recgpt_ckpt_export"), File.cwd!())
-
-    catalog_path =
-      opts[:catalog] && Path.expand(opts[:catalog], File.cwd!()) ||
-        RecGPT.Catalog.Artifact.resolve_path("items")
     context_str = opts[:context] || "0"
     top_k = opts[:top_k] || 10
 
@@ -73,25 +60,35 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
         end
       end)
 
+    # Resolve paths: opts > artifact catalogue > default
+    fixture_path =
+      opts[:fixture] ||
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        Path.expand(Path.join(File.cwd!(), "data/steam/fixture.json"), File.cwd!())
+
+    ckpt_dir =
+      opts[:ckpt] ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
+        Path.expand(Path.join(File.cwd!(), "data/recgpt_ckpt_export"), File.cwd!())
+
+    catalog_path =
+      (opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())) ||
+        RecGPT.Catalog.Artifact.resolve_path("items")
+
+    unless File.regular?(fixture_path) do
+      Mix.raise("Fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")
+    end
+
+    unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
+      Mix.raise("Checkpoint not found: #{ckpt_dir}. Run mix recgpt.export_ckpt first.")
+    end
+
+    Mix.shell().info("Loading state...")
+
     state =
-      if opts[:stub] do
-        Mix.shell().info("Using stub state (--stub)")
-        build_stub_state(10)
-      else
-        unless File.regular?(fixture_path) do
-          Mix.raise("Fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")
-        end
-
-        unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
-          Mix.raise("Checkpoint not found: #{ckpt_dir}. Run mix recgpt.export_ckpt first.")
-        end
-
-        Mix.shell().info("Loading state...")
-
-        case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
-          {:ok, s} -> s
-          {:error, reason} -> Mix.raise("Load failed: #{inspect(reason)}")
-        end
+      case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
+        {:ok, s} -> s
+        {:error, reason} -> Mix.raise("Load failed: #{inspect(reason)}")
       end
 
     # Accumulator for inference time and call count: {total_us, count}
@@ -208,62 +205,5 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     end
 
     Mix.shell().info("")
-  end
-
-  @padding_id 15_360
-
-  defp build_stub_state(num_items) when num_items >= 1 do
-    alias RecGPT.Inference
-    alias RecGPT.Serve
-    alias RecGPT.Trie
-
-    token_id_list =
-      Enum.map(0..(num_items - 1), fn i ->
-        [100 + i, 200 + i, 300 + i, 400 + i]
-      end)
-
-    trie = Trie.build(token_id_list)
-    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    params = %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
-
-    get_logits_fn = fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
-    end
-
-    # One batched forward per step instead of N; ~8–10x faster than fallback (map + stack).
-    get_logits_batch_fn = fn list_of_token_lists, _cache ->
-      max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
-
-      padded =
-        Enum.map(list_of_token_lists, fn tokens ->
-          len = length(tokens)
-          padding = List.duplicate(@padding_id, max_len - len)
-          padding ++ tokens
-        end)
-
-      batch = Nx.tensor(padded, type: {:s, 32})
-      {batch_size, seq_len} = Nx.shape(batch)
-      batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
-      logits = Inference.forward(batch, batch_aux, embed_mask, params)
-      {logits, nil}
-    end
-
-    %Serve{
-      params: params,
-      trie: trie,
-      token_id_list: token_id_list,
-      token_id_map: nil,
-      item_text: %{},
-      num_items: num_items,
-      get_logits_fn: get_logits_fn,
-      get_logits_batch_fn: get_logits_batch_fn
-    }
   end
 end

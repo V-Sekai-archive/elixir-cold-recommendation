@@ -10,8 +10,8 @@
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
 | **RecGPT.Inference** | Forward pass (training): token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
 | **RecGPT.InferenceParams** | Build defn-friendly full params (atom keys). Stub checkpoints get identity layers so one code path. |
-| **RecGPT.InferenceDefn** | Defn entry points for serve: `forward_with_cache/4`, `forward_incremental/5` (Torchx JIT). |
-| **RecGPT.Serve** | Load state (fixture + checkpoint); Torchx JIT. Implements `RecGPT.RecommendationService`. |
+| **RecGPT.InferenceDefn** | Defn entry points for serve: `forward_with_cache/4`, `forward_incremental/5` (EXLA JIT). |
+| **RecGPT.Serve** | Load state (fixture + checkpoint); EXLA. Implements `RecGPT.RecommendationService`. |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
 | **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |

@@ -21,41 +21,31 @@ mix deps.get
 mix compile
 ```
 
-- Default build is **CPU-only** (Nx/Torchx with `LIBTORCH_TARGET=cpu`).
-- For **CUDA**, set `LIBTORCH_TARGET` and (on Windows) `CUDA_PATH` before compiling; see next section.
+- Default Nx backend is **EXLA** (config in `config/config.exs`). EXLA can use `:host` (CPU) or `:cuda`.
+- For **CUDA**, set `EXLA_TARGET` (e.g. `cuda12`) before compiling; see next section.
 
 ---
 
 ## Building with CUDA
 
-To use the GPU backend (e.g. for faster training or inference):
+To use the GPU backend (e.g. for faster inference):
 
-1. **Set the LibTorch target** (e.g. CUDA 12.9):
+1. **Set the EXLA target** (e.g. CUDA 12):
    ```bash
-   export LIBTORCH_TARGET=cu129   # Linux/macOS
-   set LIBTORCH_TARGET=cu129      # Windows cmd
-   $env:LIBTORCH_TARGET = "cu129" # PowerShell
+   export EXLA_TARGET=cuda12   # Linux/macOS
+   set EXLA_TARGET=cuda12      # Windows cmd
+   $env:EXLA_TARGET = "cuda12" # PowerShell
    ```
 
-2. **Point to your CUDA install** (required so CMake finds `nvcc` and libraries):
-   - **Linux:** Ensure `nvcc` is on `PATH` or set `CUDAToolkit_ROOT` / `CUDA_PATH`.
-   - **Windows:** Set `CUDA_PATH` to your toolkit root, e.g.:
-     ```powershell
-     $env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9"
-     ```
+2. **Install CUDA** (required for EXLA CUDA client):
+   - **Linux:** Ensure CUDA toolkit is installed and `nvcc` is on `PATH` (or set `CUDAToolkit_ROOT` / `CUDA_PATH`). The devcontainer uses CUDA 12.9.
+   - **Windows:** Set `CUDA_PATH` to your toolkit root if needed.
 
 3. **Compile:**
    ```bash
+   mix deps.get
    mix compile --force
    ```
-
-On **Windows**, if you use **Visual Studio 2026 (or 18)** and see *"unsupported Microsoft Visual Studio version"* from `nvcc`, the project may rely on a **local patch** in `deps/torchx/mix.exs` that:
-
-- Passes the parent environment (e.g. `CUDA_PATH`, `PATH`) into the CMake build,
-- Sets `CMAKE_GENERATOR_TOOLSET=cuda=<CUDA_PATH>` for the Visual Studio generator,
-- Adds `-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler` so `nvcc` accepts the newer host compiler.
-
-That patch lives only in your checkout; it is overwritten if you run `mix deps.get` or `mix deps.update torchx`. Re-apply the same changes if you update the dependency.
 
 After a successful CUDA build, you can confirm the GPU is used with:
 
@@ -150,4 +140,4 @@ When adding features or changing behavior, update the relevant doc and the index
 4. **Changelog:** Add an entry to [CHANGELOG.md](CHANGELOG.md) under an “Unreleased” or version heading.
 5. **Versioning:** For releases, bump the version in [mix.exs](mix.exs) and tag (e.g. `v0.2.0`); see [README.md](README.md#versioning).
 
-If you change the CUDA/build path (e.g. torchx patch or env vars), document it in this file or in the README so others can reproduce the build.
+If you change the CUDA/build path (e.g. EXLA_TARGET or env vars), document it in this file or in the README so others can reproduce the build.

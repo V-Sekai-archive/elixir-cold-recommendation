@@ -23,7 +23,7 @@ defmodule RecGPT.Eval do
 
   **Performance:** Eval is inference-bound. Use `:batch_size` (or `--batch-size` in mix recgpt.eval)
   to run multiple test cases per batched forward (default 8); larger batches improve throughput.
-  Use `--progress N` for rate and ETA. GPU/CUDA (Torchx backend) speeds up the forward pass.
+  Use `--progress N` for rate and ETA. GPU/CUDA (EXLA backend) speeds up the forward pass.
 
   **SPMD** is the right design for scaling: same program on every rank, sharded test
   data (and optionally sharded catalog/model), then reduce metrics (sum h1, h5, h10,

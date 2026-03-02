@@ -30,7 +30,7 @@ Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `
 
 **Health / readiness:** When running `mix recgpt.serve`, an HTTP health server listens on port **50052** by default (override with `--health-port` or `RECGPT_HEALTH_PORT`). Any request (e.g. `GET http://localhost:50052/`) returns **200 OK** when `serve_state` is loaded, or **503 Service Unavailable** before state is ready. Use this for Kubernetes readiness probes or load-balancer health checks. Set `--health-port 0` to disable the health server.
 
-Nx can use the default backend (CPU) or Torchx if configured. For moderate traffic this is enough.
+Nx uses EXLA as the default backend (config in config.exs). For moderate traffic this is enough.
 
 ### Release and Docker
 

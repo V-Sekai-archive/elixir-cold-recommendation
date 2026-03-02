@@ -22,8 +22,8 @@ Industry-grade recommendation APIs typically target **single-digit to low double
 
 ### 4. **Backend and device**
 
-- **Config:** We use `Torchx.Backend` with `device: :cuda` when available. If CUDA is not available, Nx may fall back to a slower backend.
-- **Industry:** GPU for inference is standard; Torchx uses LibTorch (CPU or CUDA). Ensure the default Nx backend is using the desired device (e.g. `mix recgpt.check_gpu`).
+- **Config:** We use `EXLA.Backend` with `client: :cuda` when configured. If CUDA is not available, Nx uses the host (CPU) client.
+- **Industry:** GPU for inference is standard; EXLA uses XLA (CPU or CUDA). Ensure the default Nx backend and EXLA client are set (e.g. `mix recgpt.check_gpu`).
 
 ## Summary
 
@@ -34,4 +34,4 @@ Industry-grade recommendation APIs typically target **single-digit to low double
 | Per-token Nx.to_number sync | Extra latency | Mitigated by batching           |
 | Backend / GPU              | 10×+ if on CPU | Config + check_gpu              |
 
-After batching, expect **roughly 4–8× lower latency** per request (e.g. 4 forwards instead of 31). For further gains, add KV-cache and ensure GPU/Torchx is used when available.
+After batching, expect **roughly 4–8× lower latency** per request (e.g. 4 forwards instead of 31). For further gains, add KV-cache and ensure GPU/EXLA is used when available.

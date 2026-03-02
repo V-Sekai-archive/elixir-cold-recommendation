@@ -1,1 +1,1 @@
-# Dev: Torchx uses LibTorch (CPU or CUDA). GPU is used automatically when available.
+# Dev: EXLA uses config :exla, :default_client (:cuda or :host). GPU is used when client is :cuda.
