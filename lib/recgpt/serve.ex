@@ -17,27 +17,36 @@ defmodule RecGPT.Serve do
   @padding_id 15_360
   @max_length 255
   @seq_token_capacity 1024
+  @vocab_size 15_361
 
   defstruct [
     :params,
     :trie,
+    :trie_tensors,
     :token_id_list,
     :token_id_map,
+    :item_id_to_tokens_tensor,
     :item_text,
     :num_items,
     :get_logits_fn,
-    :get_logits_batch_fn
+    :get_logits_batch_fn,
+    :get_logits_batch_tensor_fn,
+    :inference_backend
   ]
 
   @type state :: %__MODULE__{
           params: map(),
           trie: map(),
+          trie_tensors: %{next_state: Nx.Tensor.t(), item_at_leaf: Nx.Tensor.t(), num_states: non_neg_integer()} | nil,
           token_id_list: [[non_neg_integer()]],
           token_id_map: %{non_neg_integer() => [non_neg_integer()]} | nil,
+          item_id_to_tokens_tensor: Nx.Tensor.t() | nil,
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
           get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
-          get_logits_batch_fn: ([[non_neg_integer()]] -> Nx.Tensor.t()) | nil
+          get_logits_batch_fn: (([[non_neg_integer()]], term()) -> {Nx.Tensor.t(), term()}) | nil,
+          get_logits_batch_tensor_fn: (Nx.Tensor.t(), term() -> {Nx.Tensor.t(), term()}) | nil,
+          inference_backend: term() | nil
         }
 
   @doc """
@@ -56,15 +65,29 @@ defmodule RecGPT.Serve do
       trie = Trie.build(token_id_list)
       get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
+      trie_tensors = Trie.to_tensors(trie, @vocab_size)
+      trie_tensors = transfer_trie_tensors(trie_tensors, inference_backend)
+
+      item_id_to_tokens_tensor =
+        token_id_list
+        |> Nx.tensor(type: {:s, 32})
+        |> Nx.backend_transfer(inference_backend)
+
+      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend)
+
       state = %__MODULE__{
         params: params,
         trie: trie,
+        trie_tensors: trie_tensors,
         token_id_list: token_id_list,
         token_id_map: nil,
+        item_id_to_tokens_tensor: item_id_to_tokens_tensor,
         item_text: item_text,
         num_items: num_items,
         get_logits_fn: get_logits_fn,
-        get_logits_batch_fn: get_logits_batch_fn
+        get_logits_batch_fn: get_logits_batch_fn,
+        get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
+        inference_backend: inference_backend
       }
 
       {:ok, state}
@@ -85,15 +108,29 @@ defmodule RecGPT.Serve do
          {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params, inference_backend) do
       get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
+      trie_tensors = Trie.to_tensors(trie, @vocab_size)
+      trie_tensors = transfer_trie_tensors(trie_tensors, inference_backend)
+
+      item_id_to_tokens_tensor =
+        for i <- 0..(num_items - 1), do: Map.get(token_id_map, i, [0, 0, 0, 0])
+        |> Nx.tensor(type: {:s, 32})
+        |> Nx.backend_transfer(inference_backend)
+
+      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend)
+
       state = %__MODULE__{
         params: params,
         trie: trie,
+        trie_tensors: trie_tensors,
         token_id_list: [],
         token_id_map: token_id_map,
+        item_id_to_tokens_tensor: item_id_to_tokens_tensor,
         item_text: item_text,
         num_items: num_items,
         get_logits_fn: get_logits_fn,
-        get_logits_batch_fn: get_logits_batch_fn
+        get_logits_batch_fn: get_logits_batch_fn,
+        get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
+        inference_backend: inference_backend
       }
 
       {:ok, state}
@@ -321,6 +358,44 @@ defmodule RecGPT.Serve do
     end
   end
 
+  defp transfer_trie_tensors(%{next_state: ns, item_at_leaf: ial}, backend) do
+    %{
+      next_state: Nx.backend_transfer(ns, backend),
+      item_at_leaf: Nx.backend_transfer(ial, backend),
+      num_states: Nx.shape(ns) |> elem(0)
+    }
+  end
+
+  defp build_get_logits_batch_tensor_fn(params, inference_backend) do
+    fn batch_tensor, cache ->
+      {batch_size, seq_len} = Nx.shape(batch_tensor)
+      aux =
+        Nx.broadcast(0.0, {batch_size, seq_len, 192})
+        |> Nx.as_type({:f, 32})
+        |> Nx.backend_transfer(inference_backend)
+      mask =
+        Nx.broadcast(1.0, {batch_size, seq_len, 1})
+        |> Nx.as_type({:f, 32})
+        |> Nx.backend_transfer(inference_backend)
+
+      if cache == nil do
+        Inference.forward_with_cache(batch_tensor, aux, mask, params)
+      else
+        last_tokens = batch_tensor |> Nx.slice_along_axis(seq_len - 1, 1, axis: 1)
+        aux_one =
+          Nx.broadcast(0.0, {batch_size, 1, 192})
+          |> Nx.as_type({:f, 32})
+          |> Nx.backend_transfer(inference_backend)
+        mask_one =
+          Nx.broadcast(1.0, {batch_size, 1, 1})
+          |> Nx.as_type({:f, 32})
+          |> Nx.backend_transfer(inference_backend)
+        cache_to_use = maybe_replicate_cache(cache, batch_size)
+        Inference.forward_incremental(last_tokens, aux_one, mask_one, params, cache_to_use)
+      end
+    end
+  end
+
   # Fallback when state has no get_logits_batch_fn (e.g. stub): one forward per sequence, then stack. Same API, no KV-cache.
   defp build_fallback_batch_fn(get_logits_fn) do
     fn list_of_token_lists, _cache ->
@@ -377,37 +452,44 @@ defmodule RecGPT.Serve do
   def recommend_batch(state, list_of_contexts, top_k \\ 5)
       when is_list(list_of_contexts) and is_integer(top_k) and top_k >= 1 do
     top_k = min(top_k, 20)
-    batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
 
-    non_empty =
-      list_of_contexts
-      |> Enum.with_index()
-      |> Enum.filter(fn {ctx, _} -> ctx != [] end)
-
-    if non_empty == [] do
-      Enum.map(list_of_contexts, fn _ -> {:error, "item_ids must be non-empty"} end)
-    else
-      context_token_ids =
-        Enum.map(non_empty, fn {ctx, _} -> item_ids_to_context_token_ids(ctx, state) end)
-
-      results =
-        Decode.beam_search_top_k_batched(state.trie, context_token_ids, top_k, batch_fn)
-
-      idx_to_result =
-        non_empty
-        |> Enum.zip(results)
-        |> Map.new(fn {{_, idx}, r} -> {idx, r} end)
-
-      Enum.map(0..(length(list_of_contexts) - 1), fn i ->
-        if Enum.at(list_of_contexts, i) == [] do
-          {:error, "item_ids must be non-empty"}
-        else
-          case Map.get(idx_to_result, i, :not_found) do
-            {:ok, list} -> {:ok, list}
-            :not_found -> {:ok, []}
-          end
-        end
+    if state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_batch_tensor_fn do
+      # SPMD path: one recommend (SPMD decode) per context
+      Enum.map(list_of_contexts, fn ctx ->
+        recommend(state, ctx, top_k)
       end)
+    else
+      batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
+      non_empty =
+        list_of_contexts
+        |> Enum.with_index()
+        |> Enum.filter(fn {ctx, _} -> ctx != [] end)
+
+      if non_empty == [] do
+        Enum.map(list_of_contexts, fn _ -> {:error, "item_ids must be non-empty"} end)
+      else
+        context_token_ids =
+          Enum.map(non_empty, fn {ctx, _} -> item_ids_to_context_token_ids(ctx, state) end)
+
+        results =
+          Decode.beam_search_top_k_batched(state.trie, context_token_ids, top_k, batch_fn)
+
+        idx_to_result =
+          non_empty
+          |> Enum.zip(results)
+          |> Map.new(fn {{_, idx}, r} -> {idx, r} end)
+
+        Enum.map(0..(length(list_of_contexts) - 1), fn i ->
+          if Enum.at(list_of_contexts, i) == [] do
+            {:error, "item_ids must be non-empty"}
+          else
+            case Map.get(idx_to_result, i, :not_found) do
+              {:ok, list} -> {:ok, list}
+              :not_found -> {:ok, []}
+            end
+          end
+        end)
+      end
     end
   end
 
@@ -422,16 +504,20 @@ defmodule RecGPT.Serve do
       {:error, "item_ids must be non-empty"}
     else
       top_k = min(top_k, 20)
+
       context_token_ids = item_ids_to_context_token_ids(item_ids, state)
       batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
 
-      case Decode.beam_search_top_k(
-             state.get_logits_fn,
-             state.trie,
-             context_token_ids,
-             top_k,
-             batch_fn
-           ) do
+      result =
+        Decode.beam_search_top_k(
+          state.get_logits_fn,
+          state.trie,
+          context_token_ids,
+          top_k,
+          batch_fn
+        )
+
+      case result do
         {:ok, list} -> {:ok, list}
         :not_found -> {:ok, []}
       end
