@@ -8,7 +8,8 @@ defmodule RecGPT.HealthServer do
     %{
       id: __MODULE__,
       start: {__MODULE__, :start_link, [port]},
-      type: :worker
+      type: :worker,
+      restart: :temporary
     }
   end
 
@@ -19,17 +20,14 @@ defmodule RecGPT.HealthServer do
 
   @spec start_link(non_neg_integer()) :: {:ok, pid()} | {:error, term()}
   def start_link(port) do
-    Task.start_link(fn -> accept_loop(port) end)
-  end
-
-  defp accept_loop(port) do
     case :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true]) do
       {:ok, listen_socket} ->
-        do_accept(listen_socket)
+        Task.start_link(fn -> do_accept(listen_socket) end)
 
       {:error, _} = err ->
         require Logger
-        Logger.warning("Health server failed to listen on #{port}: #{inspect(err)}")
+        Logger.warning("Health server failed to listen on #{port}: #{inspect(err)} (gRPC still available)")
+        err
     end
   end
 
