@@ -8,6 +8,8 @@ defmodule RecGPT.EmbeddingCompare do
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
   alias RecGPT.CheckpointLoader
+  alias RecGPT.Steam.CanonicalItemText
+  alias RecGPT.Repo
 
   @dataset_npy_url "https://huggingface.co/datasets/hkuds/RecGPT_dataset/resolve/main/test/steam/item_text_embeddings.npy"
 
@@ -18,9 +20,11 @@ defmodule RecGPT.EmbeddingCompare do
   Options:
   - :limit - max items to compare (default 500)
   - :text_format - :recgpt_item_text (default, builds \"'title': 'X'\") or :title_only (plain title string)
-  - :ckpt_dir - if set, also compare FSQ token agreement
+  - :ckpt_dir - if set, also compare FSQ token agreement (RecGPT export; often has no FSQ)
+  - :vae_ckpt - if set, load FSQ from VAE .pt and report FSQ token agreement + Steam FSQ sanity (dataset .npy + VAE)
   - :dump_row - if set, write this row of our embeddings to :dump_path as raw float32 (for Python sanity check)
   - :dump_path - path for dump (default: item{N}_elixir.raw)
+  - :canonical_texts - if set, load item texts from canonical_item_texts table (RecGPT-official bytes; run mix recgpt.dump_canonical_texts first)
   """
   def run(steam_dir, opts \\ []) do
     limit = Keyword.get(opts, :limit, 500)
@@ -29,7 +33,7 @@ defmodule RecGPT.EmbeddingCompare do
     items_path = Path.join(steam_dir, "items.json")
     npy_path = Path.join(steam_dir, "item_text_embeddings.npy")
 
-    unless File.regular?(items_path) do
+    unless opts[:canonical_texts] or File.regular?(items_path) do
       raise "items.json not found at #{items_path}. Run mix recgpt.fetch_steam first."
     end
 
@@ -37,10 +41,17 @@ defmodule RecGPT.EmbeddingCompare do
 
     Application.ensure_all_started(:nx)
     Application.ensure_all_started(:bumblebee)
+    if opts[:canonical_texts], do: Application.ensure_all_started(:recgpt)
 
-    texts = load_ordered_texts(items_path, limit, text_format)
+    texts =
+      if opts[:canonical_texts] do
+        CanonicalItemText.load_from_repo(Repo) |> Enum.take(limit)
+      else
+        load_ordered_texts(items_path, limit, text_format)
+      end
     n = length(texts)
-    IO.puts("Comparing #{n} items... (text_format=#{text_format})")
+    source = if opts[:canonical_texts], do: "canonical_texts", else: "text_format=#{text_format}"
+    IO.puts("Comparing #{n} items... (#{source})")
     report_first_strings(texts, 3)
 
     dataset = load_dataset_embeddings(npy_path, n)
@@ -59,7 +70,11 @@ defmodule RecGPT.EmbeddingCompare do
     report_cosine(cos_sim, n)
 
     if dump_row = opts[:dump_row], do: dump_row_to_file(ours, dump_row, n, opts[:dump_path])
-    if ckpt_dir = opts[:ckpt_dir], do: report_fsq(ours, dataset, ckpt_dir, n)
+    case {opts[:vae_ckpt], opts[:ckpt_dir]} do
+      {vae_path, _} when is_binary(vae_path) -> report_steam_fsq_and_agreement(ours, dataset, vae_path, n)
+      {nil, ckpt_dir} when is_binary(ckpt_dir) -> report_fsq(ours, dataset, ckpt_dir, n)
+      _ -> :ok
+    end
   end
 
   defp dump_row_to_file(ours, row_idx, n, path) do
@@ -216,6 +231,47 @@ defmodule RecGPT.EmbeddingCompare do
       end
     IO.puts("  Verdict: #{verdict}")
     IO.puts("")
+  end
+
+  defp report_steam_fsq_and_agreement(ours, dataset, vae_path, n) do
+    vae_path = Path.expand(vae_path, File.cwd!())
+    if not File.regular?(vae_path) do
+      IO.puts("(VAE checkpoint not found at #{vae_path}; run mix recgpt.fetch_vae_ckpt)")
+    else
+      params = FSQ.load_params_from_vae_pt(vae_path)
+    tokens_dataset = FSQEncoder.encode_embeddings_to_token_id_list(dataset, params)
+    vocab = FSQ.vocab_size()
+
+    # Steam FSQ: dataset .npy + VAE -> token_id_list; all must be in vocab range
+    all_in_range =
+      Enum.all?(tokens_dataset, fn four ->
+        is_list(four) and length(four) == 4 and Enum.all?(four, fn i -> i >= 0 and i < vocab end)
+      end)
+
+    IO.puts("=== Steam FSQ (dataset item_text_embeddings.npy + VAE) ===")
+    IO.puts("  VAE: #{vae_path}")
+    IO.puts("  All #{n} items have 4 token IDs in [0, #{vocab})? #{all_in_range}")
+    IO.puts("  First 5 items [t0,t1,t2,t3]:")
+    Enum.take(tokens_dataset, 5)
+    |> Enum.with_index(0)
+    |> Enum.each(fn {four, i} -> IO.puts("    [#{i}] #{inspect(four)}") end)
+    IO.puts("")
+
+    # Token agreement: ours (Bumblebee) vs dataset (.npy), same VAE FSQ
+    tokens_ours = FSQEncoder.encode_embeddings_to_token_id_list(ours, params)
+    same = Enum.zip(tokens_ours, tokens_dataset) |> Enum.count(fn {a, b} -> a == b end)
+    frac = same / n
+    IO.puts("=== FSQ token agreement (ours Bumblebee vs dataset .npy, same VAE FSQ) ===")
+    IO.puts("  #{same} / #{n} = #{Float.round(frac * 100, 1)}%")
+    IO.puts("  First 3 items [t0,t1,t2,t3] ours vs dataset:")
+    Enum.take(Enum.zip(tokens_ours, tokens_dataset), 3)
+    |> Enum.with_index(0)
+    |> Enum.each(fn {{ours_4, ds_4}, i} ->
+      match = if ours_4 == ds_4, do: " OK", else: " MISMATCH"
+      IO.puts("    [#{i}] ours=#{inspect(ours_4)}  dataset=#{inspect(ds_4)}#{match}")
+    end)
+    IO.puts("")
+    end
   end
 
   defp report_fsq(ours, dataset, ckpt_dir, n) do

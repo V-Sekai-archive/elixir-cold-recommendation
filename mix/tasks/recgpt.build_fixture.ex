@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: thirdparty/checkpoints/recgpt)
     * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). Use so FSQ token_id_list matches the Python pipeline (required for all-Elixir parity). Env: RECGPT_VAE_CKPT.
+    * `--canonical-texts` - Use item texts from canonical_item_texts table (default: on). Run mix recgpt.dump_canonical_texts first. Use `--no-canonical-texts` to use items.json text instead.
     * `--embeddings-npy` - Use this item_text_embeddings.npy from the dataset instead of encoding with Bumblebee (ensures token_id_list matches the released checkpoint)
     * `--limit` - Max items to process (default: 100; do not exceed per run to avoid NIF issues)
     * `--ramp` - Slowly increase limit from --ramp-start until all items or failure
@@ -34,6 +35,8 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
           out: :string,
           ckpt: :string,
           vae_ckpt: :string,
+          canonical_texts: :boolean,
+          no_canonical_texts: :boolean,
           embeddings_npy: :string,
           limit: :integer,
           ramp: :boolean,
@@ -82,6 +85,8 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     Mix.shell().info("Ramping limit: #{inspect(limits)} toward #{cap} items...")
 
     task_opts = []
+    canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
+    task_opts = if canonical_texts?, do: Keyword.put(task_opts, :canonical_texts, true), else: task_opts
     task_opts = if path = opts[:embeddings_npy], do: Keyword.put(task_opts, :embeddings_npy, path), else: task_opts
     task_opts = if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"), do: Keyword.put(task_opts, :vae_ckpt, Path.expand(path, File.cwd!())), else: task_opts
     last_ok =
@@ -119,6 +124,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   defp build_one(items_path, ckpt_dir, out_path, limit, task_opts) do
     opts = [limit: limit]
+    opts = if task_opts[:canonical_texts], do: Keyword.put(opts, :canonical_texts, true), else: opts
     opts = if path = task_opts[:embeddings_npy], do: Keyword.put(opts, :embeddings_npy, path), else: opts
     opts = if path = task_opts[:vae_ckpt], do: Keyword.put(opts, :vae_ckpt, path), else: opts
     opts =
@@ -152,15 +158,19 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       )
     end
 
+    canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
     Application.ensure_all_started(:nx)
+    if canonical_texts?, do: Application.ensure_all_started(:recgpt)
     unless opts[:embeddings_npy], do: Application.ensure_all_started(:bumblebee)
 
     npy_note = if opts[:embeddings_npy], do: " (using dataset embeddings)", else: ""
+    canonical_note = if canonical_texts?, do: " (canonical texts from DB)", else: ""
     Mix.shell().info(
-      "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}#{npy_note}..."
+      "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}#{npy_note}#{canonical_note}..."
     )
 
     build_opts = [limit: limit]
+    build_opts = if canonical_texts?, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
     build_opts = if path = opts[:embeddings_npy], do: Keyword.put(build_opts, :embeddings_npy, path), else: build_opts
     build_opts = if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"), do: Keyword.put(build_opts, :vae_ckpt, Path.expand(path, File.cwd!())), else: build_opts
     build_opts =

@@ -43,6 +43,15 @@ See [Pipeline](#pipeline), [docs/02_pipeline_overview.md](docs/02_pipeline_overv
 
 For best quality, **pretrain then eval**; zero-shot (pretrained ckpt only) is a baseline. See [docs/07_steam_splits_and_pretraining.md](docs/07_steam_splits_and_pretraining.md).
 
+**Canonical item texts (same input as official):** By default, `build_fixture` and `compare_embeddings` read item text from the `canonical_item_texts` SQLite table so both use the same bytes. To populate that table from Python (byte-exact match with the official script), run once:
+
+```bash
+mix ecto.migrate
+uv run python scripts/dump_canonical_to_sqlite.py --pkl data/steam/item_text_dict.pkl --verify
+```
+
+Use the same `--db` or `RECGPT_SQLITE_PATH` as Elixir. Then both inputs are from Python; no Python at runtime.
+
 ---
 
 ## Mix tasks

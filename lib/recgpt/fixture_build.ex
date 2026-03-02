@@ -13,6 +13,8 @@ defmodule RecGPT.FixtureBuild do
   alias RecGPT.Embedding
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
+  alias RecGPT.Steam.CanonicalItemText
+  alias RecGPT.Repo
 
   @sqlite_batch_size 100
 
@@ -32,7 +34,12 @@ defmodule RecGPT.FixtureBuild do
           String.t() => non_neg_integer() | [[non_neg_integer()]]
         }
   def build(items_path, ckpt_dir, opts \\ []) do
-    item_text_dict = load_item_text_dict(items_path, opts[:limit])
+    item_text_dict =
+      if opts[:canonical_texts] do
+        load_canonical_texts(opts[:limit])
+      else
+        load_item_text_dict(items_path, opts[:limit])
+      end
     sqlite? = opts[:sqlite] || System.get_env("RECGPT_SQLITE_PATH") != nil
 
     if sqlite? do
@@ -148,6 +155,14 @@ defmodule RecGPT.FixtureBuild do
       {_n, 1, 768} -> Nx.squeeze(tensor, axes: [1])
       shape -> raise "Unexpected .npy shape #{inspect(shape)}, expected {n, 768} or {n, 1, 768}"
     end
+  end
+
+  defp load_canonical_texts(limit) do
+    list = CanonicalItemText.load_from_repo(Repo)
+    list = if limit, do: Enum.take(list, limit), else: list
+    list
+    |> Enum.with_index(0)
+    |> Map.new(fn {text, idx} -> {idx, text} end)
   end
 
   defp load_item_text_dict(path, limit) do

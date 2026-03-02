@@ -13,6 +13,7 @@ erl_crash.dump
 # IDE
 .idea/
 .vscode/
+.cursor/
 
 # OS
 .DS_Store
