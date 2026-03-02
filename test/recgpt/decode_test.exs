@@ -76,12 +76,13 @@ defmodule RecGPT.DecodeTest do
       _ -> make_logits([0], [0.0])
     end
 
-    assert {:ok, list} = Decode.beam_search_top_k(get_logits, trie, [], 2)
+    batch_fn = batch_fn_from(get_logits)
+    assert {:ok, list} = Decode.beam_search_top_k(get_logits, trie, [], 2, batch_fn)
     assert length(list) <= 2
     assert list != []
     assert Enum.all?(list, fn id -> id in [0, 1, 2] end)
     assert list == Enum.uniq(list)
-    assert {:ok, list3} = Decode.beam_search_top_k(get_logits, trie, [], 3)
+    assert {:ok, list3} = Decode.beam_search_top_k(get_logits, trie, [], 3, batch_fn)
     assert length(list3) <= 3
     assert Enum.all?(list3, fn id -> id in [0, 1, 2] end)
     assert list3 == Enum.uniq(list3)
@@ -99,7 +100,8 @@ defmodule RecGPT.DecodeTest do
       _ -> make_logits([0], [0.0])
     end
 
-    assert {:ok, list} = Decode.beam_search_top_k(get_logits, trie, [], 1)
+    batch_fn = batch_fn_from(get_logits)
+    assert {:ok, list} = Decode.beam_search_top_k(get_logits, trie, [], 1, batch_fn)
     assert length(list) <= 1
     assert list == [] or length(list) == 1
   end
@@ -126,5 +128,15 @@ defmodule RecGPT.DecodeTest do
     Enum.reduce(Enum.zip(preferred_ids, preferred_scores), base, fn {id, score}, acc ->
       Nx.put_slice(acc, [0, id], Nx.tensor([[score]], type: {:f, 32}))
     end)
+  end
+
+  defp batch_fn_from(get_logits) do
+    fn list, _cache ->
+      logits =
+        list
+        |> Enum.map(fn seq -> get_logits.(seq) |> Nx.squeeze(axes: [0]) end)
+        |> Nx.stack(axis: 0)
+      {logits, nil}
+    end
   end
 end

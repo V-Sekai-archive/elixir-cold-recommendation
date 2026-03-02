@@ -44,6 +44,68 @@ defmodule RecGPT.Inference do
     apply_head(hidden, params)
   end
 
+  @doc """
+  Full forward and return KV-cache for the sequence. Use for the first decode step.
+  Returns `{logits, past_key_values}`. `past_key_values` is a list of `{k, v}` per layer,
+  each shape `(batch, n_head, seq_len, head_dim)`. When `gpt2_n_layers` is 0, returns `{logits, []}`.
+  """
+  @spec forward_with_cache(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map()) ::
+          {Nx.Tensor.t(), list({Nx.Tensor.t(), Nx.Tensor.t()})}
+  def forward_with_cache(batch_token_ids, batch_aux_embeds, embed_mask, params) do
+    case gpt2_n_layers(params) do
+      0 ->
+        hidden = forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params)
+        last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
+        last_hidden = hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
+        {apply_head(last_hidden, params), []}
+
+      n_layers ->
+        {hidden, cache} =
+          forward_hidden_with_cache(batch_token_ids, batch_aux_embeds, embed_mask, params, n_layers)
+
+        last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
+        last_hidden = hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
+        {apply_head(last_hidden, params), cache}
+    end
+  end
+
+  @doc """
+  Incremental forward for one new token using KV-cache. `batch_token_ids` must be `(batch, 1)`.
+  Returns `{logits, new_past_key_values}`. When `gpt2_n_layers` is 0, runs full forward on the single token.
+  """
+  @spec forward_incremental(
+          Nx.Tensor.t(),
+          Nx.Tensor.t(),
+          Nx.Tensor.t(),
+          map(),
+          list({Nx.Tensor.t(), Nx.Tensor.t()})
+        ) :: {Nx.Tensor.t(), list({Nx.Tensor.t(), Nx.Tensor.t()})}
+  def forward_incremental(batch_token_ids, batch_aux_embeds, embed_mask, params, past_key_values) do
+    case gpt2_n_layers(params) do
+      0 ->
+        logits = forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
+        {logits, []}
+
+      _n_layers when past_key_values == [] ->
+        logits = forward(batch_token_ids, batch_aux_embeds, embed_mask, params)
+        {logits, []}
+
+      n_layers ->
+        {hidden, new_cache} =
+          forward_hidden_incremental(
+            batch_token_ids,
+            batch_aux_embeds,
+            embed_mask,
+            params,
+            past_key_values,
+            n_layers
+          )
+
+        last_hidden = hidden |> Nx.squeeze(axes: [1])
+        {apply_head(last_hidden, params), new_cache}
+    end
+  end
+
   defp forward_hidden(batch_token_ids, batch_aux_embeds, embed_mask, params) do
     wte = get_wte(params)
     {batch, seq_len} = Nx.shape(batch_token_ids)
@@ -69,6 +131,41 @@ defmodule RecGPT.Inference do
     end
   end
 
+  defp forward_hidden_with_cache(batch_token_ids, batch_aux_embeds, embed_mask, params, n_layers) do
+    wte = get_wte(params)
+    {batch, seq_len} = Nx.shape(batch_token_ids)
+    flat_ids = Nx.reshape(batch_token_ids, {batch * seq_len})
+    token_embeds = Nx.gather(wte, Nx.new_axis(flat_ids, -1))
+    token_embeds = Nx.reshape(token_embeds, {batch, seq_len, @n_embd})
+    aux_768 = apply_aux_encoder(batch_aux_embeds, embed_mask, params)
+    combined = Nx.add(token_embeds, aux_768)
+    h = add_wpe(combined, params, seq_len)
+    {h, cache} = run_gpt2_blocks_with_cache(h, params, n_layers)
+    {apply_ln_f(h, params), cache}
+  end
+
+  defp forward_hidden_incremental(
+         batch_token_ids,
+         batch_aux_embeds,
+         embed_mask,
+         params,
+         past_key_values,
+         n_layers
+       ) do
+    wte = get_wte(params)
+    {batch, _seq_len} = Nx.shape(batch_token_ids)
+    # (batch, 1) -> embed
+    flat_ids = Nx.reshape(batch_token_ids, {batch})
+    token_embeds = Nx.gather(wte, Nx.new_axis(flat_ids, -1))
+    token_embeds = Nx.reshape(token_embeds, {batch, 1, @n_embd})
+    aux_768 = apply_aux_encoder(batch_aux_embeds, embed_mask, params)
+    combined = Nx.add(token_embeds, aux_768)
+    past_len = elem(Nx.shape(elem(Enum.at(past_key_values, 0), 0)), 2)
+    h = add_wpe_at_position(combined, params, past_len)
+    {h, new_cache} = run_gpt2_blocks_incremental(h, params, n_layers, past_key_values)
+    {apply_ln_f(h, params), new_cache}
+  end
+
   defp add_wpe(hidden, params, seq_len) do
     wpe =
       params["gpt2model.wpe"] || params["gpt2model.wpe.weight"] || params["transformer.wpe"] ||
@@ -83,6 +180,21 @@ defmodule RecGPT.Inference do
         indices = Nx.iota({seq_len}, type: {:s, 32})
         pe = Nx.gather(wpe, Nx.new_axis(indices, -1))
         pe = Nx.reshape(pe, {1, seq_len, @n_embd})
+        Nx.add(hidden, pe)
+    end
+  end
+
+  defp add_wpe_at_position(hidden, params, position) do
+    wpe =
+      params["gpt2model.wpe"] || params["gpt2model.wpe.weight"] || params["transformer.wpe"] ||
+        params["transformer.wpe.weight"]
+
+    case wpe do
+      nil -> hidden
+      _ ->
+        # hidden (batch, 1, 768); add pe at position
+        pe_row = Nx.slice_along_axis(wpe, position, 1, axis: 0)
+        pe = Nx.reshape(pe_row, {1, 1, @n_embd})
         Nx.add(hidden, pe)
     end
   end
@@ -131,6 +243,25 @@ defmodule RecGPT.Inference do
     end)
   end
 
+  defp run_gpt2_blocks_with_cache(hidden, params, n_layers) do
+    prefix = gpt2_prefix(params)
+
+    Enum.reduce(0..(n_layers - 1), {hidden, []}, fn i, {h, acc_cache} ->
+      {out, kv} = gpt2_block_with_cache(h, params, prefix, i)
+      {out, acc_cache ++ [kv]}
+    end)
+  end
+
+  defp run_gpt2_blocks_incremental(hidden, params, n_layers, past_key_values) do
+    prefix = gpt2_prefix(params)
+
+    Enum.reduce(Enum.zip(0..(n_layers - 1), past_key_values), {hidden, []}, fn {i, {past_k, past_v}},
+                                                                                 {h, acc_cache} ->
+      {out, new_kv} = gpt2_block_incremental(h, params, prefix, i, past_k, past_v)
+      {out, acc_cache ++ [new_kv]}
+    end)
+  end
+
   defp gpt2_block(hidden, params, prefix, i) do
     base = prefix <> "h.#{i}."
     # Pre-norm attention: h = h + attn(ln_1(h))
@@ -145,6 +276,34 @@ defmodule RecGPT.Inference do
     mlp_in = if ln2_w && ln2_b, do: layer_norm(h, ln2_w, ln2_b), else: h
     mlp_out = gpt2_mlp(mlp_in, params, base)
     Nx.add(h, mlp_out)
+  end
+
+  defp gpt2_block_with_cache(hidden, params, prefix, i) do
+    base = prefix <> "h.#{i}."
+    ln1_w = params[base <> "ln_1.weight"]
+    ln1_b = params[base <> "ln_1.bias"]
+    attn_in = if ln1_w && ln1_b, do: layer_norm(hidden, ln1_w, ln1_b), else: hidden
+    {attn_out, kv} = gpt2_attn_with_cache(attn_in, params, base)
+    h = Nx.add(hidden, attn_out)
+    ln2_w = params[base <> "ln_2.weight"]
+    ln2_b = params[base <> "ln_2.bias"]
+    mlp_in = if ln2_w && ln2_b, do: layer_norm(h, ln2_w, ln2_b), else: h
+    mlp_out = gpt2_mlp(mlp_in, params, base)
+    {Nx.add(h, mlp_out), kv}
+  end
+
+  defp gpt2_block_incremental(hidden, params, prefix, i, past_k, past_v) do
+    base = prefix <> "h.#{i}."
+    ln1_w = params[base <> "ln_1.weight"]
+    ln1_b = params[base <> "ln_1.bias"]
+    attn_in = if ln1_w && ln1_b, do: layer_norm(hidden, ln1_w, ln1_b), else: hidden
+    {attn_out, new_kv} = gpt2_attn_incremental(attn_in, params, base, past_k, past_v)
+    h = Nx.add(hidden, attn_out)
+    ln2_w = params[base <> "ln_2.weight"]
+    ln2_b = params[base <> "ln_2.bias"]
+    mlp_in = if ln2_w && ln2_b, do: layer_norm(h, ln2_w, ln2_b), else: h
+    mlp_out = gpt2_mlp(mlp_in, params, base)
+    {Nx.add(h, mlp_out), new_kv}
   end
 
   defp gpt2_attn(x, params, base) do
@@ -214,6 +373,115 @@ defmodule RecGPT.Inference do
     c_proj_w = ensure_shape(c_proj_w, {@n_embd, @n_embd})
     out = Nx.dot(out, [2], c_proj_w, [1])
     if c_proj_b, do: Nx.add(out, Nx.reshape(c_proj_b, {1, 1, @n_embd})), else: out
+  end
+
+  defp gpt2_attn_with_cache(x, params, base) do
+    c_attn_w = params[base <> "attn.c_attn.weight"]
+    c_attn_b = params[base <> "attn.c_attn.bias"]
+    unless c_attn_w, do: raise("missing #{base}attn.c_attn.weight")
+    c_attn_w = ensure_shape(c_attn_w, {2304, @n_embd})
+    qkv = Nx.dot(x, [2], c_attn_w, [1])
+    qkv = if c_attn_b, do: Nx.add(qkv, Nx.reshape(c_attn_b, {1, 1, 2304})), else: qkv
+    {batch, seq, _} = Nx.shape(qkv)
+    q = qkv |> Nx.slice_along_axis(0, @n_embd, axis: 2)
+    k = qkv |> Nx.slice_along_axis(@n_embd, @n_embd, axis: 2)
+    v = qkv |> Nx.slice_along_axis(2 * @n_embd, @n_embd, axis: 2)
+    q = Nx.reshape(q, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    k = Nx.reshape(k, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+    q_flat = Nx.reshape(q, {batch * @n_head, seq, @head_dim})
+    k_flat = Nx.reshape(k, {batch * @n_head, seq, @head_dim}) |> Nx.transpose(axes: [0, 2, 1])
+    scores =
+      for i <- 0..(batch * @n_head - 1) do
+        q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        k_i = k_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        Nx.dot(q_i, [1], k_i, [0]) |> Nx.divide(scale)
+      end
+      |> Nx.stack(axis: 0)
+    scores = Nx.reshape(scores, {batch, @n_head, seq, seq})
+    row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
+    col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
+    mask = Nx.greater(col, row)
+    mask =
+      Nx.select(
+        mask,
+        Nx.broadcast(Nx.tensor(-1.0e10, type: {:f, 32}), {seq, seq}),
+        Nx.broadcast(0.0, {seq, seq})
+      )
+    mask = Nx.reshape(mask, {1, 1, seq, seq}) |> Nx.as_type({:f, 32})
+    scores = Nx.add(scores, mask)
+    e = Nx.exp(scores)
+    probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
+    probs_flat = Nx.reshape(probs, {batch * @n_head, seq, seq})
+    v_flat = Nx.reshape(v, {batch * @n_head, seq, @head_dim})
+    out =
+      for i <- 0..(batch * @n_head - 1) do
+        p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        v_i = v_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        Nx.dot(p_i, [1], v_i, [0])
+      end
+      |> Nx.stack(axis: 0)
+    out =
+      Nx.reshape(out, {batch, @n_head, seq, @head_dim})
+      |> Nx.transpose(axes: [0, 2, 1, 3])
+      |> Nx.reshape({batch, seq, @n_embd})
+    c_proj_w = params[base <> "attn.c_proj.weight"]
+    c_proj_b = params[base <> "attn.c_proj.bias"]
+    c_proj_w = ensure_shape(c_proj_w, {@n_embd, @n_embd})
+    out = Nx.dot(out, [2], c_proj_w, [1])
+    out = if c_proj_b, do: Nx.add(out, Nx.reshape(c_proj_b, {1, 1, @n_embd})), else: out
+    {out, {k, v}}
+  end
+
+  defp gpt2_attn_incremental(x, params, base, past_k, past_v) do
+    # x: (batch, 1, 768); past_k, past_v: (batch, n_head, past_len, head_dim)
+    c_attn_w = params[base <> "attn.c_attn.weight"]
+    c_attn_b = params[base <> "attn.c_attn.bias"]
+    unless c_attn_w, do: raise("missing #{base}attn.c_attn.weight")
+    c_attn_w = ensure_shape(c_attn_w, {2304, @n_embd})
+    qkv = Nx.dot(x, [2], c_attn_w, [1])
+    qkv = if c_attn_b, do: Nx.add(qkv, Nx.reshape(c_attn_b, {1, 1, 2304})), else: qkv
+    {batch, _seq, _} = Nx.shape(qkv)
+    q = qkv |> Nx.slice_along_axis(0, @n_embd, axis: 2)
+    k = qkv |> Nx.slice_along_axis(@n_embd, @n_embd, axis: 2)
+    v = qkv |> Nx.slice_along_axis(2 * @n_embd, @n_embd, axis: 2)
+    q = Nx.reshape(q, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    k = Nx.reshape(k, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    v = Nx.reshape(v, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
+    new_k = Nx.concatenate([past_k, k], axis: 2)
+    new_v = Nx.concatenate([past_v, v], axis: 2)
+    scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+    seq_len = elem(Nx.shape(new_k), 2)
+    q_flat = Nx.reshape(q, {batch * @n_head, 1, @head_dim})
+    k_flat = Nx.reshape(new_k, {batch * @n_head, seq_len, @head_dim})
+    scores_flat =
+      for i <- 0..(batch * @n_head - 1) do
+        q_i = q_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        k_i = k_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        Nx.dot(q_i, [1], k_i, [1]) |> Nx.divide(scale)
+      end
+      |> Nx.stack(axis: 0)
+    scores = Nx.reshape(scores_flat, {batch, @n_head, 1, seq_len})
+    e = Nx.exp(scores)
+    probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
+    probs_flat = Nx.reshape(probs, {batch * @n_head, 1, seq_len})
+    v_flat = Nx.reshape(new_v, {batch * @n_head, seq_len, @head_dim})
+    out_flat =
+      for i <- 0..(batch * @n_head - 1) do
+        p_i = probs_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        v_i = v_flat |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+        Nx.dot(p_i, [1], v_i, [0])
+      end
+      |> Nx.stack(axis: 0)
+    out = Nx.reshape(out_flat, {batch, @n_head, 1, @head_dim})
+    out = Nx.transpose(out, axes: [0, 2, 1, 3]) |> Nx.reshape({batch, 1, @n_embd})
+    c_proj_w = params[base <> "attn.c_proj.weight"]
+    c_proj_b = params[base <> "attn.c_proj.bias"]
+    c_proj_w = ensure_shape(c_proj_w, {@n_embd, @n_embd})
+    out = Nx.dot(out, [2], c_proj_w, [1])
+    out = if c_proj_b, do: Nx.add(out, Nx.reshape(c_proj_b, {1, 1, @n_embd})), else: out
+    {out, {new_k, new_v}}
   end
 
   defp gpt2_mlp(x, params, base) do

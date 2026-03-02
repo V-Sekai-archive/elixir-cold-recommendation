@@ -62,22 +62,34 @@ defmodule RecGPT.Decode do
   @doc """
   Like `beam_search/4` but returns up to `top_k` item_ids, sorted by score (best first).
   Deduplicates by item_id (keeps highest-scoring). Uses `beam_width = max(4, top_k)` internally.
-  Returns `{:ok, [item_id, ...]}` or `:not_found`.
+
+  Requires `batch_fn` (2-arity: list of token lists, cache -> {logits, new_cache}) so inference
+  always uses the batched path (one forward per step). No unbatched fallback.
   """
   @spec beam_search_top_k(
           (list(non_neg_integer()) -> Nx.Tensor.t()),
           map(),
           [non_neg_integer()],
-          pos_integer()
+          pos_integer(),
+          ([[non_neg_integer()]], term() -> {Nx.Tensor.t(), term()})
         ) :: {:ok, [non_neg_integer()]} | :not_found
-  def beam_search_top_k(get_logits_fn, trie, context_token_ids, top_k)
+  def beam_search_top_k(_get_logits_fn, _trie, _context_token_ids, _top_k, batch_fn)
+      when not is_function(batch_fn, 2) do
+    raise ArgumentError,
+      "beam_search_top_k/5 requires batch_fn (2-arity: list, cache -> {logits, new_cache}). " <>
+        "No unbatched path. Use Serve.recommend/3 or provide a batched inference function."
+  end
+
+  def beam_search_top_k(get_logits_fn, trie, context_token_ids, top_k, batch_fn)
       when is_function(get_logits_fn, 1) and is_map(trie) and top_k >= 1 do
     beam_width = max(4, top_k)
 
-    beam =
-      Enum.reduce(0..(@seq_len - 1), [{[], 0.0}], fn _step, current_beam ->
-        expand_beam(get_logits_fn, trie, context_token_ids, current_beam, beam_width)
+    {final_beam, _cache} =
+      Enum.reduce(0..(@seq_len - 1), {[{[], 0.0}], nil}, fn _step, {current_beam, cache} ->
+        expand_beam_batched(batch_fn, trie, context_token_ids, current_beam, beam_width, cache)
       end)
+
+    beam = final_beam
 
     candidates =
       beam
@@ -109,7 +121,7 @@ defmodule RecGPT.Decode do
         if valid == [] do
           []
         else
-          # logits shape {1, vocab_size}; take log_softmax for numerical stability, then pick valid token scores
+          # logits shape {1, vocab_size}; pick valid token scores
           logits_1d = logits |> Nx.squeeze(axes: [0])
 
           for token_id <- valid do
@@ -128,5 +140,50 @@ defmodule RecGPT.Decode do
     all_candidates
     |> Enum.sort_by(fn {_, s} -> s end, :desc)
     |> Enum.take(beam_width)
+  end
+
+  defp expand_beam_batched(batch_fn, trie, context_token_ids, beam, beam_width, cache) do
+    # One forward pass for all beam candidates (with optional KV-cache); then score and prune.
+    full_prefixes = Enum.map(beam, fn {prefix, _} -> context_token_ids ++ prefix end)
+    {logits, new_cache} = batch_fn.(full_prefixes, cache)
+    # logits: {batch_size, vocab_size}
+    {batch_size, vocab_size} = Nx.shape(logits)
+
+    # Build flat list of {batch_idx, token_id, prefix, parent_score} for every (candidate, valid_token).
+    entries =
+      Enum.flat_map(0..(batch_size - 1), fn i ->
+        {prefix, parent_score} = Enum.at(beam, i)
+        valid = Trie.valid_next_tokens(trie, prefix)
+
+        Enum.map(valid, fn token_id ->
+          {i, token_id, prefix, parent_score}
+        end)
+      end)
+
+    if entries == [] do
+      {beam, new_cache}
+    else
+      # Single batched gather: index = batch_idx * vocab_size + token_id (row-major).
+      flat_indices =
+        Enum.map(entries, fn {b, t, _, _} -> b * vocab_size + t end)
+
+      flat_logits = Nx.reshape(logits, {batch_size * vocab_size})
+      indices_t = Nx.tensor(flat_indices, type: {:s, 64})
+      scores_t = Nx.gather(flat_logits, Nx.new_axis(indices_t, -1)) |> Nx.squeeze()
+      scores_list = Nx.to_list(scores_t)
+
+      all_candidates =
+        Enum.zip(entries, scores_list)
+        |> Enum.map(fn {{_b, token_id, prefix, parent_score}, logit} ->
+          {prefix ++ [token_id], parent_score + logit}
+        end)
+
+      result_beam =
+        all_candidates
+        |> Enum.sort_by(fn {_, s} -> s end, :desc)
+        |> Enum.take(beam_width)
+
+      {result_beam, new_cache}
+    end
   end
 end

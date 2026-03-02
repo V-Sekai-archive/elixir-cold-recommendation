@@ -25,7 +25,8 @@ defmodule RecGPT.Serve do
     :token_id_map,
     :item_text,
     :num_items,
-    :get_logits_fn
+    :get_logits_fn,
+    :get_logits_batch_fn
   ]
 
   @type state :: %__MODULE__{
@@ -35,7 +36,8 @@ defmodule RecGPT.Serve do
           token_id_map: %{non_neg_integer() => [non_neg_integer()]} | nil,
           item_text: %{non_neg_integer() => String.t() | map()},
           num_items: non_neg_integer(),
-          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t())
+          get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
+          get_logits_batch_fn: ([[non_neg_integer()]] -> Nx.Tensor.t()) | nil
         }
 
   @doc """
@@ -50,6 +52,7 @@ defmodule RecGPT.Serve do
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       trie = Trie.build(token_id_list)
       get_logits_fn = build_get_logits_fn(params)
+      get_logits_batch_fn = build_get_logits_batch_fn(params)
 
       state = %__MODULE__{
         params: params,
@@ -58,7 +61,8 @@ defmodule RecGPT.Serve do
         token_id_map: nil,
         item_text: item_text,
         num_items: num_items,
-        get_logits_fn: get_logits_fn
+        get_logits_fn: get_logits_fn,
+        get_logits_batch_fn: get_logits_batch_fn
       }
 
       {:ok, state}
@@ -75,6 +79,7 @@ defmodule RecGPT.Serve do
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       get_logits_fn = build_get_logits_fn(params)
+      get_logits_batch_fn = build_get_logits_batch_fn(params)
 
       state = %__MODULE__{
         params: params,
@@ -83,7 +88,8 @@ defmodule RecGPT.Serve do
         token_id_map: token_id_map,
         item_text: item_text,
         num_items: num_items,
-        get_logits_fn: get_logits_fn
+        get_logits_fn: get_logits_fn,
+        get_logits_batch_fn: get_logits_batch_fn
       }
 
       {:ok, state}
@@ -179,6 +185,75 @@ defmodule RecGPT.Serve do
     end
   end
 
+  defp build_get_logits_batch_fn(params) do
+    fn list_of_token_lists, cache
+       when is_list(list_of_token_lists) and list_of_token_lists != [] ->
+      max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
+      padded =
+        Enum.map(list_of_token_lists, fn tokens ->
+          len = length(tokens)
+          padding = List.duplicate(@padding_id, max_len - len)
+          padding ++ tokens
+        end)
+      batch = Nx.tensor(padded, type: {:s, 32})
+      {batch_size, seq_len} = Nx.shape(batch)
+      batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
+
+      if cache == nil do
+        # Full forward and capture KV-cache for next steps (when Inference has GPT-2 layers).
+        case Inference.forward_with_cache(batch, batch_aux, embed_mask, params) do
+          {logits, []} -> {logits, nil}
+          {logits, new_cache} -> {logits, new_cache}
+        end
+      else
+        # Incremental: only run the last token through with past KV-cache.
+        last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
+        batch_one = Nx.tensor(last_tokens, type: {:s, 32})
+        aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
+        mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
+        # If cache has batch=1 and we have beam_width, replicate cache.
+        cache_to_use = maybe_replicate_cache(cache, batch_size)
+        {logits, new_cache} =
+          Inference.forward_incremental(batch_one, aux_one, mask_one, params, cache_to_use)
+        {logits, new_cache}
+      end
+    end
+  end
+
+  defp replicate_cache(cache, batch_size) do
+    Enum.map(cache, fn {k, v} ->
+      {b, n_head, len, hd} = Nx.shape(k)
+      if b == 1 do
+        k_exp = Nx.broadcast(k, {batch_size, n_head, len, hd})
+        v_exp = Nx.broadcast(v, {batch_size, n_head, len, hd})
+        {k_exp, v_exp}
+      else
+        {k, v}
+      end
+    end)
+  end
+
+  defp maybe_replicate_cache(cache, batch_size) do
+    case cache do
+      [] -> []
+      [{k, _} | _] ->
+        b = elem(Nx.shape(k), 0)
+        if b == 1 and batch_size > 1, do: replicate_cache(cache, batch_size), else: cache
+    end
+  end
+
+  # Fallback when state has no get_logits_batch_fn (e.g. stub): one forward per sequence, then stack. Same API, no KV-cache.
+  defp build_fallback_batch_fn(get_logits_fn) do
+    fn list_of_token_lists, _cache ->
+      logits =
+        list_of_token_lists
+        |> Enum.map(fn seq -> get_logits_fn.(seq) |> Nx.squeeze(axes: [0]) end)
+        |> Nx.stack(axis: 0)
+      {logits, nil}
+    end
+  end
+
   @doc """
   Convert item_ids (catalog indices) to left-padded token sequence for inference (same as Python serve seq_to_batch).
   Uses state.token_id_list when present, else state.token_id_map (when loaded from DB).
@@ -224,8 +299,15 @@ defmodule RecGPT.Serve do
     else
       top_k = min(top_k, 20)
       context_token_ids = item_ids_to_context_token_ids(item_ids, state)
+      batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
 
-      case Decode.beam_search_top_k(state.get_logits_fn, state.trie, context_token_ids, top_k) do
+      case Decode.beam_search_top_k(
+             state.get_logits_fn,
+             state.trie,
+             context_token_ids,
+             top_k,
+             batch_fn
+           ) do
         {:ok, list} -> {:ok, list}
         :not_found -> {:ok, []}
       end
