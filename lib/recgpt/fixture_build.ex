@@ -186,7 +186,6 @@ defmodule RecGPT.FixtureBuild do
 
   defp load_fsq_params(_ckpt_dir, opts) do
     vae_path = resolve_vae_ckpt_path(opts)
-
     unless vae_path do
       raise "VAE checkpoint required for FSQ. No VAE path found (tried --vae-ckpt, RECGPT_VAE_CKPT, " <>
               "thirdparty/checkpoints/vae/#{@vae_default_filename}, data/#{@vae_default_filename}). " <>
@@ -194,7 +193,6 @@ defmodule RecGPT.FixtureBuild do
     end
 
     params = FSQ.load_params_from_vae_pt(vae_path)
-
     if fsq_params_ok?(params) and not fsq_params_dummy?(params) do
       params
     else
@@ -215,18 +213,15 @@ defmodule RecGPT.FixtureBuild do
 
       true ->
         cwd = File.cwd!()
-
-        [
-          Path.join([cwd, "thirdparty", "checkpoints", "vae", @vae_default_filename]),
-          Path.join([cwd, "data", @vae_default_filename])
-        ]
+        [Path.join([cwd, "thirdparty", "checkpoints", "vae", @vae_default_filename]),
+         Path.join([cwd, "data", @vae_default_filename])]
         |> Enum.find(&File.regular?/1)
     end
   end
 
   defp fsq_params_dummy?(%{"project_in" => %{"kernel" => k}, "project_out" => %{"kernel" => o}}) do
     Nx.all_close(k, Nx.broadcast(0.0, Nx.shape(k))) |> Nx.to_number() == 1 and
-      Nx.all_close(o, Nx.broadcast(0.0, Nx.shape(o))) |> Nx.to_number() == 1
+      (Nx.all_close(o, Nx.broadcast(0.0, Nx.shape(o))) |> Nx.to_number() == 1)
   end
 
   defp fsq_params_dummy?(_), do: true

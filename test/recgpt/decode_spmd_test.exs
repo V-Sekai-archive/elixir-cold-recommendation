@@ -21,7 +21,6 @@ defmodule RecGPT.DecodeSPMDTest do
           seq = Enum.map(List.flatten([row]), &round/1)
           {ids, scores} = Map.get(spec, seq, {[0], [0.0]})
           base = Nx.broadcast(-100.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
-
           Enum.zip(ids, scores)
           |> Enum.reduce(base, fn {id, score}, acc ->
             Nx.put_slice(acc, [0, id], Nx.tensor([[score]], type: {:f, 32}))
@@ -38,20 +37,16 @@ defmodule RecGPT.DecodeSPMDTest do
     tensors = Trie.to_tensors(trie, @vocab_size)
     item_id_to_tokens = Nx.tensor(token_id_list, type: {:s, 32})
     backend = Nx.BinaryBackend
-
     trie_tensors = %{
       next_state: Nx.backend_transfer(tensors.next_state, backend),
       item_at_leaf: Nx.backend_transfer(tensors.item_at_leaf, backend)
     }
-
     item_id_to_tokens = Nx.backend_transfer(item_id_to_tokens, backend)
     stub = stub_from_seq_spec(spec, backend)
 
     previous = Nx.default_backend()
-
     try do
       Nx.default_backend(Nx.BinaryBackend)
-
       Decode.beam_search_top_k_spmd(
         trie_tensors,
         item_id_to_tokens,
@@ -81,7 +76,6 @@ defmodule RecGPT.DecodeSPMDTest do
       assert s3 >= 0, "next_state[#{s2}, #{t2}] = #{s3}"
 
       tensor_item = tensor_at(item_at_leaf, s3, t3)
-
       assert tensor_item == expected_item_id,
              "item_at_leaf[#{s3}, #{t3}] = #{tensor_item}, expected #{expected_item_id}"
     end
@@ -119,7 +113,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [1, 2, 3, 4],
         [10, 20, 30, 40]
       ]
-
       # Empty context uses padding token 0, so stub receives [0]
       spec = %{
         [0] => {[1, 10], [10.0, 0.0]},
@@ -130,7 +123,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [10, 20] => {[30], [5.0]},
         [10, 20, 30] => {[40], [5.0]}
       }
-
       {:ok, list} = run_spmd_with_stub(token_id_list, [], 2, spec)
       assert hd(list) == 0
     end
@@ -140,14 +132,12 @@ defmodule RecGPT.DecodeSPMDTest do
         [1, 2, 3, 4],
         [10, 20, 30, 40]
       ]
-
       spec = %{
         [0] => {[1, 10], [0.0, 10.0]},
         [10] => {[20], [5.0]},
         [10, 20] => {[30], [5.0]},
         [10, 20, 30] => {[40], [5.0]}
       }
-
       {:ok, list} = run_spmd_with_stub(token_id_list, [], 2, spec)
       assert hd(list) == 1
     end
@@ -157,7 +147,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [1, 2, 3, 4],
         [10, 20, 30, 40]
       ]
-
       # Context [0] = item 0 tokens [1,2,3,4]. Next we predict first token of next item.
       spec = %{
         [1, 2, 3, 4] => {[1, 10], [0.0, 8.0]},
@@ -165,7 +154,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [1, 2, 3, 4, 10, 20] => {[30], [5.0]},
         [1, 2, 3, 4, 10, 20, 30] => {[40], [5.0]}
       }
-
       {:ok, list} = run_spmd_with_stub(token_id_list, [0], 2, spec)
       assert 1 in list and hd(list) == 1
     end
@@ -177,25 +165,20 @@ defmodule RecGPT.DecodeSPMDTest do
       # Empty catalog: item_id_to_tokens needs >=1 row for gather; use dummy row
       item_id_to_tokens = Nx.tensor([[0, 0, 0, 0]], type: {:s, 32})
       backend = Nx.BinaryBackend
-
       trie_tensors = %{
         next_state: Nx.backend_transfer(tensors.next_state, backend),
         item_at_leaf: Nx.backend_transfer(tensors.item_at_leaf, backend)
       }
-
       item_id_to_tokens = Nx.backend_transfer(item_id_to_tokens, backend)
-
       stub = fn batch, nil ->
         {b, _} = Nx.shape(batch)
         {Nx.broadcast(0.0, {b, @vocab_size}) |> Nx.as_type({:f, 32}), nil}
       end
 
       previous = Nx.default_backend()
-
       result =
         try do
           Nx.default_backend(Nx.BinaryBackend)
-
           Decode.beam_search_top_k_spmd(
             trie_tensors,
             item_id_to_tokens,
@@ -218,7 +201,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [10, 20, 30, 40],
         [5, 6, 7, 8]
       ]
-
       spec = %{
         [0] => {[1, 10, 5], [3.0, 2.0, 1.0]},
         [1] => {[2], [1.0]},
@@ -231,7 +213,6 @@ defmodule RecGPT.DecodeSPMDTest do
         [5, 6] => {[7], [1.0]},
         [5, 6, 7] => {[8], [1.0]}
       }
-
       {:ok, list} = run_spmd_with_stub(token_id_list, [], 2, spec)
       assert length(list) <= 2
       assert list != []
@@ -252,31 +233,22 @@ defmodule RecGPT.DecodeSPMDTest do
       stub_fn = fn batch, nil ->
         {batch_size, _} = Nx.shape(batch)
         logits = Nx.broadcast(0.0, {batch_size, @vocab_size}) |> Nx.as_type({:f, 32})
-
         logits =
           Enum.reduce(valid_tokens, logits, fn t, acc ->
-            Nx.put_slice(
-              acc,
-              [0, t],
-              Nx.broadcast(Nx.tensor(1.0, type: {:f, 32}), {batch_size, 1})
-            )
+            Nx.put_slice(acc, [0, t], Nx.broadcast(Nx.tensor(1.0, type: {:f, 32}), {batch_size, 1}))
           end)
-
         {logits, nil}
       end
 
       previous_backend = Nx.default_backend()
-
       try do
         Nx.default_backend(Nx.BinaryBackend)
 
         backend = Nx.BinaryBackend
-
         trie_tensors = %{
           next_state: Nx.backend_transfer(tensors.next_state, backend),
           item_at_leaf: Nx.backend_transfer(tensors.item_at_leaf, backend)
         }
-
         item_id_to_tokens = Nx.backend_transfer(item_id_to_tokens, backend)
 
         result =
@@ -292,7 +264,6 @@ defmodule RecGPT.DecodeSPMDTest do
 
         assert {:ok, list} = result
         assert length(list) >= 1
-
         assert Enum.all?(list, fn id -> id in 0..(num_items - 1) end),
                "SPMD returned item_ids #{inspect(list)}; all must be in 0..#{num_items - 1}"
       after

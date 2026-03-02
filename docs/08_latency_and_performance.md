@@ -29,11 +29,11 @@ Industry-grade recommendation APIs typically target **single-digit to low double
 
 ## Summary
 
-| Gap                         | Impact                   | Status                                       |
-| --------------------------- | ------------------------ | -------------------------------------------- |
-| No batched beam inference   | ~8× too many forwards    | **Fixed** (batched expand_beam)              |
-| No KV-cache                 | Extra recompute per step | **Fixed** (forward_with_cache + incremental) |
-| Per-token Nx.to_number sync | Extra latency            | Mitigated by batching                        |
-| Backend / GPU               | 10×+ if on CPU           | Config + check_gpu                           |
+| Gap                         | Impact        | Status                          |
+|----------------------------|---------------|---------------------------------|
+| No batched beam inference  | ~8× too many forwards | **Fixed** (batched expand_beam) |
+| No KV-cache                | Extra recompute per step | **Fixed** (forward_with_cache + incremental) |
+| Per-token Nx.to_number sync | Extra latency | Mitigated by batching           |
+| Backend / GPU              | 10×+ if on CPU | Config + check_gpu              |
 
 After batching, expect **roughly 4–8× lower latency** per request (e.g. 4 forwards instead of 31). For further gains, add KV-cache and ensure GPU/EXLA is used when available.
