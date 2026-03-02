@@ -62,7 +62,8 @@ defmodule RecGPT.PretrainRunner do
         with {:ok, _} <- require_items_path(items_path),
              :ok <- ensure_regular_file!(items_path, "items"),
              {:ok, token_id_list, fixture_num_items} <- fixture_token_list(fixture),
-             {:ok, item_embeddings, _n} <- load_item_embeddings(items_path, fixture_num_items, opts) do
+             {:ok, item_embeddings, _n} <-
+               load_item_embeddings(items_path, fixture_num_items, opts) do
           stream =
             AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
               batch_size: batch_size,
@@ -103,7 +104,10 @@ defmodule RecGPT.PretrainRunner do
 
   defp load_checkpoint(dir) do
     manifest = Path.join(dir, "manifest.json")
-    if File.regular?(manifest), do: {:ok, CheckpointLoader.load_from_export(dir)}, else: {:error, {:checkpoint_not_found, dir}}
+
+    if File.regular?(manifest),
+      do: {:ok, CheckpointLoader.load_from_export(dir)},
+      else: {:error, {:checkpoint_not_found, dir}}
   end
 
   defp load_fixture(path) do
@@ -135,7 +139,11 @@ defmodule RecGPT.PretrainRunner do
     items = raw["items"] || []
     items_n = raw["num_items"] || length(items)
     limit = Keyword.get(opts, :limit)
-    n = if limit, do: min(items_n, fixture_num_items) |> min(limit), else: min(items_n, fixture_num_items)
+
+    n =
+      if limit,
+        do: min(items_n, fixture_num_items) |> min(limit),
+        else: min(items_n, fixture_num_items)
 
     item_text_dict =
       items

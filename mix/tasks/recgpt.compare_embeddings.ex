@@ -47,6 +47,7 @@ defmodule Mix.Tasks.Recgpt.CompareEmbeddings do
     steam_dir = opts[:steam_dir] || Path.expand("data/steam", File.cwd!())
     limit = opts[:limit] || 500
     canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
+
     text_format =
       case opts[:text_format] do
         "title_only" -> :title_only
@@ -54,11 +55,29 @@ defmodule Mix.Tasks.Recgpt.CompareEmbeddings do
       end
 
     compare_opts = [limit: limit, text_format: text_format]
-    compare_opts = if canonical_texts?, do: Keyword.put(compare_opts, :canonical_texts, true), else: compare_opts
-    compare_opts = if ckpt = opts[:ckpt], do: Keyword.put(compare_opts, :ckpt_dir, Path.expand(ckpt, File.cwd!())), else: compare_opts
-    compare_opts = if vae = opts[:vae_ckpt], do: Keyword.put(compare_opts, :vae_ckpt, Path.expand(vae, File.cwd!())), else: compare_opts
-    compare_opts = if row = opts[:dump_row], do: Keyword.put(compare_opts, :dump_row, row), else: compare_opts
-    compare_opts = if path = opts[:dump_path], do: Keyword.put(compare_opts, :dump_path, path), else: compare_opts
+
+    compare_opts =
+      if canonical_texts?,
+        do: Keyword.put(compare_opts, :canonical_texts, true),
+        else: compare_opts
+
+    compare_opts =
+      if ckpt = opts[:ckpt],
+        do: Keyword.put(compare_opts, :ckpt_dir, Path.expand(ckpt, File.cwd!())),
+        else: compare_opts
+
+    compare_opts =
+      if vae = opts[:vae_ckpt],
+        do: Keyword.put(compare_opts, :vae_ckpt, Path.expand(vae, File.cwd!())),
+        else: compare_opts
+
+    compare_opts =
+      if row = opts[:dump_row], do: Keyword.put(compare_opts, :dump_row, row), else: compare_opts
+
+    compare_opts =
+      if path = opts[:dump_path],
+        do: Keyword.put(compare_opts, :dump_path, path),
+        else: compare_opts
 
     RecGPT.EmbeddingCompare.run(steam_dir, compare_opts)
   end

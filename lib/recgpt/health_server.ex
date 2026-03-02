@@ -3,6 +3,20 @@ defmodule RecGPT.HealthServer do
   Minimal HTTP health endpoint for readiness probes (e.g. K8s).
   Listens on a configurable port; GET / returns 200 when serve_state is loaded, 503 otherwise.
   """
+  @spec child_spec(non_neg_integer() | keyword()) :: map()
+  def child_spec(port) when is_integer(port) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [port]},
+      type: :worker
+    }
+  end
+
+  def child_spec(opts) when is_list(opts) do
+    port = Keyword.fetch!(opts, :port)
+    child_spec(port)
+  end
+
   @spec start_link(non_neg_integer()) :: {:ok, pid()} | {:error, term()}
   def start_link(port) do
     Task.start_link(fn -> accept_loop(port) end)

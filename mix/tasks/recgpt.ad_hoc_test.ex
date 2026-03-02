@@ -42,11 +42,13 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
         Path.join(File.cwd!(), "data/steam/fixture.json")
+
     fixture_path = Path.expand(fixture_path, File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
         Path.join(File.cwd!(), "data/recgpt_ckpt_export")
+
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
     catalog_path = opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())
@@ -126,15 +128,19 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
   defp print_results(results, state) do
     Mix.shell().info("")
     Mix.shell().info("=== Ad-hoc recommendation results ===")
+
     for %{context: ctx, item_ids: item_ids} <- results do
       Mix.shell().info("  context #{inspect(ctx)} -> #{inspect(item_ids)}")
+
       for id <- item_ids do
         Mix.shell().info("    #{id}: #{display_name(state, id)}")
       end
     end
+
     for %{context: ctx, error: reason} <- results do
       Mix.shell().info("  context #{inspect(ctx)} -> error: #{reason}")
     end
+
     Mix.shell().info("")
   end
 
@@ -148,6 +154,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
     head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     params = %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
+
     get_logits_fn = fn token_list ->
       seq_len = length(token_list)
       batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
@@ -155,6 +162,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
       embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
       Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
     end
+
     %Serve{
       params: params,
       trie: trie,
@@ -178,6 +186,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
                 %{"item_id" => id, "display_name" => display_name(state, id)}
               end)
           }
+
         %{context: ctx, error: reason} ->
           %{"context" => ctx, "error" => reason}
       end)

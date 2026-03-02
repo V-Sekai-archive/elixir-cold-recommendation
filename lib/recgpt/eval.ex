@@ -54,13 +54,16 @@ defmodule RecGPT.Eval do
     check_interval = Keyword.get(opts, :resource_check_interval, 100)
     progress_interval_sec = Keyword.get(opts, :progress_interval_sec)
     progress_fn = Keyword.get(opts, :progress_fn) || default_progress_fn()
-    total = Keyword.get(opts, :total) || (if is_list(test_cases), do: length(test_cases), else: nil)
+    total = Keyword.get(opts, :total) || if is_list(test_cases), do: length(test_cases), else: nil
 
     check_opts =
       Keyword.get(opts, :resource_check_opts, [])
       |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
 
-    recommend_fn = fn ctx, k -> RecGPT.RecommendationService.recommend(state, ctx, k) end
+    recommend_fn =
+      Keyword.get(opts, :recommend_fn) ||
+        fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
+
     start_sec = System.monotonic_time(:second)
 
     # Constant memory / bounded wavefront: one test case at a time; acc = (h1, h5, h10, rr_sum, n, last_progress_sec).
@@ -73,7 +76,7 @@ defmodule RecGPT.Eval do
 
         maybe_report_progress =
           if progress_interval_sec && progress_interval_sec > 0 &&
-               (now_sec - last_progress_sec) >= progress_interval_sec do
+               now_sec - last_progress_sec >= progress_interval_sec do
             progress_fn.(nn, total, metrics_5)
             now_sec
           else
@@ -148,7 +151,12 @@ defmodule RecGPT.Eval do
         emit =
           if prev_cid != nil and case_id != prev_cid do
             tc = %{"context" => prev_ctx, "next_item" => prev_next}
-            in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
+            in_catalog =
+              num_items == nil or
+                (prev_next != nil and prev_next >= 0 and prev_next < num_items and
+                   Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
             if in_catalog, do: [tc], else: []
           else
             []
@@ -160,16 +168,23 @@ defmodule RecGPT.Eval do
           else
             if pos != nil and item_id != nil, do: prev_ctx ++ [item_id], else: prev_ctx
           end
-        new_state = {case_id, new_ctx, (if case_id != prev_cid, do: next_item, else: prev_next)}
+
+        new_state = {case_id, new_ctx, if(case_id != prev_cid, do: next_item, else: prev_next)}
         {emit, new_state}
       end,
       fn state ->
         {prev_cid, prev_ctx, prev_next} = state
+
         if prev_cid == nil do
           []
         else
           tc = %{"context" => prev_ctx, "next_item" => prev_next}
-          in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
+          in_catalog =
+            num_items == nil or
+              (prev_next != nil and prev_next >= 0 and prev_next < num_items and
+                 Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
           if in_catalog, do: [tc], else: []
         end
       end
@@ -216,7 +231,12 @@ defmodule RecGPT.Eval do
         emit =
           if prev_cid != nil and case_id != prev_cid do
             tc = %{"context" => prev_ctx, "next_item" => prev_next}
-            in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
+            in_catalog =
+              num_items == nil or
+                (prev_next != nil and prev_next >= 0 and prev_next < num_items and
+                   Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
             if in_catalog, do: [tc], else: []
           else
             []
@@ -228,16 +248,23 @@ defmodule RecGPT.Eval do
           else
             if pos != nil and item_id != nil, do: prev_ctx ++ [item_id], else: prev_ctx
           end
-        new_state = {case_id, new_ctx, (if case_id != prev_cid, do: next_item, else: prev_next)}
+
+        new_state = {case_id, new_ctx, if(case_id != prev_cid, do: next_item, else: prev_next)}
         {emit, new_state}
       end,
       fn state ->
         {prev_cid, prev_ctx, prev_next} = state
+
         if prev_cid == nil do
           []
         else
           tc = %{"context" => prev_ctx, "next_item" => prev_next}
-          in_catalog = num_items == nil or (prev_next != nil and prev_next >= 0 and prev_next < num_items and Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
+          in_catalog =
+            num_items == nil or
+              (prev_next != nil and prev_next >= 0 and prev_next < num_items and
+                 Enum.all?(prev_ctx, fn id -> id >= 0 and id < num_items end))
+
           if in_catalog, do: [tc], else: []
         end
       end
@@ -262,17 +289,20 @@ defmodule RecGPT.Eval do
   def load_test_cases(path) do
     if File.regular?(path) do
       raw = File.read!(path) |> Jason.decode!()
+
       cases =
         raw["test_cases"] ||
           (raw["sequences"] || [])
           |> Enum.map(fn seq ->
             seq = List.wrap(seq)
+
             if length(seq) >= 1 do
               %{"context" => Enum.drop(seq, -1), "next_item" => List.last(seq)}
             else
               %{"context" => [], "next_item" => 0}
             end
           end)
+
       {:ok, List.wrap(cases)}
     else
       {:error, "file not found: #{path}"}
@@ -324,6 +354,7 @@ defmodule RecGPT.Eval do
         {:halted, _reason, acc} -> acc
         acc -> acc
       end
+
     # Strip progress timestamp (6th element) if present
     case raw do
       {h1, h5, h10, rr_sum, n, _last_sec} -> {h1, h5, h10, rr_sum, n}

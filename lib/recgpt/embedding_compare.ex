@@ -49,6 +49,7 @@ defmodule RecGPT.EmbeddingCompare do
       else
         load_ordered_texts(items_path, limit, text_format)
       end
+
     n = length(texts)
     source = if opts[:canonical_texts], do: "canonical_texts", else: "text_format=#{text_format}"
     IO.puts("Comparing #{n} items... (#{source})")
@@ -70,10 +71,16 @@ defmodule RecGPT.EmbeddingCompare do
     report_cosine(cos_sim, n)
 
     if dump_row = opts[:dump_row], do: dump_row_to_file(ours, dump_row, n, opts[:dump_path])
+
     case {opts[:vae_ckpt], opts[:ckpt_dir]} do
-      {vae_path, _} when is_binary(vae_path) -> report_steam_fsq_and_agreement(ours, dataset, vae_path, n)
-      {nil, ckpt_dir} when is_binary(ckpt_dir) -> report_fsq(ours, dataset, ckpt_dir, n)
-      _ -> :ok
+      {vae_path, _} when is_binary(vae_path) ->
+        report_steam_fsq_and_agreement(ours, dataset, vae_path, n)
+
+      {nil, ckpt_dir} when is_binary(ckpt_dir) ->
+        report_fsq(ours, dataset, ckpt_dir, n)
+
+      _ ->
+        :ok
     end
   end
 
@@ -95,6 +102,7 @@ defmodule RecGPT.EmbeddingCompare do
   defp report_first_strings(texts, count) do
     IO.puts("")
     IO.puts("=== First #{count} encoded strings (compare with Python str(dict).replace) ===")
+
     texts
     |> Enum.take(count)
     |> Enum.with_index(0)
@@ -102,6 +110,7 @@ defmodule RecGPT.EmbeddingCompare do
       truncated = if String.length(s) > 120, do: String.slice(s, 0, 120) <> "...", else: s
       IO.puts("  [#{i}] #{truncated}")
     end)
+
     IO.puts("")
   end
 
@@ -116,10 +125,15 @@ defmodule RecGPT.EmbeddingCompare do
     cos_all = Nx.divide(dots, safe)
     flat = Nx.to_flat_list(cos_all)
     {max_sim, best_idx} = Enum.with_index(flat, 0) |> Enum.max_by(fn {v, _} -> v end)
+
     if best_idx != 0 do
       IO.puts("")
       IO.puts("=== Row order check ===")
-      IO.puts("  Our item 0's best match in .npy is row #{best_idx} (cos=#{Float.round(max_sim, 4)}), not row 0.")
+
+      IO.puts(
+        "  Our item 0's best match in .npy is row #{best_idx} (cos=#{Float.round(max_sim, 4)}), not row 0."
+      )
+
       IO.puts("  .npy row order may differ from items.json; consider aligning item order.")
       IO.puts("")
     end
@@ -128,16 +142,39 @@ defmodule RecGPT.EmbeddingCompare do
   # If norms differ a lot, pooling or normalization may differ (e.g. masked vs unmasked mean).
   defp report_norm_diagnostic(ours, dataset) do
     scalar = fn t -> t |> Nx.squeeze() |> Nx.to_number() end
-    norm_ours_0 = Nx.slice(ours, [0, 0], [1, 768]) |> then(&Nx.sqrt(Nx.sum(Nx.multiply(&1, &1), axes: [1]))) |> scalar.()
-    norm_ds_0 = Nx.slice(dataset, [0, 0], [1, 768]) |> then(&Nx.sqrt(Nx.sum(Nx.multiply(&1, &1), axes: [1]))) |> scalar.()
+
+    norm_ours_0 =
+      Nx.slice(ours, [0, 0], [1, 768])
+      |> then(&Nx.sqrt(Nx.sum(Nx.multiply(&1, &1), axes: [1])))
+      |> scalar.()
+
+    norm_ds_0 =
+      Nx.slice(dataset, [0, 0], [1, 768])
+      |> then(&Nx.sqrt(Nx.sum(Nx.multiply(&1, &1), axes: [1])))
+      |> scalar.()
+
     mean_norm_ours = Nx.sqrt(Nx.sum(Nx.multiply(ours, ours), axes: [1])) |> Nx.mean() |> scalar.()
-    mean_norm_ds = Nx.sqrt(Nx.sum(Nx.multiply(dataset, dataset), axes: [1])) |> Nx.mean() |> scalar.()
+
+    mean_norm_ds =
+      Nx.sqrt(Nx.sum(Nx.multiply(dataset, dataset), axes: [1])) |> Nx.mean() |> scalar.()
+
     IO.puts("")
     IO.puts("=== Scale / L2 norm (row 0 and mean) ===")
-    IO.puts("  ours row 0: #{Float.round(norm_ours_0, 4)}  |  dataset row 0: #{Float.round(norm_ds_0, 4)}")
-    IO.puts("  mean norm ours: #{Float.round(mean_norm_ours, 4)}  |  mean norm dataset: #{Float.round(mean_norm_ds, 4)}")
+
+    IO.puts(
+      "  ours row 0: #{Float.round(norm_ours_0, 4)}  |  dataset row 0: #{Float.round(norm_ds_0, 4)}"
+    )
+
+    IO.puts(
+      "  mean norm ours: #{Float.round(mean_norm_ours, 4)}  |  mean norm dataset: #{Float.round(mean_norm_ds, 4)}"
+    )
+
     IO.puts("  (Large ratio suggests different pooling, e.g. masked vs unmasked mean.)")
-    IO.puts("  To compare with Python: encode the same string (e.g. [0] above) with sentence_transformers and diff embeddings.")
+
+    IO.puts(
+      "  To compare with Python: encode the same string (e.g. [0] above) with sentence_transformers and diff embeddings."
+    )
+
     IO.puts("")
   end
 
@@ -148,13 +185,16 @@ defmodule RecGPT.EmbeddingCompare do
   defp download_npy!(path) do
     IO.puts("Downloading item_text_embeddings.npy (~92 MB)...")
     Application.ensure_all_started(:req)
+
     case Req.get(@dataset_npy_url) do
       {:ok, %{status: 200, body: body}} ->
         File.mkdir_p!(Path.dirname(path))
         File.write!(path, body)
         :ok
+
       {:ok, %{status: code}} ->
         raise "HTTP #{code} for #{@dataset_npy_url}"
+
       {:error, reason} ->
         raise "Download failed: #{inspect(reason)}"
     end
@@ -163,12 +203,14 @@ defmodule RecGPT.EmbeddingCompare do
   defp load_ordered_texts(items_path, limit, text_format) do
     raw = File.read!(items_path) |> Jason.decode!()
     items = raw["items"] || []
+
     items
     |> Enum.take(limit)
     |> Enum.map(fn item ->
       case text_format do
         :title_only ->
           to_string(Map.get(item, "title") || Map.get(item, :title) || "")
+
         _ ->
           Embedding.recgpt_item_text(item)
       end
@@ -180,8 +222,9 @@ defmodule RecGPT.EmbeddingCompare do
       {:ok, tensor} ->
         tensor = ensure_2d(tensor)
         {rows, _} = Nx.shape(tensor)
-        if rows < n, do: raise "Dataset .npy has #{rows} rows, need #{n}"
+        if rows < n, do: raise("Dataset .npy has #{rows} rows, need #{n}")
         Nx.slice(tensor, [0, 0], [n, 768])
+
       {:error, reason} ->
         raise "Failed to load #{npy_path}: #{inspect(reason)}"
     end
@@ -189,6 +232,7 @@ defmodule RecGPT.EmbeddingCompare do
 
   defp ensure_2d(tensor) do
     shape = Nx.shape(tensor)
+
     case shape do
       {_n, 768} -> tensor
       {_n, 1, 768} -> Nx.squeeze(tensor, axes: [1])
@@ -212,7 +256,7 @@ defmodule RecGPT.EmbeddingCompare do
     mean = Enum.sum(flat) / n
     min_val = Enum.min(flat)
     max_val = Enum.max(flat)
-    variance = Enum.map(flat, &(&1 - mean) ** 2) |> Enum.sum() |> then(&(&1 / n))
+    variance = Enum.map(flat, &((&1 - mean) ** 2)) |> Enum.sum() |> then(&(&1 / n))
     std = :math.sqrt(variance)
 
     IO.puts("")
@@ -223,54 +267,62 @@ defmodule RecGPT.EmbeddingCompare do
     IO.puts("    max  = #{Float.round(max_val, 4)}")
     IO.puts("    std  = #{Float.round(std, 4)}")
     IO.puts("")
+
     verdict =
       cond do
         mean >= 0.99 -> "very close (mean >= 0.99)."
         mean >= 0.95 -> "moderate match (0.95-0.99)."
         true -> "large mismatch (mean < 0.95). Likely explains poor eval."
       end
+
     IO.puts("  Verdict: #{verdict}")
     IO.puts("")
   end
 
   defp report_steam_fsq_and_agreement(ours, dataset, vae_path, n) do
     vae_path = Path.expand(vae_path, File.cwd!())
+
     if not File.regular?(vae_path) do
       IO.puts("(VAE checkpoint not found at #{vae_path}; run mix recgpt.fetch_vae_ckpt)")
     else
       params = FSQ.load_params_from_vae_pt(vae_path)
-    tokens_dataset = FSQEncoder.encode_embeddings_to_token_id_list(dataset, params)
-    vocab = FSQ.vocab_size()
+      tokens_dataset = FSQEncoder.encode_embeddings_to_token_id_list(dataset, params)
+      vocab = FSQ.vocab_size()
 
-    # Steam FSQ: dataset .npy + VAE -> token_id_list; all must be in vocab range
-    all_in_range =
-      Enum.all?(tokens_dataset, fn four ->
-        is_list(four) and length(four) == 4 and Enum.all?(four, fn i -> i >= 0 and i < vocab end)
+      # Steam FSQ: dataset .npy + VAE -> token_id_list; all must be in vocab range
+      all_in_range =
+        Enum.all?(tokens_dataset, fn four ->
+          is_list(four) and length(four) == 4 and
+            Enum.all?(four, fn i -> i >= 0 and i < vocab end)
+        end)
+
+      IO.puts("=== Steam FSQ (dataset item_text_embeddings.npy + VAE) ===")
+      IO.puts("  VAE: #{vae_path}")
+      IO.puts("  All #{n} items have 4 token IDs in [0, #{vocab})? #{all_in_range}")
+      IO.puts("  First 5 items [t0,t1,t2,t3]:")
+
+      Enum.take(tokens_dataset, 5)
+      |> Enum.with_index(0)
+      |> Enum.each(fn {four, i} -> IO.puts("    [#{i}] #{inspect(four)}") end)
+
+      IO.puts("")
+
+      # Token agreement: ours (Bumblebee) vs dataset (.npy), same VAE FSQ
+      tokens_ours = FSQEncoder.encode_embeddings_to_token_id_list(ours, params)
+      same = Enum.zip(tokens_ours, tokens_dataset) |> Enum.count(fn {a, b} -> a == b end)
+      frac = same / n
+      IO.puts("=== FSQ token agreement (ours Bumblebee vs dataset .npy, same VAE FSQ) ===")
+      IO.puts("  #{same} / #{n} = #{Float.round(frac * 100, 1)}%")
+      IO.puts("  First 3 items [t0,t1,t2,t3] ours vs dataset:")
+
+      Enum.take(Enum.zip(tokens_ours, tokens_dataset), 3)
+      |> Enum.with_index(0)
+      |> Enum.each(fn {{ours_4, ds_4}, i} ->
+        match = if ours_4 == ds_4, do: " OK", else: " MISMATCH"
+        IO.puts("    [#{i}] ours=#{inspect(ours_4)}  dataset=#{inspect(ds_4)}#{match}")
       end)
 
-    IO.puts("=== Steam FSQ (dataset item_text_embeddings.npy + VAE) ===")
-    IO.puts("  VAE: #{vae_path}")
-    IO.puts("  All #{n} items have 4 token IDs in [0, #{vocab})? #{all_in_range}")
-    IO.puts("  First 5 items [t0,t1,t2,t3]:")
-    Enum.take(tokens_dataset, 5)
-    |> Enum.with_index(0)
-    |> Enum.each(fn {four, i} -> IO.puts("    [#{i}] #{inspect(four)}") end)
-    IO.puts("")
-
-    # Token agreement: ours (Bumblebee) vs dataset (.npy), same VAE FSQ
-    tokens_ours = FSQEncoder.encode_embeddings_to_token_id_list(ours, params)
-    same = Enum.zip(tokens_ours, tokens_dataset) |> Enum.count(fn {a, b} -> a == b end)
-    frac = same / n
-    IO.puts("=== FSQ token agreement (ours Bumblebee vs dataset .npy, same VAE FSQ) ===")
-    IO.puts("  #{same} / #{n} = #{Float.round(frac * 100, 1)}%")
-    IO.puts("  First 3 items [t0,t1,t2,t3] ours vs dataset:")
-    Enum.take(Enum.zip(tokens_ours, tokens_dataset), 3)
-    |> Enum.with_index(0)
-    |> Enum.each(fn {{ours_4, ds_4}, i} ->
-      match = if ours_4 == ds_4, do: " OK", else: " MISMATCH"
-      IO.puts("    [#{i}] ours=#{inspect(ours_4)}  dataset=#{inspect(ds_4)}#{match}")
-    end)
-    IO.puts("")
+      IO.puts("")
     end
   end
 
@@ -287,17 +339,29 @@ defmodule RecGPT.EmbeddingCompare do
       IO.puts("  #{same} / #{n} = #{Float.round(frac * 100, 1)}%")
       # Debug: show first 3 items' 4-token codes (ours vs dataset)
       IO.puts("  First 3 items [t0,t1,t2,t3] ours vs dataset:")
+
       Enum.take(Enum.zip(tokens_ours, tokens_dataset), 3)
       |> Enum.with_index(0)
       |> Enum.each(fn {{ours_4, ds_4}, i} ->
         match = if ours_4 == ds_4, do: " OK", else: " MISMATCH"
         IO.puts("    [#{i}] ours=#{inspect(ours_4)}  dataset=#{inspect(ds_4)}#{match}")
       end)
+
       if same < n do
-        mismatches = Enum.zip(tokens_ours, tokens_dataset) |> Enum.with_index(0) |> Enum.filter(fn {{a, b}, _} -> a != b end)
+        mismatches =
+          Enum.zip(tokens_ours, tokens_dataset)
+          |> Enum.with_index(0)
+          |> Enum.filter(fn {{a, b}, _} -> a != b end)
+
         IO.puts("  First 3 mismatches (item_idx ours dataset):")
-        mismatches |> Enum.take(3) |> Enum.each(fn {{o, d}, idx} -> IO.puts("    item #{idx}: #{inspect(o)} vs #{inspect(d)}") end)
+
+        mismatches
+        |> Enum.take(3)
+        |> Enum.each(fn {{o, d}, idx} ->
+          IO.puts("    item #{idx}: #{inspect(o)} vs #{inspect(d)}")
+        end)
       end
+
       IO.puts("")
     else
       IO.puts("(FSQ params not in checkpoint; skipping token comparison)")
@@ -306,5 +370,6 @@ defmodule RecGPT.EmbeddingCompare do
 
   defp fsq_ok?(%{"project_in" => %{"kernel" => k}, "project_out" => %{"kernel" => o}})
        when not is_nil(k) and not is_nil(o), do: true
+
   defp fsq_ok?(_), do: false
 end

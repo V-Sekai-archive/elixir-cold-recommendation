@@ -44,6 +44,9 @@ defmodule Mix.Tasks.Recgpt.DumpCanonicalTexts do
     n = length(ordered)
     Mix.shell().info("Dumping #{n} items to canonical_item_texts (BLOB)...")
     CanonicalItemText.dump_to_repo(Repo, ordered)
-    Mix.shell().info("Done. Use --canonical-texts when running build_fixture or compare_embeddings.")
+
+    Mix.shell().info(
+      "Done. Use --canonical-texts when running build_fixture or compare_embeddings."
+    )
   end
 end

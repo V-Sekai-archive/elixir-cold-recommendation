@@ -17,6 +17,7 @@ defmodule RecGPT.StaffApi.Default do
   @impl true
   def list_items(:db) do
     Application.ensure_all_started(:recgpt)
+
     items =
       from(i in Item, order_by: [asc: i.item_id])
       |> Repo.all()
@@ -38,6 +39,7 @@ defmodule RecGPT.StaffApi.Default do
   @impl true
   def get_item(item_id) when is_integer(item_id) do
     Application.ensure_all_started(:recgpt)
+
     case Repo.get(Item, item_id) do
       nil -> {:ok, nil}
       %Item{} = item -> {:ok, %{item_id: item.item_id, title: item.title}}
@@ -61,7 +63,12 @@ defmodule RecGPT.StaffApi.Default do
     Application.ensure_all_started(:recgpt)
     raw = File.read!(path) |> Jason.decode!()
     items = raw["items"] || []
-    entries = Enum.map(items, fn item -> %{item_id: item["id"] || item["item_id"], title: item["title"] || item["text"] || ""} end)
+
+    entries =
+      Enum.map(items, fn item ->
+        %{item_id: item["id"] || item["item_id"], title: item["title"] || item["text"] || ""}
+      end)
+
     Sync.clear_catalog_tables()
     Enum.chunk_every(entries, 1000) |> Enum.each(&Sync.insert_items/1)
     :ok

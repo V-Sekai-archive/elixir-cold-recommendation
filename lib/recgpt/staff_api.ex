@@ -19,7 +19,9 @@ defmodule RecGPT.StaffApi do
   @callback list_items(source :: :db | {:path, String.t()}) ::
               {:ok, [map()]} | {:error, term()}
   @callback get_item(item_id :: non_neg_integer()) :: {:ok, map() | nil} | {:error, term()}
-  @callback upsert_items(entries :: [%{required(:item_id) => integer(), required(:title) => String.t()}]) ::
+  @callback upsert_items(
+              entries :: [%{required(:item_id) => integer(), required(:title) => String.t()}]
+            ) ::
               :ok | {:error, term()}
   @callback sync_items_from_json(path :: String.t()) :: :ok | {:error, term()}
   @callback write_items_json(path :: String.t(), items :: [map()]) :: :ok | {:error, term()}
@@ -28,7 +30,9 @@ defmodule RecGPT.StaffApi do
               {:ok, map()} | {:error, term()}
   @callback write_fixture(fixture :: map(), path :: String.t()) :: :ok | {:error, term()}
   @callback pretrain(opts :: keyword()) :: :ok | {:error, term()}
-  @callback set_canonical_texts(entries :: [%{required(:item_id) => integer(), required(:text) => binary()}]) ::
+  @callback set_canonical_texts(
+              entries :: [%{required(:item_id) => integer(), required(:text) => binary()}]
+            ) ::
               :ok | {:error, term()}
 
   @doc "Returns the configured implementation (default: RecGPT.StaffApi.Default)."
@@ -42,7 +46,10 @@ defmodule RecGPT.StaffApi do
   def sync_items_from_json(path), do: impl().sync_items_from_json(path)
   def write_items_json(path, items), do: impl().write_items_json(path, items)
   def sync_sequences(data_dir), do: impl().sync_sequences(data_dir)
-  def build_fixture(items_path, ckpt_dir, opts \\ []), do: impl().build_fixture(items_path, ckpt_dir, opts)
+
+  def build_fixture(items_path, ckpt_dir, opts \\ []),
+    do: impl().build_fixture(items_path, ckpt_dir, opts)
+
   def write_fixture(fixture, path), do: impl().write_fixture(fixture, path)
   def pretrain(opts), do: impl().pretrain(opts)
   def set_canonical_texts(entries), do: impl().set_canonical_texts(entries)

@@ -37,6 +37,30 @@ defmodule RecGPT.EvalTest do
       metrics = Eval.evaluate(frozen.state, test_cases, top_k: 5)
       assert metrics.n == 0 or metrics.n == 1
     end
+
+    test "evaluate with recommend_fn (gRPC path) uses PredictionService.Server" do
+      state = FrozenHelpers.build_stub_state()
+      Application.put_env(:recgpt, :serve_state, state)
+
+      grpc_fn = fn ctx, k ->
+        request = %Recgpt.V1.PredictRequest{context_item_ids: ctx, max_results: k}
+        response = Recgpt.V1.PredictionService.Server.predict(request, nil)
+        {:ok, response.item_ids || []}
+      end
+
+      test_cases = [
+        %{"context" => [0], "next_item" => 1},
+        %{"context" => [0, 1], "next_item" => 0}
+      ]
+
+      metrics = Eval.evaluate(state, test_cases, top_k: 5, recommend_fn: grpc_fn)
+
+      assert metrics.n == 2
+      assert metrics.hit_at_1 >= 0.0 and metrics.hit_at_1 <= 1.0
+      assert metrics.catalog_size == 2
+    after
+      Application.delete_env(:recgpt, :serve_state)
+    end
   end
 
   describe "load_test_cases/1" do

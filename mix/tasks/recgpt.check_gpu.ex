@@ -25,7 +25,9 @@ defmodule Mix.Tasks.Recgpt.CheckGpu do
       end
 
     unless cuda_available do
-      Mix.raise("No GPU: Torchx CUDA is not available. Build Torchx with LIBTORCH_TARGET (e.g. cu129) and ensure a CUDA GPU is present.")
+      Mix.raise(
+        "No GPU: Torchx CUDA is not available. Build Torchx with LIBTORCH_TARGET (e.g. cu129) and ensure a CUDA GPU is present."
+      )
     end
 
     IO.puts("Torchx CUDA available: true")
@@ -46,7 +48,9 @@ defmodule Mix.Tasks.Recgpt.CheckGpu do
     IO.puts("Sample tensor: #{backend_str}")
 
     unless on_gpu do
-      Mix.raise("No GPU: default backend is set to :cuda but tensors are not on GPU (got: #{backend_str}). Check config and Torchx build.")
+      Mix.raise(
+        "No GPU: default backend is set to :cuda but tensors are not on GPU (got: #{backend_str}). Check config and Torchx build."
+      )
     end
 
     IO.puts("")

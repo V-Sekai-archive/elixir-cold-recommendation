@@ -46,11 +46,33 @@ Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `
 
 ### Quick test
 
-With the server running (e.g. `mix recgpt.serve`):
+**Option 1 — Mix task (uses proto file; no server reflection needed):**
+
+Start the server in one terminal, then in another:
 
 ```bash
-grpcurl -plaintext -d '{"context_item_ids":[0,1], "max_results":5}' localhost:50051 recgpt.v1.PredictionService/Predict
+mix recgpt.grpc_curl
+mix recgpt.grpc_curl --port 50051 --context 0,1 --max-results 10
 ```
+
+**Option 2 — grpcurl directly (pass proto so server doesn’t need reflection):**
+
+With the server running, use the sample request file so you don't need to escape JSON in the shell (avoids "Too many arguments" in PowerShell):
+
+```bash
+grpcurl -plaintext -import-path priv/proto -proto recgpt/v1/recommendation.proto -d @scripts/grpcurl_predict_request.json localhost:50051 recgpt.v1.PredictionService/Predict
+```
+
+The file `scripts/grpcurl_predict_request.json` contains `{"context_item_ids": [0], "max_results": 5}`. The `-d @path` form works in bash/WSL; in PowerShell `@` is interpreted as splat, so grpcurl gets the literal `@` and fails. Use the Mix task (Option 1) or pass the file contents in a variable:
+
+**PowerShell (when Option 2 fails with "invalid character '@'"):**
+
+```powershell
+$body = Get-Content scripts/grpcurl_predict_request.json -Raw
+grpcurl -plaintext -import-path priv/proto -proto recgpt/v1/recommendation.proto -d $body localhost:50051 recgpt.v1.PredictionService/Predict
+```
+
+Ensure the server is running (`mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --catalog data/steam/items.json`). Use port 50052 if you started the server with `--grpc-port 50052`.
 
 ---
 

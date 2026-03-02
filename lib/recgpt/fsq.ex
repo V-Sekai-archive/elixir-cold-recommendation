@@ -115,12 +115,15 @@ defmodule RecGPT.FSQ do
     project_in_k =
       tensor_map["project_in/kernel"] || tensor_map["fsq.project_in.weight"] ||
         tensor_map["quantizer.project_in.weight"]
+
     project_in_b =
       tensor_map["project_in/bias"] || tensor_map["fsq.project_in.bias"] ||
         tensor_map["quantizer.project_in.bias"]
+
     project_out_k =
       tensor_map["project_out/kernel"] || tensor_map["fsq.project_out.weight"] ||
         tensor_map["quantizer.project_out.weight"]
+
     project_out_b =
       tensor_map["project_out/bias"] || tensor_map["fsq.project_out.bias"] ||
         tensor_map["quantizer.project_out.bias"]

@@ -26,7 +26,10 @@ defmodule RecGPT.Embedding do
   """
   @spec recgpt_item_text(map()) :: String.t()
   def recgpt_item_text(item) when is_map(item) do
-    title = Map.get(item, "title") || Map.get(item, :title) || Map.get(item, "text") || Map.get(item, "raw") || ""
+    title =
+      Map.get(item, "title") || Map.get(item, :title) || Map.get(item, "text") ||
+        Map.get(item, "raw") || ""
+
     pairs = [{"title", to_string(title)}]
     Enum.map(pairs, fn {k, v} -> "'#{k}': '#{escape_single(v)}'" end) |> Enum.join(", ")
   end

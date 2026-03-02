@@ -116,7 +116,9 @@ defmodule RecGPT.AxonTrain do
 
           last_log_sec =
             if log_interval_sec > 0 and (i == 0 or now_sec - last_log_sec >= log_interval_sec) do
-              msg = "Step #{i}, loss: #{Float.round(loss_num, 6)}, elapsed #{now_sec - start_sec}s"
+              msg =
+                "Step #{i}, loss: #{Float.round(loss_num, 6)}, elapsed #{now_sec - start_sec}s"
+
               padded = String.pad_trailing(msg, 80)
               IO.write(:stdio, "\r" <> padded)
               now_sec

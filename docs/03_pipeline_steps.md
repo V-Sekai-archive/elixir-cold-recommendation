@@ -71,6 +71,8 @@ mix recgpt.eval --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrai
 
 **Output:** Two blocks of metrics: "Evaluation (standard test set)" and "Cold test".
 
+**Eval via gRPC:** To evaluate using the same code path as the gRPC Predict RPC (Steam catalogue), run `mix recgpt.eval_grpc --data-dir data/steam` (optionally `--catalog data/steam/items.json`). Same metrics; requests go through `PredictionService.Server`.
+
 ---
 
 ## Optional: Serve

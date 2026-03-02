@@ -9,12 +9,24 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
   alias RecGPT.Serve
   alias RecGPT.Trie
 
-  @stub_token_id_list [[100, 200, 300, 400], [101, 201, 301, 401]]
-
   @doc "Returns a minimal Serve state for unit tests (stub params, 2 items)."
   def build_stub_state do
+    build_stub_state(2)
+  end
+
+  @doc "Returns a Serve state with n items (stub params, token_id_list of length n)."
+  def build_stub_state(n) when is_integer(n) and n >= 1 do
+    token_id_list =
+      Enum.map(0..(n - 1), fn i ->
+        [100 + i, 200 + i, 300 + i, 400 + i]
+      end)
+
+    build_stub_state_with_token_id_list(token_id_list)
+  end
+
+  defp build_stub_state_with_token_id_list(token_id_list) do
     Application.ensure_all_started(:nx)
-    trie = Trie.build(@stub_token_id_list)
+    trie = Trie.build(token_id_list)
     params = build_dummy_params()
 
     get_logits_fn = fn token_list ->
@@ -28,9 +40,9 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
     %Serve{
       params: params,
       trie: trie,
-      token_id_list: @stub_token_id_list,
+      token_id_list: token_id_list,
       item_text: %{},
-      num_items: 2,
+      num_items: length(token_id_list),
       get_logits_fn: get_logits_fn
     }
   end

@@ -23,7 +23,10 @@ defmodule Mix.Tasks.Recgpt.FetchVaeCkpt do
     {opts, _, _} =
       OptionParser.parse(args, switches: [out: :string])
 
-    out_path = opts[:out] || Path.join([File.cwd!(), "thirdparty", "checkpoints", "vae", @default_filename])
+    out_path =
+      opts[:out] ||
+        Path.join([File.cwd!(), "thirdparty", "checkpoints", "vae", @default_filename])
+
     out_path = Path.expand(out_path)
 
     Application.ensure_all_started(:req)
@@ -38,7 +41,9 @@ defmodule Mix.Tasks.Recgpt.FetchVaeCkpt do
 
       case stream_download(@vae_url, out_path) do
         :ok ->
-          Mix.shell().info("Done. Use as default (no --vae-ckpt) or set RECGPT_VAE_CKPT=#{out_path}")
+          Mix.shell().info(
+            "Done. Use as default (no --vae-ckpt) or set RECGPT_VAE_CKPT=#{out_path}"
+          )
 
         {:error, reason} ->
           Mix.raise("Download failed: #{inspect(reason)}")

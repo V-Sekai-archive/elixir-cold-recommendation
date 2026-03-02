@@ -33,7 +33,11 @@ defmodule Mix.Tasks.Recgpt.InspectItemText do
 
     Mix.shell().info("")
     Mix.shell().info("=== item_text_dict.pkl: first #{length(keys)} values (raw) ===")
-    Mix.shell().info("Reference likely encoded these strings to produce item_text_embeddings.npy.")
+
+    Mix.shell().info(
+      "Reference likely encoded these strings to produce item_text_embeddings.npy."
+    )
+
     Mix.shell().info("")
 
     for {idx, k} <- Enum.with_index(keys) do
@@ -48,6 +52,7 @@ defmodule Mix.Tasks.Recgpt.InspectItemText do
       Mix.shell().info("=== items.json: first #{limit} titles (what we use) ===")
       raw_json = File.read!(items_path) |> Jason.decode!()
       items = (raw_json["items"] || []) |> Enum.take(limit)
+
       for {item, idx} <- Enum.with_index(items) do
         title = item["title"] || ""
         recgpt_style = RecGPT.Embedding.recgpt_item_text(item)
@@ -82,12 +87,14 @@ defmodule Mix.Tasks.Recgpt.InspectItemText do
   defp to_map(_), do: %{}
 
   defp sort_key(x) when is_integer(x), do: {0, x}
+
   defp sort_key(x) when is_binary(x) do
     case Integer.parse(x) do
       {n, _} -> {0, n}
       :error -> {1, x}
     end
   end
+
   defp sort_key(x), do: {2, inspect(x)}
 
   defp value_preview(v) when is_binary(v) do
@@ -97,6 +104,7 @@ defmodule Mix.Tasks.Recgpt.InspectItemText do
   defp value_preview(v) when is_map(v) do
     # Could be %{"title" => "X"} or already unwrapped dict
     title = Map.get(v, "title") || Map.get(v, :title)
+
     if title != nil do
       {"map (has title)", "title => #{truncate(to_string(title), 80)}"}
     else

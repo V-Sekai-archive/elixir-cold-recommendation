@@ -18,7 +18,15 @@ defmodule RecGPT.Serve do
   @max_length 255
   @seq_token_capacity 1024
 
-  defstruct [:params, :trie, :token_id_list, :token_id_map, :item_text, :num_items, :get_logits_fn]
+  defstruct [
+    :params,
+    :trie,
+    :token_id_list,
+    :token_id_map,
+    :item_text,
+    :num_items,
+    :get_logits_fn
+  ]
 
   @type state :: %__MODULE__{
           params: map(),
@@ -67,6 +75,7 @@ defmodule RecGPT.Serve do
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       get_logits_fn = build_get_logits_fn(params)
+
       state = %__MODULE__{
         params: params,
         trie: trie,
@@ -76,6 +85,7 @@ defmodule RecGPT.Serve do
         num_items: num_items,
         get_logits_fn: get_logits_fn
       }
+
       {:ok, state}
     end
   end
@@ -86,7 +96,10 @@ defmodule RecGPT.Serve do
     alias RecGPT.Repo
 
     stream =
-      from(t in ItemToken, order_by: [asc: t.item_id], select: {t.item_id, t.t0, t.t1, t.t2, t.t3})
+      from(t in ItemToken,
+        order_by: [asc: t.item_id],
+        select: {t.item_id, t.t0, t.t1, t.t2, t.t3}
+      )
       |> Repo.stream()
 
     stream =
@@ -178,9 +191,11 @@ defmodule RecGPT.Serve do
   def item_ids_to_context_token_ids(item_ids, token_id_list, padding_id \\ @padding_id)
       when is_list(token_id_list) or is_struct(token_id_list) do
     seq = Enum.take(item_ids, -@max_length)
+
     token_list =
       if is_struct(token_id_list) do
         state = token_id_list
+
         Enum.flat_map(seq, fn iid ->
           if state.token_id_map && state.token_id_map != %{} do
             Map.get(state.token_id_map, iid, [0, 0, 0, 0])
@@ -191,6 +206,7 @@ defmodule RecGPT.Serve do
       else
         Enum.flat_map(seq, fn iid -> Enum.at(token_id_list, iid) || [0, 0, 0, 0] end)
       end
+
     len = length(token_list)
     padding = List.duplicate(padding_id || @padding_id, @seq_token_capacity - len)
     padding ++ token_list

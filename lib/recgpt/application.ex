@@ -35,6 +35,7 @@ defmodule RecGPT.ReleaseTasks do
       case RecGPT.Serve.load_state(fixture_path, ckpt_dir, nil) do
         {:ok, state} ->
           Application.put_env(:recgpt, :serve_state, state)
+
         {:error, reason} ->
           raise "Failed to load state: #{inspect(reason)}"
       end
@@ -44,8 +45,7 @@ defmodule RecGPT.ReleaseTasks do
     health_port = env_port("RECGPT_HEALTH_PORT", 50_052)
 
     children = [
-      {GRPC.Server.Supervisor,
-       endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
+      {GRPC.Server.Supervisor, endpoint: RecGPT.GRPCEndpoint, port: grpc_port, start_server: true}
     ]
 
     children =

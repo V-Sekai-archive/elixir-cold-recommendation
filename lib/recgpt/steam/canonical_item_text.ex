@@ -17,9 +17,14 @@ defmodule RecGPT.Steam.CanonicalItemText do
     binary = File.read!(pkl_path)
     {root, _rest} = Unpickler.load!(binary)
     id_to_text = build_id_to_text(root)
+
     case Map.keys(id_to_text) do
-      [] -> []
-      keys -> max_id = Enum.max(keys); for id <- 0..max_id, do: Map.get(id_to_text, id, "")
+      [] ->
+        []
+
+      keys ->
+        max_id = Enum.max(keys)
+        for id <- 0..max_id, do: Map.get(id_to_text, id, "")
     end
   end
 
@@ -55,13 +60,17 @@ defmodule RecGPT.Steam.CanonicalItemText do
 
   defp unwrap_id(obj) do
     case unwrap_object(obj) do
-      n when is_integer(n) -> n
+      n when is_integer(n) ->
+        n
+
       s when is_binary(s) ->
         case Integer.parse(s) do
           {n, _} -> n
           :error -> 0
         end
-      _ -> 0
+
+      _ ->
+        0
     end
   end
 
@@ -127,10 +136,12 @@ defmodule RecGPT.Steam.CanonicalItemText do
   @spec dump_to_repo(module(), [binary()]) :: :ok
   def dump_to_repo(repo, ordered_list) do
     repo.delete_all(RecGPT.Catalog.CanonicalItemText)
+
     entries =
       ordered_list
       |> Enum.with_index(0)
       |> Enum.map(fn {text, item_id} -> %{item_id: item_id, text: text} end)
+
     repo.insert_all(RecGPT.Catalog.CanonicalItemText, entries)
     :ok
   end
@@ -142,10 +153,12 @@ defmodule RecGPT.Steam.CanonicalItemText do
   @spec load_from_repo(module()) :: [binary()]
   def load_from_repo(repo) do
     import Ecto.Query
+
     repo.all(
-      from c in RecGPT.Catalog.CanonicalItemText,
+      from(c in RecGPT.Catalog.CanonicalItemText,
         order_by: [asc: c.item_id],
         select: c.text
+      )
     )
   end
 end

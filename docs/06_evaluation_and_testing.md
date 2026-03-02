@@ -55,6 +55,9 @@ In this repo, `test_sequences.json` and `cold_test_sequences.json` are held-out.
 
 Both `--test` and `--cold-test` are required. Default paths: `data/steam/fixture.json`, `data/steam/test_sequences.json`, `data/steam/cold_test_sequences.json`. Override with `--fixture`, `--ckpt`, `--test`, `--cold-test`, or env vars `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.
 
+- **Eval via gRPC Predict path (Steam catalogue):**  
+  `mix recgpt.eval_grpc --data-dir data/steam` (optionally `--catalog data/steam/items.json`). Same metrics as `mix recgpt.eval`; each test case is evaluated by calling the gRPC PredictionService.Server (same code path as `recgpt.v1.PredictionService/Predict`).
+
 ---
 
 ## Automated test

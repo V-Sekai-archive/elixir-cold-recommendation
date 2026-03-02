@@ -1,23 +1,28 @@
-defmodule Mix.Tasks.Recgpt.Eval do
-  @shortdoc "Run next-item evaluation (Hit@k, MRR) in Elixir"
+defmodule Mix.Tasks.Recgpt.EvalGrpc do
+  @shortdoc "Evaluate Steam catalogue recommendations via gRPC Predict path"
   @moduledoc """
-  Runs evaluation using **Elixir** (RecGPT.Serve + RecGPT.Eval). Loads fixture and checkpoint,
-  then evaluates on test_sequences.json (or cold_test_sequences.json with --cold).
+  Runs evaluation by calling the **gRPC Predict** handler (same code path as
+  recgpt.v1.PredictionService/Predict). Loads Steam fixture, checkpoint, and
+  optional catalog; sets serve_state; then for each test case from
+  test_sequences.json calls the PredictionService.Server and computes Hit@k, MRR.
+
+  Use this to verify that recommendations from Steam's catalogue are evaluated
+  through the gRPC API logic. Same metrics as `mix recgpt.eval`; different
+  code path (Predict RPC handler instead of direct Serve.recommend).
 
   ## Options
-    * `--data-dir` - Dataset dir; fixture and test paths default under this. Default: data/steam
+    * `--data-dir` - Dataset dir (default: data/steam)
     * `--fixture` - Path to fixture JSON. Default: <data-dir>/fixture.json
-    * `--ckpt` - Checkpoint export dir. Default: data/recgpt_ckpt_export
-    * `--test` - Path to test_sequences.json (or cold_test_sequences.json with --cold). Default: <data-dir>/test_sequences.json
-    * `--cold` - Use cold test split (default: false); sets default test to cold_test_sequences.json
+    * `--ckpt` - Checkpoint export dir.
+    * `--test` - Path to test_sequences.json (or cold_test_sequences.json with --cold).
+    * `--catalog` - Optional path to items.json (for display_name in responses).
+    * `--cold` - Use cold test split.
     * `--top-k` - Top-k for MRR (default: 10)
     * `--progress` - Print progress every N seconds (default: 0 = off)
 
-  ## Environment
-    * RECGPT_DATA_DIR, RECGPT_CKPT_PATH, RECGPT_FIXTURE - override paths
-
-  ## Output
-    Prints Hit@1, Hit@5, Hit@10, MRR, catalog size, random baseline, rejects_null.
+  ## Example
+      mix recgpt.eval_grpc --data-dir data/steam
+      mix recgpt.eval_grpc --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --test data/steam/test_sequences.json --catalog data/steam/items.json
   """
   use Mix.Task
 
@@ -30,6 +35,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
           fixture: :string,
           ckpt: :string,
           test: :string,
+          catalog: :string,
           cold: :boolean,
           top_k: :integer,
           progress: :integer
@@ -45,10 +51,13 @@ defmodule Mix.Tasks.Recgpt.Eval do
     fixture_path = Path.expand(fixture_path, File.cwd!())
 
     ckpt_dir =
-      opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
-        Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+      opts[:ckpt] ||
+        System.get_env("RECGPT_CKPT_PATH") ||
+        Path.join(File.cwd!(), "data/recgpt_ckpt_export")
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
+
+    catalog_path = opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())
 
     test_path =
       opts[:test] ||
@@ -75,8 +84,10 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
     Mix.shell().info("Loading state (fixture=#{fixture_path}, ckpt=#{ckpt_dir})...")
 
-    case RecGPT.Serve.load_state(fixture_path, ckpt_dir, nil) do
+    case RecGPT.Serve.load_state(fixture_path, ckpt_dir, catalog_path) do
       {:ok, state} ->
+        Application.put_env(:recgpt, :serve_state, state)
+
         case RecGPT.Eval.load_test_cases(test_path) do
           {:ok, cases} ->
             cases = RecGPT.Eval.filter_to_catalog(cases, state.num_items)
@@ -90,9 +101,27 @@ defmodule Mix.Tasks.Recgpt.Eval do
               return_ok()
             end
 
-            Mix.shell().info("Evaluating #{n} test cases (test=#{test_path})...")
+            Mix.shell().info("Evaluating #{n} test cases via gRPC Predict (test=#{test_path})...")
 
-            eval_opts = [top_k: min(top_k, 20), total: n]
+            grpc_recommend_fn = fn ctx, k ->
+              request = %Recgpt.V1.PredictRequest{
+                context_item_ids: ctx,
+                max_results: k
+              }
+
+              try do
+                response = Recgpt.V1.PredictionService.Server.predict(request, nil)
+                {:ok, response.item_ids || []}
+              rescue
+                e in GRPC.RPCError -> {:error, e}
+              end
+            end
+
+            eval_opts = [
+              top_k: min(top_k, 20),
+              total: n,
+              recommend_fn: grpc_recommend_fn
+            ]
 
             eval_opts =
               if progress_sec > 0,
@@ -114,7 +143,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
   end
 
   defp print_metrics(metrics) do
-    Mix.shell().info("Evaluation (Elixir RecGPT)")
+    Mix.shell().info("Evaluation (gRPC Predict path, Steam catalogue)")
     Mix.shell().info("  n = #{metrics[:n]}")
     Mix.shell().info("  hit_at_1 = #{Float.round(metrics[:hit_at_1] || 0, 4)}")
     Mix.shell().info("  hit_at_5 = #{Float.round(metrics[:hit_at_5] || 0, 4)}")
@@ -123,13 +152,8 @@ defmodule Mix.Tasks.Recgpt.Eval do
     Mix.shell().info("  catalog_size = #{metrics[:catalog_size]}")
     Mix.shell().info("  random_hit_at_1 = #{Float.round(metrics[:random_hit_at_1] || 0, 4)}")
     Mix.shell().info("  rejects_null = #{metrics[:rejects_null]}")
-
-    if metrics[:halted_reason] do
-      Mix.shell().info("  (halted: #{inspect(metrics[:halted_reason])})")
-    end
+    if metrics[:halted], do: Mix.shell().info("  (halted: #{inspect(metrics[:halted])})")
   end
 
-  defp return_ok do
-    :ok
-  end
+  defp return_ok, do: :ok
 end

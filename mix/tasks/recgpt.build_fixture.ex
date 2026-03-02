@@ -86,9 +86,20 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
     task_opts = []
     canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
-    task_opts = if canonical_texts?, do: Keyword.put(task_opts, :canonical_texts, true), else: task_opts
-    task_opts = if path = opts[:embeddings_npy], do: Keyword.put(task_opts, :embeddings_npy, path), else: task_opts
-    task_opts = if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"), do: Keyword.put(task_opts, :vae_ckpt, Path.expand(path, File.cwd!())), else: task_opts
+
+    task_opts =
+      if canonical_texts?, do: Keyword.put(task_opts, :canonical_texts, true), else: task_opts
+
+    task_opts =
+      if path = opts[:embeddings_npy],
+        do: Keyword.put(task_opts, :embeddings_npy, path),
+        else: task_opts
+
+    task_opts =
+      if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"),
+        do: Keyword.put(task_opts, :vae_ckpt, Path.expand(path, File.cwd!())),
+        else: task_opts
+
     last_ok =
       Enum.reduce_while(limits, nil, fn limit, acc ->
         Mix.shell().info("Trying limit #{limit}...")
@@ -124,9 +135,17 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   defp build_one(items_path, ckpt_dir, out_path, limit, task_opts) do
     opts = [limit: limit]
-    opts = if task_opts[:canonical_texts], do: Keyword.put(opts, :canonical_texts, true), else: opts
-    opts = if path = task_opts[:embeddings_npy], do: Keyword.put(opts, :embeddings_npy, path), else: opts
+
+    opts =
+      if task_opts[:canonical_texts], do: Keyword.put(opts, :canonical_texts, true), else: opts
+
+    opts =
+      if path = task_opts[:embeddings_npy],
+        do: Keyword.put(opts, :embeddings_npy, path),
+        else: opts
+
     opts = if path = task_opts[:vae_ckpt], do: Keyword.put(opts, :vae_ckpt, path), else: opts
+
     opts =
       if System.get_env("RECGPT_SQLITE_PATH"), do: Keyword.put(opts, :sqlite, true), else: opts
 
@@ -165,16 +184,30 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
     npy_note = if opts[:embeddings_npy], do: " (using dataset embeddings)", else: ""
     canonical_note = if canonical_texts?, do: " (canonical texts from DB)", else: ""
+
     Mix.shell().info(
       "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}#{npy_note}#{canonical_note}..."
     )
 
     build_opts = [limit: limit]
-    build_opts = if canonical_texts?, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
-    build_opts = if path = opts[:embeddings_npy], do: Keyword.put(build_opts, :embeddings_npy, path), else: build_opts
-    build_opts = if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"), do: Keyword.put(build_opts, :vae_ckpt, Path.expand(path, File.cwd!())), else: build_opts
+
     build_opts =
-      if System.get_env("RECGPT_SQLITE_PATH"), do: Keyword.put(build_opts, :sqlite, true), else: build_opts
+      if canonical_texts?, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
+
+    build_opts =
+      if path = opts[:embeddings_npy],
+        do: Keyword.put(build_opts, :embeddings_npy, path),
+        else: build_opts
+
+    build_opts =
+      if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"),
+        do: Keyword.put(build_opts, :vae_ckpt, Path.expand(path, File.cwd!())),
+        else: build_opts
+
+    build_opts =
+      if System.get_env("RECGPT_SQLITE_PATH"),
+        do: Keyword.put(build_opts, :sqlite, true),
+        else: build_opts
 
     try do
       fixture = RecGPT.FixtureBuild.build(items_path, ckpt_dir, build_opts)

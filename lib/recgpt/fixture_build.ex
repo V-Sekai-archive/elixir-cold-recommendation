@@ -40,6 +40,7 @@ defmodule RecGPT.FixtureBuild do
       else
         load_item_text_dict(items_path, opts[:limit])
       end
+
     sqlite? = opts[:sqlite] || System.get_env("RECGPT_SQLITE_PATH") != nil
 
     if sqlite? do
@@ -63,7 +64,10 @@ defmodule RecGPT.FixtureBuild do
     ids = item_text_dict |> Map.keys() |> Enum.sort()
     num_items = length(ids)
     # When using dataset .npy, load once and slice per batch; otherwise encode per batch.
-    preloaded = if npy_path = resolve_embeddings_npy(items_path, opts), do: load_embeddings_npy(npy_path, num_items), else: nil
+    preloaded =
+      if npy_path = resolve_embeddings_npy(items_path, opts),
+        do: load_embeddings_npy(npy_path, num_items),
+        else: nil
 
     {token_id_list, _cleared} =
       ids
@@ -77,6 +81,7 @@ defmodule RecGPT.FixtureBuild do
             batch_dict = Map.take(item_text_dict, batch_ids)
             Embedding.encode_item_text_dict(batch_dict)
           end
+
         batch_tokens = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
 
         unless cleared, do: Sync.clear_catalog_tables()
@@ -160,6 +165,7 @@ defmodule RecGPT.FixtureBuild do
   defp load_canonical_texts(limit) do
     list = CanonicalItemText.load_from_repo(Repo)
     list = if limit, do: Enum.take(list, limit), else: list
+
     list
     |> Enum.with_index(0)
     |> Map.new(fn {text, idx} -> {idx, text} end)

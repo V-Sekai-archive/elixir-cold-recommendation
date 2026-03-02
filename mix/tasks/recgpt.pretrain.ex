@@ -90,6 +90,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       :ok ->
         Mix.shell().info("Done.")
         :ok
+
       {:error, reason} ->
         Mix.raise("Pretrain failed: #{inspect(reason)}")
     end

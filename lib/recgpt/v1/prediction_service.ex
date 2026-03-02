@@ -48,12 +48,16 @@ defmodule Recgpt.V1.PredictionService.Server do
                     m when is_map(m) -> m["title"] || m["name"] || to_string(id)
                     _ -> to_string(id)
                   end
+
                 %ItemSummary{item_id: id, display_name: name}
               end)
+
             %PredictResponse{item_ids: item_ids, items: items}
 
           {:error, reason} ->
-            raise GRPC.RPCError, status: :internal, message: "Recommend failed: #{inspect(reason)}"
+            raise GRPC.RPCError,
+              status: :internal,
+              message: "Recommend failed: #{inspect(reason)}"
         end
     end
   end

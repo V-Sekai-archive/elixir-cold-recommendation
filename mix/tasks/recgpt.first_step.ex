@@ -44,7 +44,11 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
     Application.ensure_all_started(:nx)
 
     steam_dir = opts[:steam_dir] || "data/steam"
-    ckpt_dir = opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") || Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+
+    ckpt_dir =
+      opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
+        Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+
     vae_ckpt = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT")
     steam_dir = Path.expand(steam_dir, File.cwd!())
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
@@ -69,6 +73,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
   defp ensure_checkpoint!(ckpt_dir) do
     manifest = Path.join(ckpt_dir, "manifest.json")
+
     unless File.dir?(ckpt_dir) and File.regular?(manifest) do
       Mix.raise("""
       Checkpoint required at #{ckpt_dir}.
@@ -80,6 +85,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
   defp run_fetch(steam_dir) do
     Mix.shell().info("Step 1: Fetch Steam data to #{steam_dir}...")
+
     case RecGPT.Steam.Fetch.run(steam_dir) do
       :ok -> :ok
       {:error, reason} -> Mix.raise("Fetch failed: #{inspect(reason)}")
@@ -88,6 +94,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
   defp ensure_canonical_texts! do
     Application.ensure_all_started(:recgpt)
+
     case RecGPT.Steam.CanonicalItemText.load_from_repo(RecGPT.Repo) do
       [] ->
         Mix.raise("""
@@ -113,8 +120,12 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
     argv =
       ["--items", items_path, "--out", out_path, "--ckpt", ckpt_dir]
-      |> maybe_append("--vae-ckpt", vae_ckpt_path, is_binary(vae_ckpt_path) and vae_ckpt_path != "")
-      |> maybe_append("--limit", to_string(limit || 10000), true)
+      |> maybe_append(
+        "--vae-ckpt",
+        vae_ckpt_path,
+        is_binary(vae_ckpt_path) and vae_ckpt_path != ""
+      )
+      |> maybe_append("--limit", to_string(limit || 10_000), true)
 
     Mix.Task.reenable("recgpt.build_fixture")
     Mix.Task.run("recgpt.build_fixture", argv)
@@ -142,10 +153,11 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
           {:ok, cases} ->
             cases = RecGPT.Eval.filter_to_catalog(cases, state.num_items)
             n = length(cases)
+
             if n == 0 do
               Mix.shell().info("No test cases in catalog range.")
             else
-              metrics = RecGPT.Eval.evaluate(state, cases, [top_k: 10, total: n])
+              metrics = RecGPT.Eval.evaluate(state, cases, top_k: 10, total: n)
               Mix.shell().info("Evaluation (Elixir RecGPT)")
               Mix.shell().info("  n = #{metrics[:n]}")
               Mix.shell().info("  hit_at_1 = #{Float.round(metrics[:hit_at_1] || 0, 4)}")
@@ -154,9 +166,11 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
               Mix.shell().info("  mrr = #{Float.round(metrics[:mrr] || 0, 4)}")
               Mix.shell().info("  rejects_null = #{metrics[:rejects_null]}")
             end
+
           {:error, reason} ->
             Mix.raise("Eval failed (load test cases): #{inspect(reason)}")
         end
+
       {:error, reason} ->
         Mix.raise("Eval failed (load state): #{inspect(reason)}")
     end
