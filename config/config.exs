@@ -16,6 +16,10 @@ config :recgpt, :predict_batch_timeout_ms, 0
 # Or set RECGPT_CKPT_SHA256 env var.
 config :recgpt, :ckpt_expected_sha256, "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
 
+# EXLA JIT disk cache: persist compiled XLA binaries for faster setup on restart.
+# Set RECGPT_EXLA_CACHE_DIR to override path; empty string disables caching.
+config :recgpt, :exla_jit_cache_dir, System.get_env("RECGPT_EXLA_CACHE_DIR") || "tmp/exla_cache"
+
 # SQLite catalog/token storage (optional). Set RECGPT_SQLITE_PATH to use. Run mix ecto.migrate.
 config :recgpt, ecto_repos: [RecGPT.Repo]
 

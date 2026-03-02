@@ -81,7 +81,7 @@ defmodule RecGPT.Serve do
         |> Nx.tensor(type: {:s, 32})
         |> Nx.backend_transfer(inference_backend)
 
-      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend)
+      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
       state = %__MODULE__{
         params: params,
@@ -126,7 +126,7 @@ defmodule RecGPT.Serve do
               |> Nx.tensor(type: {:s, 32})
               |> Nx.backend_transfer(inference_backend)
 
-      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend)
+      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
       state = %__MODULE__{
         params: params,
@@ -383,12 +383,45 @@ defmodule RecGPT.Serve do
     }
   end
 
-  defp build_get_logits_batch_tensor_fn(params, inference_backend) do
+  defp build_jit_with_cache(ckpt_export_dir) do
+    base_dir = Application.get_env(:recgpt, :exla_jit_cache_dir) || ""
+    exla_v = Application.spec(:exla, :vsn) |> to_string()
+    nx_v = Application.spec(:nx, :vsn) |> to_string()
+    ckpt_sha = CheckpointLoader.get_sha256(ckpt_export_dir) || "none"
+    dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
+    dtype_str = case dtype do
+      {:f, 32} -> "f32"
+      {:f, 16} -> "f16"
+      {:bf, 16} -> "bf16"
+      _ -> "f32"
+    end
+    prefix = "exla:#{exla_v}:nx:#{nx_v}:ckpt:#{ckpt_sha}:dtype:#{dtype_str}"
+    cache_key = :crypto.hash(:sha256, prefix) |> Base.encode16(case: :lower) |> String.slice(0, 16)
+    cache_subdir = if base_dir != "", do: Path.join(base_dir, cache_key), else: ""
+    cache_full = if cache_subdir != "", do: Path.join(cache_subdir, "forward_with_cache"), else: nil
+    cache_incr = if cache_subdir != "", do: Path.join(cache_subdir, "forward_incremental"), else: nil
+
+    jit_full = if cache_full do
+      Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA, cache: cache_full)
+    else
+      Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
+    end
+
+    jit_incr = if cache_incr do
+      Nx.Defn.jit(&InferenceDefn.forward_incremental/5, compiler: EXLA, cache: cache_incr)
+    else
+      Nx.Defn.jit(&InferenceDefn.forward_incremental/5)
+    end
+
+    {jit_full, jit_incr}
+  end
+
+  defp build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir) do
     n_layers = Inference.n_layers_from_params(params)
     defn_params = InferenceParams.build_defn_params(params, n_layers)
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
-    jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
-    jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/5)
+
+    {jit_full, jit_incr} = build_jit_with_cache(ckpt_export_dir)
 
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)

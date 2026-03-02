@@ -58,6 +58,9 @@ foundationdb-*.msi
 foundationdb7-*/
 data/recgpt_ckpt_export/*
 
+# EXLA JIT disk cache (compiled XLA binaries)
+tmp/exla_cache/
+
 # Pipeline / runtime data (Steam, checkpoints, fixture, exports)
 data/
 
