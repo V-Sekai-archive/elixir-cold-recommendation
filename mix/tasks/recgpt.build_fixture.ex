@@ -55,9 +55,13 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   end
 
   defp run_ramp(opts) do
-    items_path = opts[:items] || resolve("data/steam/items.json")
-    out_path = opts[:out] || resolve("data/steam/fixture.json")
-    ckpt_dir = opts[:ckpt] || resolve("thirdparty/checkpoints/recgpt")
+    Application.ensure_all_started(:recgpt)
+    items_path =
+      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+    out_path =
+      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") || resolve("data/steam/fixture.json")
+    ckpt_dir =
+      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") || resolve("thirdparty/checkpoints/recgpt")
     start_limit = opts[:ramp_start] || @default_limit
     step = opts[:ramp_step] || 100
     mult = opts[:ramp_mult]
@@ -160,9 +164,13 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   end
 
   defp run_once(opts) do
-    items_path = opts[:items] || resolve("data/steam/items.json")
-    out_path = opts[:out] || resolve("data/steam/fixture.json")
-    ckpt_dir = opts[:ckpt] || resolve("thirdparty/checkpoints/recgpt")
+    Application.ensure_all_started(:recgpt)
+    items_path =
+      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+    out_path =
+      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") || resolve("data/steam/fixture.json")
+    ckpt_dir =
+      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") || resolve("thirdparty/checkpoints/recgpt")
     limit = opts[:limit] || @default_limit
 
     unless File.regular?(items_path) do

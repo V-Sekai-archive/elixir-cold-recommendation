@@ -12,8 +12,6 @@ defmodule RecGPT.Serve do
   alias RecGPT.CheckpointLoader
   alias RecGPT.Decode
   alias RecGPT.Inference
-  alias RecGPT.InferenceDefn
-  alias RecGPT.InferenceParams
   alias RecGPT.Trie
 
   @padding_id 15_360
@@ -51,9 +49,10 @@ defmodule RecGPT.Serve do
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
     with :ok <- ensure_torchx(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
+         {params, inference_backend} <- maybe_transfer_params_to_cuda(params),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
-         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params) do
+         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params, inference_backend) do
       trie = Trie.build(token_id_list)
       get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
@@ -80,9 +79,10 @@ defmodule RecGPT.Serve do
   def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
     with :ok <- ensure_torchx(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
+         {params, inference_backend} <- maybe_transfer_params_to_cuda(params),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items),
-         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params) do
+         {:ok, get_logits_batch_fn} <- build_get_logits_batch_fn(params, inference_backend) do
       get_logits_fn = build_get_logits_fn_from_batch(get_logits_batch_fn)
 
       state = %__MODULE__{
@@ -148,6 +148,20 @@ defmodule RecGPT.Serve do
     end
   end
 
+  # Load on CPU (default backend); move params to CUDA for inference when available. Does not change Nx.default_backend.
+  defp maybe_transfer_params_to_cuda(params) do
+    if Code.ensure_loaded?(Torchx) and
+         function_exported?(Torchx, :device_available?, 1) and
+         Torchx.device_available?(:cuda) do
+      cuda_backend = {Torchx.Backend, device: :cuda}
+      params_cuda =
+        Map.new(params, fn {k, v} -> {k, Nx.backend_transfer(v, cuda_backend)} end)
+      {params_cuda, cuda_backend}
+    else
+      {params, nil}
+    end
+  end
+
   defp load_fixture(path) do
     if File.regular?(path) do
       fixture = File.read!(path) |> Jason.decode!()
@@ -195,18 +209,9 @@ defmodule RecGPT.Serve do
     end
   end
 
-  defp build_get_logits_batch_fn(params) do
+  defp build_get_logits_batch_fn(params, inference_backend) do
     try do
-      n_layers = Inference.n_layers_from_params(params)
-      full_params = InferenceParams.build_defn_params(params, n_layers)
-
-      # Use Nx.Defn.Evaluator: Torchx is a backend, not a Defn.Compiler (no __jit__/5).
-      jit_with_cache =
-        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: Nx.Defn.Evaluator)
-
-      jit_incremental =
-        Nx.Defn.jit(&InferenceDefn.forward_incremental/5, compiler: Nx.Defn.Evaluator)
-
+      # Use non-defn Inference (no JIT / Nx.Defn) so Torchx is used as plain backend only.
       batch_fn = fn list_of_token_lists, cache
                     when is_list(list_of_token_lists) and list_of_token_lists != [] ->
         max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
@@ -223,22 +228,36 @@ defmodule RecGPT.Serve do
         batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
         embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
 
+        {batch, batch_aux, embed_mask} =
+          maybe_transfer_to_inference_backend({batch, batch_aux, embed_mask}, inference_backend)
+
         if cache == nil do
-          {logits, cache_tuple} = jit_with_cache.(batch, batch_aux, embed_mask, full_params)
-          cache_list = cache_tuple_to_list(cache_tuple)
+          {logits, cache_list} =
+            Inference.forward_with_cache(batch, batch_aux, embed_mask, params)
           {logits, cache_list}
         else
           last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
           batch_one = Nx.tensor(last_tokens, type: {:s, 32})
           aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
           mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
+
+          {batch_one, aux_one, mask_one} =
+            maybe_transfer_to_inference_backend(
+              {batch_one, aux_one, mask_one},
+              inference_backend
+            )
+
           cache_to_use = maybe_replicate_cache(cache, batch_size)
-          cache_tuple_to_use = cache_list_to_tuple(cache_to_use)
 
-          {logits, new_cache_tuple} =
-            jit_incremental.(batch_one, aux_one, mask_one, full_params, cache_tuple_to_use)
+          {logits, new_cache} =
+            Inference.forward_incremental(
+              batch_one,
+              aux_one,
+              mask_one,
+              params,
+              cache_to_use
+            )
 
-          new_cache = cache_tuple_to_list(new_cache_tuple)
           {logits, new_cache}
         end
       end
@@ -246,16 +265,18 @@ defmodule RecGPT.Serve do
       {:ok, batch_fn}
     rescue
       e ->
-        {:error, "Torchx JIT or defn params failed: #{inspect(e)}"}
+        {:error, "Inference (non-defn) failed: #{inspect(e)}"}
     end
   end
 
-  defp cache_tuple_to_list(cache_tuple) do
-    Tuple.to_list(cache_tuple)
-  end
+  defp maybe_transfer_to_inference_backend(tensors, nil), do: tensors
 
-  defp cache_list_to_tuple(cache_list) do
-    List.to_tuple(cache_list)
+  defp maybe_transfer_to_inference_backend({a, b, c}, backend) do
+    {
+      Nx.backend_transfer(a, backend),
+      Nx.backend_transfer(b, backend),
+      Nx.backend_transfer(c, backend)
+    }
   end
 
   defp replicate_cache(cache, batch_size) do
@@ -326,6 +347,51 @@ defmodule RecGPT.Serve do
     len = length(token_list)
     padding = List.duplicate(padding_id || @padding_id, @seq_token_capacity - len)
     padding ++ token_list
+  end
+
+  @doc """
+  Recommend next items for multiple contexts in one batched pass.
+  `list_of_contexts` is a list of item_id lists (each non-empty). Returns a list of
+  `{:ok, [item_id, ...]}` or `{:error, msg}` in the same order. Empty contexts get `{:error, "item_ids must be non-empty"}`.
+  Uses batched beam search for better throughput than calling `recommend/3` repeatedly.
+  """
+  @spec recommend_batch(state(), [[non_neg_integer()]], pos_integer()) ::
+          [{:ok, [non_neg_integer()]} | {:error, String.t()}]
+  def recommend_batch(state, list_of_contexts, top_k \\ 5)
+      when is_list(list_of_contexts) and is_integer(top_k) and top_k >= 1 do
+    top_k = min(top_k, 20)
+    batch_fn = state.get_logits_batch_fn || build_fallback_batch_fn(state.get_logits_fn)
+
+    non_empty =
+      list_of_contexts
+      |> Enum.with_index()
+      |> Enum.filter(fn {ctx, _} -> ctx != [] end)
+
+    if non_empty == [] do
+      Enum.map(list_of_contexts, fn _ -> {:error, "item_ids must be non-empty"} end)
+    else
+      context_token_ids =
+        Enum.map(non_empty, fn {ctx, _} -> item_ids_to_context_token_ids(ctx, state) end)
+
+      results =
+        Decode.beam_search_top_k_batched(state.trie, context_token_ids, top_k, batch_fn)
+
+      idx_to_result =
+        non_empty
+        |> Enum.zip(results)
+        |> Map.new(fn {{_, idx}, r} -> {idx, r} end)
+
+      Enum.map(0..(length(list_of_contexts) - 1), fn i ->
+        if Enum.at(list_of_contexts, i) == [] do
+          {:error, "item_ids must be non-empty"}
+        else
+          case Map.get(idx_to_result, i, :not_found) do
+            {:ok, list} -> {:ok, list}
+            :not_found -> {:ok, []}
+          end
+        end
+      end)
+    end
   end
 
   @doc """

@@ -11,7 +11,8 @@ defmodule Mix.Tasks.Recgpt.Eval do
     * `--test` - Path to test_sequences.json (or cold_test_sequences.json with --cold). Default: <data-dir>/test_sequences.json
     * `--cold` - Use cold test split (default: false); sets default test to cold_test_sequences.json
     * `--top-k` - Top-k for MRR (default: 10)
-    * `--progress` - Print progress every N seconds (default: 0 = off)
+    * `--progress` - Print progress every N seconds (default: 0 = off). When set, shows rate (cases/s), ETA, Hit@1, and MRR.
+    * `--batch-size` - Number of test cases per batched recommend (default: 8). Larger values improve throughput (fewer forward passes); use 1 for single-case (original) behavior.
 
   ## Environment
     * RECGPT_DATA_DIR, RECGPT_CKPT_PATH, RECGPT_FIXTURE - override paths
@@ -32,26 +33,35 @@ defmodule Mix.Tasks.Recgpt.Eval do
           test: :string,
           cold: :boolean,
           top_k: :integer,
-          progress: :integer
+          progress: :integer,
+          batch_size: :integer
         ]
       )
 
     data_dir = opts[:data_dir] || System.get_env("RECGPT_DATA_DIR") || "data/steam"
     data_dir = Path.expand(data_dir, File.cwd!())
 
+    Application.ensure_all_started(:recgpt)
+    Application.ensure_all_started(:nx)
+
+    # Resolve paths: opts > env > artifact catalogue > default
     fixture_path =
-      opts[:fixture] || System.get_env("RECGPT_FIXTURE") || Path.join(data_dir, "fixture.json")
+      opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        Path.join(data_dir, "fixture.json")
 
     fixture_path = Path.expand(fixture_path, File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
     test_path =
       opts[:test] ||
+        RecGPT.Catalog.Artifact.resolve_path(if(opts[:cold], do: "cold_test_sequences", else: "test_sequences")) ||
         if(opts[:cold],
           do: Path.join(data_dir, "cold_test_sequences.json"),
           else: Path.join(data_dir, "test_sequences.json")
@@ -61,9 +71,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
     top_k = opts[:top_k] || 10
     progress_sec = opts[:progress] || 0
-
-    Application.ensure_all_started(:recgpt)
-    Application.ensure_all_started(:nx)
+    batch_size = opts[:batch_size] || 8
 
     unless File.regular?(fixture_path) do
       Mix.raise("Fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")
@@ -92,7 +100,7 @@ defmodule Mix.Tasks.Recgpt.Eval do
 
             Mix.shell().info("Evaluating #{n} test cases (test=#{test_path})...")
 
-            eval_opts = [top_k: min(top_k, 20), total: n]
+            eval_opts = [top_k: min(top_k, 20), total: n, batch_size: max(batch_size, 1)]
 
             eval_opts =
               if progress_sec > 0,

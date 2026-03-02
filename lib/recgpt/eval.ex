@@ -21,6 +21,10 @@ defmodule RecGPT.Eval do
   you pass a **stream** (e.g. `stream_test_cases_from_db/1`), the wavefront advances
   through the stream without accumulating. No full test set or tensor batch in memory.
 
+  **Performance:** Eval is inference-bound. Use `:batch_size` (or `--batch-size` in mix recgpt.eval)
+  to run multiple test cases per batched forward (default 8); larger batches improve throughput.
+  Use `--progress N` for rate and ETA. GPU/CUDA (Torchx backend) speeds up the forward pass.
+
   **SPMD** is the right design for scaling: same program on every rank, sharded test
   data (and optionally sharded catalog/model), then reduce metrics (sum h1, h5, h10,
   rr_sum, n). See GSPMD and N-D parallelism (e.g.
@@ -51,6 +55,7 @@ defmodule RecGPT.Eval do
   @spec evaluate(RecGPT.Serve.state(), Enumerable.t(), keyword()) :: map()
   def evaluate(state, test_cases, opts \\ []) do
     top_k = Keyword.get(opts, :top_k, 10) |> min(20)
+    batch_size = Keyword.get(opts, :batch_size, 1) |> max(1)
     check_interval = Keyword.get(opts, :resource_check_interval, 100)
     progress_interval_sec = Keyword.get(opts, :progress_interval_sec)
     progress_fn = Keyword.get(opts, :progress_fn) || default_progress_fn()
@@ -64,20 +69,43 @@ defmodule RecGPT.Eval do
       Keyword.get(opts, :recommend_fn) ||
         fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
 
+    recommend_batch_fn =
+      Keyword.get(opts, :recommend_batch_fn) ||
+        fn ctx_list, k -> RecGPT.Serve.recommend_batch(state, ctx_list, k) end
+
     start_sec = System.monotonic_time(:second)
 
-    # Constant memory / bounded wavefront: one test case at a time; acc = (h1, h5, h10, rr_sum, n, last_progress_sec).
+    # When batch_size > 1, iterate over chunks and run batched recommend for throughput.
+    iter =
+      if batch_size > 1 do
+        Stream.chunk_every(test_cases, batch_size)
+      else
+        test_cases
+      end
+
     result =
-      Enum.reduce_while(test_cases, {0, 0, 0, 0.0, 0, start_sec}, fn tc, acc ->
+      Enum.reduce_while(iter, {0, 0, 0, 0.0, 0, start_sec}, fn element, acc ->
         {h1, h5, h10, rr_sum, n, last_progress_sec} = acc
-        metrics_5 = update_acc_for_tc(tc, {h1, h5, h10, rr_sum, n}, recommend_fn, top_k)
+
+        metrics_5 =
+          if batch_size > 1 do
+            update_acc_for_chunk(element, {h1, h5, h10, rr_sum, n}, recommend_batch_fn, top_k)
+          else
+            update_acc_for_tc(element, {h1, h5, h10, rr_sum, n}, recommend_fn, top_k)
+          end
+
         {nh1, nh5, nh10, nrr_sum, nn} = metrics_5
         now_sec = System.monotonic_time(:second)
 
         maybe_report_progress =
           if progress_interval_sec && progress_interval_sec > 0 &&
                now_sec - last_progress_sec >= progress_interval_sec do
-            progress_fn.(nn, total, metrics_5)
+            elapsed_sec = now_sec - start_sec
+            progress_opts = [elapsed_sec: elapsed_sec]
+            arity = progress_fn |> :erlang.fun_info() |> Keyword.get(:arity)
+            if arity == 4,
+              do: progress_fn.(nn, total, metrics_5, progress_opts),
+              else: progress_fn.(nn, total, metrics_5)
             now_sec
           else
             last_progress_sec
@@ -339,6 +367,30 @@ defmodule RecGPT.Eval do
     end
   end
 
+  defp update_acc_for_chunk(chunk, acc, recommend_batch_fn, top_k) do
+    if chunk == [] do
+      acc
+    else
+      contexts = Enum.map(chunk, &get_tc_context/1)
+      results = recommend_batch_fn.(contexts, top_k)
+
+      Enum.reduce(Enum.zip(chunk, results), acc, fn {tc, result}, acc_ ->
+        context = get_tc_context(tc)
+        next_item = get_tc_next_item(tc)
+
+        if context == [] or next_item == nil do
+          acc_
+        else
+          preds = case result do
+            {:ok, p} -> List.wrap(p)
+            _ -> []
+          end
+          add_hit_metrics(acc_, preds, next_item)
+        end
+      end)
+    end
+  end
+
   defp add_hit_metrics({acc_h1, acc_h5, acc_h10, acc_rr, acc_n}, preds, next_item) do
     idx = index_of(preds, next_item)
     rr = if idx, do: 1.0 / (idx + 1), else: 0.0
@@ -363,11 +415,22 @@ defmodule RecGPT.Eval do
   end
 
   defp default_progress_fn do
-    fn done, total, {h1, _h5, _h10, rr_sum, n} ->
+    fn done, total, {h1, _h5, _h10, rr_sum, n}, opts ->
+      opts = opts || []
       hit1 = if n > 0, do: Float.round(h1 / n, 4), else: 0.0
       mrr = if n > 0, do: Float.round(rr_sum / n, 4), else: 0.0
       total_str = if total, do: "#{done}/#{total}", else: "#{done}"
-      IO.puts("  eval progress: #{total_str}  Hit@1=#{hit1}  MRR=#{mrr}")
+      elapsed = Keyword.get(opts, :elapsed_sec, 0)
+      rate_str = if elapsed > 0 and done > 0, do: "  #{Float.round(done / elapsed, 1)}/s", else: ""
+      eta_str =
+        if total && total > 0 && done > 0 && elapsed > 0 do
+          remaining = total - done
+          eta_sec = div(remaining * elapsed, done)
+          if eta_sec >= 60, do: "  ETA ~ #{div(eta_sec, 60)}m #{rem(eta_sec, 60)}s", else: "  ETA ~ #{eta_sec}s"
+        else
+          ""
+        end
+      IO.puts("  eval progress: #{total_str}  Hit@1=#{hit1}  MRR=#{mrr}#{rate_str}#{eta_str}")
     end
   end
 

@@ -45,22 +45,31 @@ defmodule Mix.Tasks.Recgpt.EvalGrpc do
     data_dir = opts[:data_dir] || System.get_env("RECGPT_DATA_DIR") || "data/steam"
     data_dir = Path.expand(data_dir, File.cwd!())
 
+    Application.ensure_all_started(:recgpt)
+    Application.ensure_all_started(:nx)
+
     fixture_path =
-      opts[:fixture] || System.get_env("RECGPT_FIXTURE") || Path.join(data_dir, "fixture.json")
+      opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        Path.join(data_dir, "fixture.json")
 
     fixture_path = Path.expand(fixture_path, File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] ||
         System.get_env("RECGPT_CKPT_PATH") ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         Path.join(File.cwd!(), "data/recgpt_ckpt_export")
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
-    catalog_path = opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())
+    catalog_path =
+      (opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())) ||
+        RecGPT.Catalog.Artifact.resolve_path("items")
 
     test_path =
       opts[:test] ||
+        RecGPT.Catalog.Artifact.resolve_path(if(opts[:cold], do: "cold_test_sequences", else: "test_sequences")) ||
         if(opts[:cold],
           do: Path.join(data_dir, "cold_test_sequences.json"),
           else: Path.join(data_dir, "test_sequences.json")
@@ -70,9 +79,6 @@ defmodule Mix.Tasks.Recgpt.EvalGrpc do
 
     top_k = opts[:top_k] || 10
     progress_sec = opts[:progress] || 0
-
-    Application.ensure_all_started(:recgpt)
-    Application.ensure_all_started(:nx)
 
     unless File.regular?(fixture_path) do
       Mix.raise("Fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")

@@ -41,17 +41,21 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
 
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
         Path.join(File.cwd!(), "data/steam/fixture.json")
 
     fixture_path = Path.expand(fixture_path, File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         Path.join(File.cwd!(), "data/recgpt_ckpt_export")
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
-    catalog_path = opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())
+    catalog_path =
+      (opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())) ||
+        RecGPT.Catalog.Artifact.resolve_path("items")
     out_path = opts[:out] && Path.expand(opts[:out], File.cwd!())
     top_k = opts[:top_k] || 5
 

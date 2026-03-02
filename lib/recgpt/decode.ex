@@ -110,6 +110,54 @@ defmodule RecGPT.Decode do
     end
   end
 
+  @doc """
+  Runs beam search for multiple contexts in lockstep, batching forward passes.
+  `list_of_context_token_ids` is a list of B context token-ID lists. Returns a list of B results,
+  each `{:ok, [item_id, ...]}` (top_k) or `:not_found`. Uses one batched forward per step (batch size
+  = sum of beam sizes across B contexts), so typically much faster than B separate recommend calls.
+  """
+  @spec beam_search_top_k_batched(
+          map(),
+          [[non_neg_integer()]],
+          pos_integer(),
+          ([[non_neg_integer()]], term() -> {Nx.Tensor.t(), term()})
+        ) :: [{:ok, [non_neg_integer()]} | :not_found]
+  def beam_search_top_k_batched(trie, list_of_context_token_ids, top_k, batch_fn)
+      when is_map(trie) and is_list(list_of_context_token_ids) and top_k >= 1 and
+             is_function(batch_fn, 2) do
+    if list_of_context_token_ids == [] do
+      []
+    else
+      beam_width = max(4, top_k)
+      initial_beams = list_of_context_token_ids |> Enum.map(fn _ -> [{[], 0.0}] end)
+
+      {final_beams, _} =
+        Enum.reduce(0..(@seq_len - 1), {initial_beams, nil}, fn _step, {beams, _cache} ->
+          expand_beams_batched(batch_fn, trie, list_of_context_token_ids, beams, beam_width)
+        end)
+
+      Enum.map(final_beams, fn beam ->
+        candidates =
+          beam
+          |> Enum.flat_map(fn {tokens, score} ->
+            case Trie.lookup(trie, tokens) do
+              {:ok, item_id} -> [{item_id, score}]
+              :not_found -> []
+            end
+          end)
+          |> Enum.sort_by(fn {_, s} -> s end, :desc)
+          |> Enum.uniq_by(fn {item_id, _} -> item_id end)
+          |> Enum.take(top_k)
+          |> Enum.map(fn {item_id, _} -> item_id end)
+
+        case candidates do
+          [] -> :not_found
+          list -> {:ok, list}
+        end
+      end)
+    end
+  end
+
   defp expand_beam(get_logits_fn, trie, context_token_ids, beam, beam_width) do
     # For each candidate in beam, get logits for next token (context + prefix), filter to valid, take top by score.
     all_candidates =
@@ -184,6 +232,56 @@ defmodule RecGPT.Decode do
         |> Enum.take(beam_width)
 
       {result_beam, new_cache}
+    end
+  end
+
+  defp expand_beams_batched(batch_fn, trie, list_of_context_token_ids, beams, beam_width) do
+    full_prefixes =
+      beams
+      |> Enum.zip(list_of_context_token_ids)
+      |> Enum.flat_map(fn {beam, ctx} ->
+        Enum.map(beam, fn {prefix, _} -> ctx ++ prefix end)
+      end)
+
+    if full_prefixes == [] do
+      {beams, nil}
+    else
+      {logits, _} = batch_fn.(full_prefixes, nil)
+      {_batch_size, _vocab_size} = Nx.shape(logits)
+
+      # Offsets into logits per beam: beam i uses rows [offset[i], offset[i] + length(beam[i]))
+      lengths = Enum.map(beams, &length/1)
+      offsets =
+        [0 | Enum.take(Enum.scan(lengths, 0, fn len, acc -> acc + len end), length(lengths) - 1)]
+
+      new_beams =
+        Enum.map(Enum.zip([beams, offsets, lengths]), fn {beam, offset, len} ->
+          logits_slice = Nx.slice_along_axis(logits, offset, len, axis: 0)
+
+          entries =
+            beam
+            |> Enum.with_index()
+            |> Enum.flat_map(fn {{prefix, parent_score}, cand_idx} ->
+              valid = Trie.valid_next_tokens(trie, prefix)
+
+              Enum.map(valid, fn token_id ->
+                logit =
+                  logits_slice
+                  |> Nx.slice_along_axis(cand_idx, 1, axis: 0)
+                  |> Nx.slice_along_axis(token_id, 1, axis: 1)
+                  |> Nx.squeeze()
+                  |> Nx.to_number()
+
+                {prefix ++ [token_id], parent_score + logit}
+              end)
+            end)
+
+          entries
+          |> Enum.sort_by(fn {_, s} -> s end, :desc)
+          |> Enum.take(beam_width)
+        end)
+
+      {new_beams, nil}
     end
   end
 end

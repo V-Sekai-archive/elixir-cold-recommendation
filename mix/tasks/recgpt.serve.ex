@@ -52,17 +52,21 @@ defmodule Mix.Tasks.Recgpt.Serve do
             end
         end
 
+    Application.ensure_all_started(:recgpt)
+
+    # Resolve paths: opts > env > artifact catalogue (waffle_ecto) > default
     fixture_path =
       opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
         resolve_path("data/serve_e2e_fixture.json")
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         resolve_path(Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"]))
 
-    catalog_path = opts[:catalog]
-
-    Application.ensure_all_started(:recgpt)
+    catalog_path =
+      opts[:catalog] || RecGPT.Catalog.Artifact.resolve_path("items")
 
     Mix.shell().info("Loading model and fixture...")
 

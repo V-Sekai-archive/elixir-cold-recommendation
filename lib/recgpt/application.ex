@@ -28,8 +28,11 @@ defmodule RecGPT.ReleaseTasks do
     Application.ensure_all_started(:recgpt)
     Application.ensure_all_started(:nx)
 
-    fixture_path = System.get_env("RECGPT_FIXTURE")
-    ckpt_dir = System.get_env("RECGPT_CKPT_EXPORT") || System.get_env("RECGPT_CKPT_PATH")
+    fixture_path =
+      System.get_env("RECGPT_FIXTURE") || RecGPT.Catalog.Artifact.resolve_path("fixture")
+    ckpt_dir =
+      System.get_env("RECGPT_CKPT_EXPORT") || System.get_env("RECGPT_CKPT_PATH") ||
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint")
 
     if fixture_path != "" and fixture_path != nil and ckpt_dir != "" and ckpt_dir != nil do
       case RecGPT.Serve.load_state(fixture_path, ckpt_dir, nil) do

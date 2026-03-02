@@ -13,10 +13,14 @@ defmodule RecGPT.CheckpointLoader do
 
   Returns a map of key => Nx.Tensor. The inference model (RecGPT.Inference) expects
   keys such as: wte (FSQ embed table), ae.* (aux encoder), gpt2model.* (GPT-2), pred_head.* (head).
+
+  Tensors are created with Nx.BinaryBackend (no Torchx.from_blob) so loading works regardless
+  of the default Nx backend; callers can then transfer params to GPU (e.g. in Serve).
   """
 
   @doc """
   Load checkpoint from an export directory. Returns %{key => Nx.Tensor}.
+  Uses BinaryBackend to avoid Torchx.from_blob; transfer to Torchx/CUDA in Serve if desired.
   """
   def load_from_export(export_dir) when is_binary(export_dir) do
     do_load_from_export(export_dir)
@@ -35,10 +39,57 @@ defmodule RecGPT.CheckpointLoader do
       fname = meta["file"]
       path = Path.join(export_dir, fname)
 
-      case Npy.load(path, :nx) do
-        {:ok, tensor} -> Map.put(acc, key, tensor)
-        {:error, reason} -> raise "Failed to load #{path}: #{inspect(reason)}"
+      case Npy.load(path, :npy) do
+        {:ok, npy} ->
+          tensor = npy_to_tensor_binary_backend(npy)
+          Map.put(acc, key, tensor)
+        {:error, reason} ->
+          raise "Failed to load #{path}: #{inspect(reason)}"
       end
     end)
+  end
+
+  # Build Nx tensor from %Npy{} using BinaryBackend only (no Torchx.from_blob). Same descr→type
+  # mapping as Npy.npy2tensor/1; caller can backend_transfer to Torchx/CUDA.
+  defp npy_to_tensor_binary_backend(%Npy{descr: descr, shape: shape, data: data}) do
+    type = npy_descr_to_nx_type(descr)
+    prev = Nx.default_backend()
+    Nx.default_backend(Nx.BinaryBackend)
+    try do
+      data
+      |> Nx.from_binary(type)
+      |> Nx.reshape(shape)
+    after
+      Nx.default_backend(prev)
+    end
+  end
+
+  defp npy_descr_to_nx_type(descr) do
+    case descr do
+      "<i1" -> {:s, 8}
+      "<i2" -> {:s, 16}
+      "<i4" -> {:s, 32}
+      "<i8" -> {:s, 64}
+      "<u1" -> {:u, 8}
+      "<u2" -> {:u, 16}
+      "<u4" -> {:u, 32}
+      "<u8" -> {:u, 64}
+      "<f4" -> {:f, 32}
+      "<f8" -> {:f, 64}
+      "<f2" -> {:bf, 16}
+      # big-endian variants
+      ">i1" -> {:s, 8}
+      ">i2" -> {:s, 16}
+      ">i4" -> {:s, 32}
+      ">i8" -> {:s, 64}
+      ">u1" -> {:u, 8}
+      ">u2" -> {:u, 16}
+      ">u4" -> {:u, 32}
+      ">u8" -> {:u, 64}
+      ">f4" -> {:f, 32}
+      ">f8" -> {:f, 64}
+      ">f2" -> {:bf, 16}
+      other -> raise "Unsupported npy descr: #{inspect(other)}"
+    end
   end
 end

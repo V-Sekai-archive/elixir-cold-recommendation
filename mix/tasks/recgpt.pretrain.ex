@@ -40,10 +40,16 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
         ]
       )
 
-    ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
-    fixture_path = opts[:fixture] || resolve("data/steam/fixture.json")
-    train_path = opts[:train] || resolve("data/steam/train_sequences.json")
-    items_path = opts[:items] || resolve("data/steam/items.json")
+    Application.ensure_all_started(:recgpt)
+
+    ckpt_dir =
+      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") || resolve("data/recgpt_ckpt_export")
+    fixture_path =
+      opts[:fixture] || RecGPT.Catalog.Artifact.resolve_path("fixture") || resolve("data/steam/fixture.json")
+    train_path =
+      opts[:train] || RecGPT.Catalog.Artifact.resolve_path("train_sequences") || resolve("data/steam/train_sequences.json")
+    items_path =
+      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
 
     out_dir =
       case opts[:out] do

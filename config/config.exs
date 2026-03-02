@@ -4,7 +4,6 @@
 import Config
 
 config :nx, default_backend: Torchx.Backend
-config :nx, :default_defn_options, compiler: Nx.Defn.Evaluator
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.
 # Default 1 and 0 = one request at a time (no batching).
@@ -17,3 +16,8 @@ config :recgpt, ecto_repos: [RecGPT.Repo]
 config :recgpt, RecGPT.Repo,
   database: System.get_env("RECGPT_SQLITE_PATH") || "priv/recgpt.sqlite3",
   migration_primary_key: [type: :integer]
+
+# Waffle: blob/artifact storage (local by default; set WAFFLE_ASSET_HOST or use S3 in prod).
+config :waffle,
+  storage: Waffle.Storage.Local,
+  asset_host: System.get_env("WAFFLE_ASSET_HOST") || "http://localhost:4000"

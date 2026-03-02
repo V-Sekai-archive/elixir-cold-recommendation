@@ -45,17 +45,20 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     Application.ensure_all_started(:recgpt)
     Application.ensure_all_started(:nx)
 
+    # Resolve paths: opts > artifact catalogue > default
     fixture_path =
       opts[:fixture] ||
-        Path.join(File.cwd!(), "data/steam/fixture.json")
-        |> Path.expand(File.cwd!())
+        RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        Path.expand(Path.join(File.cwd!(), "data/steam/fixture.json"), File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] ||
-        Path.join(File.cwd!(), "data/recgpt_ckpt_export")
-        |> Path.expand(File.cwd!())
+        RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
+        Path.expand(Path.join(File.cwd!(), "data/recgpt_ckpt_export"), File.cwd!())
 
-    catalog_path = opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())
+    catalog_path =
+      opts[:catalog] && Path.expand(opts[:catalog], File.cwd!()) ||
+        RecGPT.Catalog.Artifact.resolve_path("items")
     context_str = opts[:context] || "0"
     top_k = opts[:top_k] || 10
 
