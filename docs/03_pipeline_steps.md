@@ -22,10 +22,10 @@ Run these in order to go from nothing to a running server that returns recommend
 2. **Checkpoint:** `mix recgpt.fetch_ckpt` then `mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`
 3. **Fixture (catalogue):** `mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export`
 4. **Pretrain:** `mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50`
-5. **Serve:** `mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain`
-6. **Recommend:** Call the gRPC Predict endpoint (e.g. with grpcurl per [01 gRPC API](01_grpc_api.md#quick-test)) with a context of item IDs; the server returns top-k next-item recommendations.
+5. **Serve:** `mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain --catalog data/steam/items.json`
+6. **Recommend:** Call the gRPC Predict endpoint (e.g. with grpcurl per [01 gRPC API](01_grpc_api.md#quick-test)) with a context of item IDs (catalogue indices 0..num_items-1); the server returns top-k next-item recommendations. With `--catalog`, response `items` include human-readable `display_name` (e.g. game title).
 
-The catalogue is the fixture (items + token_id_list) plus the model; after pretrain, the server uses the trained checkpoint and the same fixture to answer Predict requests.
+The catalogue is the fixture (items + token_id_list) plus the model; after pretrain, the server uses the trained checkpoint and the same fixture to answer Predict requests. Pass `--catalog data/steam/items.json` so recommendations return catalogue item titles in the response.
 
 ---
 
@@ -78,10 +78,10 @@ mix recgpt.eval --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrai
 After pretrain (and optionally eval):
 
 ```bash
-mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain [--grpc-port 50051]
+mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain --catalog data/steam/items.json [--grpc-port 50051]
 ```
 
-gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [01 gRPC API](01_grpc_api.md).
+Use `--catalog data/steam/items.json` so the Predict response includes catalogue item titles in `items[].display_name`. gRPC only: **recgpt.v1.PredictionService/Predict**. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recommendation.proto). See [01 gRPC API](01_grpc_api.md).
 
 ---
 

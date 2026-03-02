@@ -12,9 +12,9 @@ Eval and gRPC serving must be documented and testable; without a single surface 
 
 ## Proposed improvement
 
-Document Layer 6 (Application): responsibility, public surface, and how to test. Eval and gRPC delegate to Serve.recommend.
+Document Layer 6 (Application): responsibility, public surface, and how to test. Eval and gRPC delegate to **RecGPT.RecommendationService** (staff API); default implementation is Serve.
 
-Eval loads test cases and calls Serve.recommend to compute Hit@k, MRR, etc. PredictionService.Server handles gRPC Predict and delegates to Serve.recommend. GRPCEndpoint wires the server. **Public surface:** RecGPT.Eval.evaluate/3, RecGPT.Eval.load_test_cases/1, Recgpt.V1.PredictionService.Server (gRPC), RecGPT.GRPCEndpoint. **How to test:** eval_test.exs, prediction_service_test.exs. Stub Serve state for unit tests; integration tests use real stack.
+Eval loads test cases and calls RecommendationService.recommend to compute Hit@k, MRR, etc. PredictionService.Server handles gRPC Predict and delegates to RecommendationService.recommend. GRPCEndpoint wires the server. **Public surface:** RecGPT.RecommendationService (behaviour + dispatcher), RecGPT.Eval.evaluate/3, RecGPT.Eval.load_test_cases/1, Recgpt.V1.PredictionService.Server (gRPC), RecGPT.GRPCEndpoint. **How to test:** eval_test.exs, prediction_service_test.exs. Stub serve_state for unit tests; set :recommendation_impl to mock implementation if needed; integration tests use real stack.
 
 ---
 

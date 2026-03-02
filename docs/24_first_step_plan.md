@@ -80,7 +80,7 @@ Once Steam eval gives a baseline we trust, the **same recommendation pipeline** 
 
 ## Continue plan (now that Steam semantic IDs match)
 
-With canonical texts and 100% FSQ agreement, we can run the full first step end-to-end. Next concrete actions:
+With canonical texts and 100% FSQ agreement, we can run the full first step end-to-end. **Recommend catalogue items:** Serve uses the fixture’s token_id_list (from Steam semantic IDs → canonical text → FSQ); pass `--catalog data/steam/items.json` so the Predict response includes item titles in `items[].display_name`. Next concrete actions:
 
 1. **Run first step** — `mix recgpt.first_step` (or manual steps) and record baseline Hit@k, MRR.
 2. **Compare zero-shot vs trained** — Eval with pretrained checkpoint (zero-shot), then pretrain on `train_sequences.json`, then eval with fine-tuned checkpoint. Reject the random baseline.

@@ -127,6 +127,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 25  | [25_mvp_guard_rails.md](25_mvp_guard_rails.md)                             | Keep rope bridge on track.                                         | Guard rails (tombstones); no multi-rank/sharding until minimal loop closed.                               |
 | 26  | [26_embedding_mismatch.md](26_embedding_mismatch.md)                       | Embedding parity gap and workaround.                               | Text format; compare_embeddings; use dataset .npy.                                                        |
 | 28  | [28_thirdparty_vs_elixir_parity.md](28_thirdparty_vs_elixir_parity.md)     | Parity with released model (dataset .npy + VAE).                   | Embeddings and FSQ sources; use dataset .npy + VAE for FSQ; Elixir-only path.                             |
+| 29  | [29_staff_api.md](29_staff_api.md)                                         | Staff API for catalogues, sequences, fixture, pretrain.            | RecGPT.StaffApi behaviour; list/upsert items; sync sequences; build_fixture; pretrain; set_canonical_texts. |
 
 ---
 
@@ -151,6 +152,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | First step (Steam baseline), MVP guard rails    | [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md); one-shot: `mix recgpt.first_step` (requires checkpoint) |
 | Embedding parity and workaround                 | [26 Embedding mismatch](26_embedding_mismatch.md)                                                                                                 |
 | Parity with released model (dataset .npy + VAE) | [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md) — use `--embeddings-npy` and `--vae-ckpt` when building fixture.              |
+| **Build a staff API (catalogues, pretrain, etc.)** | [29 Staff API](29_staff_api.md) — RecGPT.StaffApi: list/upsert items, sync sequences, build_fixture, pretrain. |
 | Read the architecture blueprint                 | [11 Paradigm](11_recgpt_paradigm.md), [12 Dynamic state](12_dynamic_state_ets.md), [13 Infrastructure](13_infrastructure_serving.md)              |
 
 ---

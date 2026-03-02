@@ -40,7 +40,16 @@ defmodule Recgpt.V1.PredictionService.Server do
       state ->
         case RecGPT.Serve.recommend(state, context_ids, max_results) do
           {:ok, item_ids} ->
-            items = Enum.map(item_ids, fn id -> %ItemSummary{item_id: id, display_name: to_string(id)} end)
+            items =
+              Enum.map(item_ids, fn id ->
+                name =
+                  case Map.get(state.item_text, id) do
+                    t when is_binary(t) -> t
+                    m when is_map(m) -> m["title"] || m["name"] || to_string(id)
+                    _ -> to_string(id)
+                  end
+                %ItemSummary{item_id: id, display_name: name}
+              end)
             %PredictResponse{item_ids: item_ids, items: items}
 
           {:error, reason} ->

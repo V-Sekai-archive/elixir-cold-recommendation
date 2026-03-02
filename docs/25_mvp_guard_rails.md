@@ -14,6 +14,8 @@ Do **not** do the following until the minimal loop (catalog → fixture → reco
 
 These are **tombstones**: if you find yourself implementing them before the MVP loop is closed, stop and finish the rope bridge first.
 
+**API contract:** The gRPC and StaffApi contracts are designed to be **SPMD-compatible** (optional `rank` on requests, explicit paths). When the guard rails are lifted, the same API can be used for multi-rank without breaking changes. See [29 Staff API](29_staff_api.md#spmd-compatibility).
+
 ---
 
 ## Links

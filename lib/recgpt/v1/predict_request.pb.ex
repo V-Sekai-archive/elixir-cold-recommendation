@@ -6,4 +6,5 @@ defmodule Recgpt.V1.PredictRequest do
 
   field(:context_item_ids, 1, repeated: true, type: :int32)
   field(:max_results, 2, type: :int32)
+  field(:rank, 3, type: :int32)
 end

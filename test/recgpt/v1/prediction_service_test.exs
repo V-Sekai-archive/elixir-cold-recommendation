@@ -1,5 +1,5 @@
 # gRPC status codes: 3 = INVALID_ARGUMENT, 9 = FAILED_PRECONDITION
-# Predict uses Elixir RecGPT.Serve.recommend; tests use stub serve_state from FrozenHelpers.
+# Predict uses RecGPT.RecommendationService (default impl: Serve); tests use stub serve_state from FrozenHelpers.
 defmodule Recgpt.V1.PredictionServiceTest do
   use ExUnit.Case, async: false
 

@@ -23,6 +23,8 @@ Recommendation must be exposed via a stable, implementable contract. Without a s
 - **Request:** `context_item_ids` (repeated int32, required, non-empty), `max_results` (int32, optional, default 5, max 20).
 - **Response:** `item_ids` (ordered recommended item IDs), `items` (repeated ItemSummary: `item_id`, `display_name`).
 
+The same server also runs **recgpt.v1.StaffService** (catalogues, sequences, fixture build, pretrain). Contract: [staff.proto](../priv/proto/recgpt/v1/staff.proto). See [29 Staff API](29_staff_api.md).
+
 ---
 
 ## Errors (gRPC status)
@@ -37,10 +39,10 @@ Recommendation must be exposed via a stable, implementable contract. Without a s
 ## Run the server
 
 ```bash
-mix recgpt.serve --fixture <path> --ckpt <path> [--grpc-port 50051]
+mix recgpt.serve --fixture <path> --ckpt <path> [--catalog <path>] [--grpc-port 50051]
 ```
 
-Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` → `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both fixture and checkpoint export directory are required.
+Defaults: `--fixture` → `data/serve_e2e_fixture.json` (or `RECGPT_FIXTURE`), `--ckpt` → `data/recgpt_ckpt_export` (or `RECGPT_CKPT_EXPORT`). Both fixture and checkpoint export directory are required. Optional `--catalog` points to a JSON file with an `items` array (each with `id` and `title` or `text`); when provided, the Predict response uses those titles for `items[].display_name` so you get catalogue item names in recommendations.
 
 ### Quick test
 

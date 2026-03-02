@@ -2,9 +2,12 @@ defmodule RecGPT.Serve do
   @moduledoc """
   Next-item recommendation (backend for gRPC API).
 
-  Loads model + token_id_list + trie once. Served via gRPC (recgpt.v1.PredictionService).
-  Run: mix recgpt.serve [--grpc-port 50051]. Requires fixture and checkpoint export dir.
+  Implements `RecGPT.RecommendationService`; used as the default implementation
+  when the application calls the recommendation service. Loads model + token_id_list + trie once.
+  Served via gRPC (recgpt.v1.PredictionService). Run: mix recgpt.serve [--grpc-port 50051].
+  Requires fixture and checkpoint export dir.
   """
+  @behaviour RecGPT.RecommendationService
 
   alias RecGPT.CheckpointLoader
   alias RecGPT.Decode

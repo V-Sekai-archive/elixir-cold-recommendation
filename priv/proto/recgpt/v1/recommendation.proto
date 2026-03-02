@@ -12,6 +12,9 @@ package recgpt.v1;
 //
 // Errors (gRPC status): INVALID_ARGUMENT (bad params), UNAVAILABLE (not ready).
 //
+// SPMD compatibility: Optional "rank" allows multi-rank deployments (one server
+// per rank, or routing by rank). Single-rank implementations ignore rank.
+//
 // Server: mix recgpt.serve --grpc-port 50051 (fixture + checkpoint export dir required).
 
 service PredictionService {
@@ -21,6 +24,7 @@ service PredictionService {
 message PredictRequest {
   repeated int32 context_item_ids = 1;
   int32 max_results = 2;
+  optional int32 rank = 3;  // SPMD: route to / scope by rank (0-based); ignored if unset
 }
 
 message PredictResponse {

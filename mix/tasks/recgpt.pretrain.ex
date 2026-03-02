@@ -71,80 +71,28 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       Mix.raise("train sequences not found: #{train_path}. Run mix recgpt.fetch_steam first.")
     end
 
-    Application.ensure_all_started(:nx)
-    Application.ensure_all_started(:bumblebee)
+    runner_opts = [
+      ckpt_dir: ckpt_dir,
+      fixture_path: fixture_path,
+      train_path: train_path,
+      items_path: items_path,
+      out_dir: out_dir,
+      limit: opts[:limit],
+      iterations: iterations,
+      batch_size: batch_size,
+      learning_rate: learning_rate,
+      log: log_every,
+      log_interval_sec: log_interval_sec,
+      resource_check_opts: pretrain_resource_check_opts()
+    ]
 
-    Mix.shell().info("Loading checkpoint from #{ckpt_dir}...")
-    params = RecGPT.CheckpointLoader.load_from_export(ckpt_dir)
-
-    fixture = File.read!(fixture_path) |> Jason.decode!()
-
-    token_id_list =
-      (fixture["token_id_list"] || []) |> Enum.map(&Enum.map(&1, fn x -> round(x) end))
-
-    fixture_num_items = fixture["num_items"] || length(token_id_list)
-
-    train_raw = File.read!(train_path) |> Jason.decode!()
-    sequences = train_raw["sequences"] || []
-
-    if sequences == [] do
-      Mix.shell().info("No train sequences; writing checkpoint unchanged to #{out_dir}")
-      RecGPT.CheckpointExport.write_export(params, out_dir)
-      Mix.shell().info("Done.")
-    else
-      unless File.regular?(items_path) do
-        Mix.raise("items not found: #{items_path}")
-      end
-
-      Mix.shell().info("Encoding item text from #{items_path}...")
-      raw = File.read!(items_path) |> Jason.decode!()
-      items = raw["items"] || []
-      items_n = raw["num_items"] || length(items)
-      # Cap at fixture size so we never encode more than we have token_id_list for (avoids 30+ GB when items.json is huge).
-      n =
-        case opts[:limit] do
-          nil -> min(items_n, fixture_num_items)
-          limit when limit < fixture_num_items ->
-            Mix.raise("--limit #{limit} < fixture num_items #{fixture_num_items}; pretrain needs at least as many items as the fixture.")
-          limit -> min(items_n, fixture_num_items) |> min(limit)
-        end
-      if n < items_n, do: Mix.shell().info("Capping to #{n} items (fixture has #{fixture_num_items}).")
-
-      item_text_dict =
-        items
-        |> Enum.take(n)
-        |> Enum.with_index()
-        |> Map.new(fn {item, idx} -> {idx, RecGPT.Embedding.recgpt_item_text(item)} end)
-
-      item_embeddings = RecGPT.Embedding.encode_item_text_dict(item_text_dict)
-
-      stream =
-        RecGPT.AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
-          batch_size: batch_size,
-          epochs: 1,
-          shuffle: true
-        )
-
-      Mix.shell().info("Training for up to #{iterations} steps (batch_size=#{batch_size})...")
-
-      trained =
-        RecGPT.AxonTrain.run(stream, params,
-          iterations: iterations,
-          log: log_every,
-          log_interval_sec: log_interval_sec,
-          learning_rate: learning_rate,
-          resource_check_interval: 5,
-          resource_check_opts: pretrain_resource_check_opts()
-        )
-
-      # Newline after in-place progress so next message is on its own line
-      IO.write(:stdio, "\n")
-      Mix.shell().info("Writing export to #{out_dir}...")
-      RecGPT.CheckpointExport.write_export(trained, out_dir)
-      Mix.shell().info("Done.")
+    case RecGPT.PretrainRunner.run(runner_opts) do
+      :ok ->
+        Mix.shell().info("Done.")
+        :ok
+      {:error, reason} ->
+        Mix.raise("Pretrain failed: #{inspect(reason)}")
     end
-
-    :ok
   end
 
   defp pretrain_resource_check_opts do

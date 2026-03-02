@@ -64,7 +64,7 @@ Use the same `--db` or `RECGPT_SQLITE_PATH` as Elixir. Then both inputs are from
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`. |
 | `mix recgpt.pretrain` | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. |
 | `mix recgpt.eval` | Run next-item eval in Elixir (`--data-dir`, `--ckpt`, `--fixture`, `--test`). |
-| `mix recgpt.serve` | Start gRPC server (port 50051): Predict uses RecGPT.Serve.recommend. Set `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`. |
+| `mix recgpt.serve` | Start gRPC server (port 50051): Predict uses RecGPT.RecommendationService (default: Serve). Set `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`. |
 
 Paths default to `data/steam/` and `thirdparty/checkpoints/recgpt`. Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT` for serve.
 
@@ -83,7 +83,7 @@ Paths default to `data/steam/` and `thirdparty/checkpoints/recgpt`. Env: `RECGPT
 | **RecGPT.Training** | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`. |
 | **RecGPT.AxonTrain** | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer). |
 | **RecGPT.Inference** | Forward pass: token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`. |
-| **RecGPT.Serve** | Load state (fixture + checkpoint); `recommend/3` for next-item. Predict RPC uses Serve.recommend. |
+| **RecGPT.Serve** | Load state (fixture + checkpoint); implements `RecGPT.RecommendationService`. Predict RPC uses RecommendationService (default: Serve). |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`. |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy). |
 | **RecGPT.Steam.Fetch** | Steam test split → items + train/test/cold sequences (HuggingFace hkuds/RecGPT_dataset). |

@@ -60,7 +60,7 @@ defmodule RecGPT.Eval do
       Keyword.get(opts, :resource_check_opts, [])
       |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
 
-    recommend_fn = fn ctx, k -> RecGPT.Serve.recommend(state, ctx, k) end
+    recommend_fn = fn ctx, k -> RecGPT.RecommendationService.recommend(state, ctx, k) end
     start_sec = System.monotonic_time(:second)
 
     # Constant memory / bounded wavefront: one test case at a time; acc = (h1, h5, h10, rr_sum, n, last_progress_sec).

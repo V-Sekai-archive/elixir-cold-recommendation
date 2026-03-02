@@ -35,9 +35,10 @@ Maintain one **module reference** (this document) with overview tables by area, 
 
 ### Training loop
 
-| Module               | Purpose                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RecGPT.AxonTrain** | `stream_batches/4`, `run/3`. Polaris optimizer; same forward and loss as Inference/Training. Options: `:iterations`, `:batch_size`, `:learning_rate`, `:log`. |
+| Module                   | Purpose                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RecGPT.AxonTrain**     | `stream_batches/4`, `run/3`. Polaris optimizer; same forward and loss as Inference/Training. Options: `:iterations`, `:batch_size`, `:learning_rate`, `:log`. |
+| **RecGPT.PretrainRunner** | `run/1`. Library entry for pretrain pipeline (ckpt, fixture, train sequences, items → AxonTrain → export). Used by Mix task and StaffApi.                      |
 
 ### Inference and serving
 
@@ -67,6 +68,13 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | Module                 | Purpose                                                                                                          |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.Steam.Fetch** | Steam test split from HuggingFace (hkuds/RecGPT_dataset); writes items.json, train/test/cold sequences. `run/1`. |
+
+### Staff API
+
+| Module                      | Purpose                                                                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **RecGPT.StaffApi**         | Behaviour + delegation. `list_items/1`, `get_item/1`, `upsert_items/1`, `sync_items_from_json/1`, `write_items_json/2`, `sync_sequences/1`, `build_fixture/3`, `write_fixture/2`, `pretrain/1`, `set_canonical_texts/1`. See [29 Staff API](29_staff_api.md). |
+| **RecGPT.StaffApi.Default** | Default implementation (Sync, FixtureBuild, Repo, PretrainRunner).                                                                     |
 
 ### gRPC API
 

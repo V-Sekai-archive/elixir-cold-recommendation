@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package recgpt.v1;
+
+// =============================================================================
+// Staff API: catalogues, sequences, fixture build, pretrain.
+// Server: same endpoint as PredictionService (mix recgpt.serve).
+//
+// SPMD compatibility: All operations are scoped by explicit parameters (path,
+// data_dir, items_path, ckpt_dir, out_dir). Optional "rank" on requests allows
+// multi-rank deployments: same program per rank, rank-scoped paths or routing.
+// Single-rank implementations ignore rank; multi-rank may use it to scope paths
+// or route to the correct shard. No implicit global state in the contract.
+// =============================================================================
+
+service StaffService {
+  rpc ListItems (ListItemsRequest) returns (ListItemsResponse);
+  rpc GetItem (GetItemRequest) returns (GetItemResponse);
+  rpc UpsertItems (UpsertItemsRequest) returns (UpsertItemsResponse);
+  rpc SyncItemsFromJson (SyncItemsFromJsonRequest) returns (SyncItemsFromJsonResponse);
+  rpc WriteItemsJson (WriteItemsJsonRequest) returns (WriteItemsJsonResponse);
+  rpc SyncSequences (SyncSequencesRequest) returns (SyncSequencesResponse);
+  rpc BuildFixture (BuildFixtureRequest) returns (BuildFixtureResponse);
+  rpc WriteFixture (WriteFixtureRequest) returns (WriteFixtureResponse);
+  rpc Pretrain (PretrainRequest) returns (PretrainResponse);
+  rpc SetCanonicalTexts (SetCanonicalTextsRequest) returns (SetCanonicalTextsResponse);
+}
+
+// --- ListItems ---
+message ListItemsRequest {
+  oneof source {
+    bool from_db = 1;   // true = list from DB
+    string path = 2;    // path to items.json
+  }
+  optional int32 rank = 15;  // SPMD: scope/route by rank (0-based); ignored if unset
+}
+
+message ListItemsResponse {
+  repeated CatalogItem items = 1;
+}
+
+message CatalogItem {
+  int32 item_id = 1;
+  string title = 2;
+}
+
+// --- GetItem ---
+message GetItemRequest {
+  int32 item_id = 1;
+  optional int32 rank = 15;  // SPMD: scope catalog by rank
+}
+
+message GetItemResponse {
+  int32 item_id = 1;
+  string title = 2;  // empty if not found
+  bool found = 3;
+}
+
+// --- UpsertItems ---
+message UpsertItemsRequest {
+  repeated CatalogItem items = 1;
+  optional int32 rank = 15;  // SPMD: scope catalog by rank
+}
+
+message UpsertItemsResponse {}
+
+// --- SyncItemsFromJson ---
+message SyncItemsFromJsonRequest {
+  string path = 1;
+  optional int32 rank = 15;  // SPMD: e.g. derive path from rank
+}
+
+message SyncItemsFromJsonResponse {}
+
+// --- WriteItemsJson ---
+message WriteItemsJsonRequest {
+  string path = 1;
+  repeated CatalogItem items = 2;
+  optional int32 rank = 15;  // SPMD: scope output by rank
+}
+
+message WriteItemsJsonResponse {}
+
+// --- SyncSequences ---
+message SyncSequencesRequest {
+  string data_dir = 1;
+  optional int32 rank = 15;  // SPMD: e.g. data_dir/rank_N
+}
+
+message SyncSequencesResponse {}
+
+// --- BuildFixture ---
+message BuildFixtureRequest {
+  string items_path = 1;
+  string ckpt_dir = 2;
+  optional string out_path = 3;   // if set, write fixture JSON here
+  optional int32 limit = 4;
+  optional bool canonical_texts = 5;
+  optional string vae_ckpt = 6;
+  optional int32 rank = 15;  // SPMD: scope paths by rank
+}
+
+message BuildFixtureResponse {
+  int32 num_items = 1;
+  string out_path = 2;  // path written, if any
+}
+
+// --- WriteFixture ---
+// Fixture payload is large; client sends out_path only and server reads from a path
+// that was previously produced by BuildFixture (e.g. in-memory then path).
+// Alternatively we skip WriteFixture and have BuildFixture always write when out_path is set.
+// We keep WriteFixture for flexibility: server may receive fixture via another channel.
+// For now: WriteFixtureRequest contains out_path and a flag to use last built fixture.
+// Simpler: WriteFixtureRequest = path only; server has no "last fixture". So we need
+// the client to call BuildFixture with out_path set, and we don't need WriteFixture
+// for the common case. Or WriteFixture could accept a path to read fixture from (server
+// reads JSON and writes to another path). Simplest: WriteFixtureRequest { path_to_read, path_to_write }.
+// Even simpler: omit WriteFixture from gRPC; staff can use build_fixture with out_path.
+// We'll include WriteFixture with: path = where to write; fixture is not sent over wire,
+// so the server must have the fixture in memory from a prior BuildFixture call, or we
+// don't support WriteFixture in gRPC (only BuildFixture with out_path). So:
+// - BuildFixture with out_path writes the fixture and returns num_items.
+// - WriteFixture: request has path. Server: we'd need to cache last built fixture per connection
+//   or not support. I'll make WriteFixture take path only and document that it's only valid
+//   after a BuildFixture in the same process/session that cached the result. That's fragile.
+// Better: BuildFixture always returns num_items and optionally writes to out_path. No separate
+// WriteFixture RPC. If client wants to write elsewhere, they use a file copy. So remove
+// WriteFixture from proto, or keep it as "write the in-memory fixture from last BuildFixture"
+// with a path. Actually the StaffApi has write_fixture(fixture, path) - so the server could
+// BuildFixture (get map), then WriteFixture(path) using that map. So we need to cache the
+// last fixture in the server process. Doable. Let me keep WriteFixture with path only;
+// server caches last BuildFixture result and writes it to path when WriteFixture is called.
+// Cache key: we could use a process dictionary or ETS. For simplicity, we don't cache:
+// WriteFixture is not exposed, or we have BuildFixture return and write in one go via out_path.
+// I'll keep WriteFixture in the proto with path only; implementation can return UNIMPLEMENTED
+// or we maintain a module attribute/process dict for the last fixture. Simplest impl: 
+// WriteFixtureRequest has path; server returns "use BuildFixture with out_path instead".
+// So we have WriteFixture for symmetry but document that prefer BuildFixture with out_path.
+message WriteFixtureRequest {
+  string path = 1;
+  optional int32 rank = 15;  // SPMD: scope by rank
+}
+
+message WriteFixtureResponse {}
+
+// --- Pretrain ---
+message PretrainRequest {
+  string ckpt_dir = 1;
+  string fixture_path = 2;
+  string train_path = 3;
+  string items_path = 4;
+  string out_dir = 5;
+  optional int32 iterations = 6;
+  optional int32 batch_size = 7;
+  optional double learning_rate = 8;
+  optional int32 limit = 9;
+  optional int32 rank = 15;  // SPMD: scope paths / route to rank
+}
+
+message PretrainResponse {}
+
+// --- SetCanonicalTexts ---
+message CanonicalTextEntry {
+  int32 item_id = 1;
+  bytes text = 2;
+}
+
+message SetCanonicalTextsRequest {
+  repeated CanonicalTextEntry entries = 1;
+  optional int32 rank = 15;  // SPMD: scope catalog by rank
+}
+
+message SetCanonicalTextsResponse {}
