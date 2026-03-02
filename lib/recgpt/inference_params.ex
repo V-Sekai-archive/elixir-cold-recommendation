@@ -160,7 +160,8 @@ defmodule RecGPT.InferenceParams do
             :"layer_#{i}_ln_1_bias" =>
               get_param(params_map, base <> "ln_1.bias", {@n_embd}) |> as_dtype(dtype),
             :"layer_#{i}_attn_c_attn_weight" =>
-              get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd}) |> as_dtype(dtype),
+              get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd})
+              |> as_dtype(dtype),
             :"layer_#{i}_attn_c_attn_bias" =>
               get_param(params_map, base <> "attn.c_attn.bias", {2304}) |> as_dtype(dtype),
             :"layer_#{i}_attn_c_proj_weight" =>

@@ -367,7 +367,7 @@ defmodule RecGPT.Inference do
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
 
-    # Batched: probs (batch, n_head, seq_q, seq_k) @ v (batch, n_head, seq_k, head_dim); contract seq_k (axis 3 of probs, axis 2 of v)
+    # Batched: probs @ v; contract seq_k (axis 3 of probs, axis 2 of v)
     out = Nx.dot(probs, [3], [0, 1], v, [2], [0, 1])
 
     out =
@@ -454,7 +454,7 @@ defmodule RecGPT.Inference do
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
 
-    # Batched: probs (batch, n_head, 1, seq_len) @ new_v (batch, n_head, seq_len, head_dim); contract seq_len (axis 3 of probs, axis 2 of new_v)
+    # Batched: probs @ new_v; contract seq_len (axis 3 of probs, axis 2 of new_v)
     out = Nx.dot(probs, [3], [0, 1], new_v, [2], [0, 1])
     out = Nx.transpose(out, axes: [0, 2, 1, 3]) |> Nx.reshape({batch, 1, @n_embd})
     c_proj_w = params[base <> "attn.c_proj.weight"]

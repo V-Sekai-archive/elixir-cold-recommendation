@@ -4,12 +4,12 @@ defmodule RecGPT.EmbeddingCompare do
   Reports cosine similarity (mean, min, max, std) and optionally FSQ token agreement.
   """
 
+  alias RecGPT.CheckpointLoader
   alias RecGPT.Embedding
   alias RecGPT.FSQ
   alias RecGPT.FSQEncoder
-  alias RecGPT.CheckpointLoader
-  alias RecGPT.Steam.CanonicalItemText
   alias RecGPT.Repo
+  alias RecGPT.Steam.CanonicalItemText
 
   @dataset_npy_url "https://huggingface.co/datasets/hkuds/RecGPT_dataset/resolve/main/test/steam/item_text_embeddings.npy"
 
@@ -282,9 +282,7 @@ defmodule RecGPT.EmbeddingCompare do
   defp report_steam_fsq_and_agreement(ours, dataset, vae_path, n) do
     vae_path = Path.expand(vae_path, File.cwd!())
 
-    if not File.regular?(vae_path) do
-      IO.puts("(VAE checkpoint not found at #{vae_path}; run mix recgpt.fetch_vae_ckpt)")
-    else
+    if File.regular?(vae_path) do
       params = FSQ.load_params_from_vae_pt(vae_path)
       tokens_dataset = FSQEncoder.encode_embeddings_to_token_id_list(dataset, params)
       vocab = FSQ.vocab_size()
@@ -323,6 +321,8 @@ defmodule RecGPT.EmbeddingCompare do
       end)
 
       IO.puts("")
+    else
+      IO.puts("(VAE checkpoint not found at #{vae_path}; run mix recgpt.fetch_vae_ckpt)")
     end
   end
 

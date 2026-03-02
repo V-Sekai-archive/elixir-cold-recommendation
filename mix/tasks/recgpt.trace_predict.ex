@@ -101,15 +101,20 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
         {:error, reason} -> Mix.raise("Load failed: #{inspect(reason)}")
       end
 
-    Mix.shell().info("Tracing #{runs} recommend call(s): context=#{inspect(context_ids)}, top_k=#{top_k}, jitter=0..#{jitter_ms}ms")
+    Mix.shell().info(
+      "Tracing #{runs} recommend call(s): context=#{inspect(context_ids)}, top_k=#{top_k}, jitter=0..#{jitter_ms}ms"
+    )
+
     Mix.shell().info("")
 
     # Setup: JIT-compile kernels before timed predict (COG setup ~20–30s; predict ~300–400ms on 12-layer + RTX 4090)
     Mix.shell().info("Setup (compile kernels)...")
+
     case RecGPT.Serve.recommend(state, context_ids, top_k) do
       {:ok, _} -> :ok
       {:error, _} -> :ok
     end
+
     Mix.shell().info("")
 
     # Run N timed calls with jitter between runs
@@ -129,20 +134,35 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     Mix.shell().info("=== Timing breakdown (last run) ===")
     Mix.shell().info("  context_to_tokens:  #{last.context_us} μs")
     Mix.shell().info("  beam_search_total:   #{last.beam_search_us} μs")
-    Mix.shell().info("  inference (forward): #{last.inference_us} μs  (#{last.inference_calls} calls)")
+
+    Mix.shell().info(
+      "  inference (forward): #{last.inference_us} μs  (#{last.inference_calls} calls)"
+    )
+
     Mix.shell().info("  response_build:     #{last.response_us} μs")
     Mix.shell().info("")
 
     Mix.shell().info("=== Stats over #{runs} runs (jitter 0..#{jitter_ms} ms) ===")
-    Mix.shell().info("  total μs:  mean=#{stats.mean}  std=#{stats.std}  min=#{stats.min}  max=#{stats.max}")
-    Mix.shell().info("  total ms:  mean=#{Float.round(stats.mean / 1000, 2)}  std=#{Float.round(stats.std / 1000, 2)}")
-    Mix.shell().info("  percentiles:  p50=#{stats.p50} μs  p95=#{stats.p95} μs  p99=#{stats.p99} μs")
+
+    Mix.shell().info(
+      "  total μs:  mean=#{stats.mean}  std=#{stats.std}  min=#{stats.min}  max=#{stats.max}"
+    )
+
+    Mix.shell().info(
+      "  total ms:  mean=#{Float.round(stats.mean / 1000, 2)}  std=#{Float.round(stats.std / 1000, 2)}"
+    )
+
+    Mix.shell().info(
+      "  percentiles:  p50=#{stats.p50} μs  p95=#{stats.p95} μs  p99=#{stats.p99} μs"
+    )
+
     Mix.shell().info("")
 
     if last.inference_calls > 0 do
       avg_inference_us = div(last.inference_us, last.inference_calls)
       pct = Float.round(100.0 * last.inference_us / last.total_us, 1)
       Mix.shell().info("  inference % of total: #{pct}%  (avg #{avg_inference_us} μs/forward)")
+
       Mix.shell().info(
         "  → Beam search uses batched path (#{last.inference_calls} forward passes). Speed up: GPU, KV-cache."
       )
@@ -164,6 +184,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       Agent.update(agent, fn _ -> {0, 0} end)
 
       context_us = 0
+
       {beam_search_us, result} =
         :timer.tc(fn ->
           RecGPT.Decode.beam_search_top_k_spmd(
@@ -233,6 +254,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     sorted = Enum.sort(list)
     sum = Enum.sum(list)
     mean = div(sum, n)
+
     variance =
       list
       |> Enum.map(fn x -> (x - mean) * (x - mean) end)

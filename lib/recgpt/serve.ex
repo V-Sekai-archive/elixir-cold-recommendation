@@ -81,7 +81,8 @@ defmodule RecGPT.Serve do
         |> Nx.tensor(type: {:s, 32})
         |> Nx.backend_transfer(inference_backend)
 
-      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
+      get_logits_batch_tensor_fn =
+        build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
       state = %__MODULE__{
         params: params,
@@ -126,7 +127,8 @@ defmodule RecGPT.Serve do
               |> Nx.tensor(type: {:s, 32})
               |> Nx.backend_transfer(inference_backend)
 
-      get_logits_batch_tensor_fn = build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
+      get_logits_batch_tensor_fn =
+        build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
       state = %__MODULE__{
         params: params,
@@ -278,64 +280,62 @@ defmodule RecGPT.Serve do
   end
 
   defp build_get_logits_batch_fn(params, inference_backend) do
-    try do
-      # List-based batch fn (non-JIT); SPMD uses get_logits_batch_tensor_fn (JIT).
-      batch_fn = fn list_of_token_lists, cache
-                    when is_list(list_of_token_lists) and list_of_token_lists != [] ->
-        max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
+    # List-based batch fn (non-JIT); SPMD uses get_logits_batch_tensor_fn (JIT).
+    batch_fn = fn list_of_token_lists, cache
+                  when is_list(list_of_token_lists) and list_of_token_lists != [] ->
+      max_len = list_of_token_lists |> Enum.map(&length/1) |> Enum.max()
 
-        padded =
-          Enum.map(list_of_token_lists, fn tokens ->
-            len = length(tokens)
-            padding = List.duplicate(@padding_id, max_len - len)
-            padding ++ tokens
-          end)
+      padded =
+        Enum.map(list_of_token_lists, fn tokens ->
+          len = length(tokens)
+          padding = List.duplicate(@padding_id, max_len - len)
+          padding ++ tokens
+        end)
 
-        batch = Nx.tensor(padded, type: {:s, 32})
-        {batch_size, seq_len} = Nx.shape(batch)
-        batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
-        embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
+      batch = Nx.tensor(padded, type: {:s, 32})
+      {batch_size, seq_len} = Nx.shape(batch)
+      batch_aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32})
 
-        {batch, batch_aux, embed_mask} =
-          maybe_transfer_to_inference_backend({batch, batch_aux, embed_mask}, inference_backend)
+      {batch, batch_aux, embed_mask} =
+        maybe_transfer_to_inference_backend({batch, batch_aux, embed_mask}, inference_backend)
 
-        if cache == nil do
-          {logits, cache_list} =
-            Inference.forward_with_cache(batch, batch_aux, embed_mask, params)
+      if cache == nil do
+        {logits, cache_list} =
+          Inference.forward_with_cache(batch, batch_aux, embed_mask, params)
 
-          {logits, cache_list}
-        else
-          last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
-          batch_one = Nx.tensor(last_tokens, type: {:s, 32})
-          aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
-          mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
+        {logits, cache_list}
+      else
+        last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
+        batch_one = Nx.tensor(last_tokens, type: {:s, 32})
+        aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
+        mask_one = Nx.broadcast(1.0, {batch_size, 1, 1}) |> Nx.as_type({:f, 32})
 
-          {batch_one, aux_one, mask_one} =
-            maybe_transfer_to_inference_backend(
-              {batch_one, aux_one, mask_one},
-              inference_backend
-            )
+        {batch_one, aux_one, mask_one} =
+          maybe_transfer_to_inference_backend(
+            {batch_one, aux_one, mask_one},
+            inference_backend
+          )
 
-          cache_to_use = maybe_replicate_cache(cache, batch_size)
+        cache_to_use = maybe_replicate_cache(cache, batch_size)
 
-          {logits, new_cache} =
-            Inference.forward_incremental(
-              batch_one,
-              aux_one,
-              mask_one,
-              params,
-              cache_to_use
-            )
+        {logits, new_cache} =
+          Inference.forward_incremental(
+            batch_one,
+            aux_one,
+            mask_one,
+            params,
+            cache_to_use
+          )
 
-          {logits, new_cache}
-        end
+        {logits, new_cache}
       end
-
-      {:ok, batch_fn}
-    rescue
-      e ->
-        {:error, "Inference (non-defn) failed: #{inspect(e)}"}
     end
+
+    {:ok, batch_fn}
+  rescue
+    e ->
+      {:error, "Inference (non-defn) failed: #{inspect(e)}"}
   end
 
   defp maybe_transfer_to_inference_backend({a, b, c}, backend) do
@@ -389,30 +389,42 @@ defmodule RecGPT.Serve do
     nx_v = Application.spec(:nx, :vsn) |> to_string()
     ckpt_sha = CheckpointLoader.get_sha256(ckpt_export_dir) || "none"
     dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
-    dtype_str = case dtype do
-      {:f, 32} -> "f32"
-      {:f, 16} -> "f16"
-      {:bf, 16} -> "bf16"
-      _ -> "f32"
-    end
+
+    dtype_str =
+      case dtype do
+        {:f, 32} -> "f32"
+        {:f, 16} -> "f16"
+        {:bf, 16} -> "bf16"
+        _ -> "f32"
+      end
+
     max_cache = Application.get_env(:recgpt, :max_cache_len, 128)
     prefix = "exla:#{exla_v}:nx:#{nx_v}:ckpt:#{ckpt_sha}:dtype:#{dtype_str}:pad#{max_cache}"
-    cache_key = :crypto.hash(:sha256, prefix) |> Base.encode16(case: :lower) |> String.slice(0, 16)
+
+    cache_key =
+      :crypto.hash(:sha256, prefix) |> Base.encode16(case: :lower) |> String.slice(0, 16)
+
     cache_subdir = if base_dir != "", do: Path.join(base_dir, cache_key), else: ""
-    cache_full = if cache_subdir != "", do: Path.join(cache_subdir, "forward_with_cache"), else: nil
-    cache_incr = if cache_subdir != "", do: Path.join(cache_subdir, "forward_incremental"), else: nil
 
-    jit_full = if cache_full do
-      Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA, cache: cache_full)
-    else
-      Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
-    end
+    cache_full =
+      if cache_subdir != "", do: Path.join(cache_subdir, "forward_with_cache"), else: nil
 
-    jit_incr = if cache_incr do
-      Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA, cache: cache_incr)
-    else
-      Nx.Defn.jit(&InferenceDefn.forward_incremental/6)
-    end
+    cache_incr =
+      if cache_subdir != "", do: Path.join(cache_subdir, "forward_incremental"), else: nil
+
+    jit_full =
+      if cache_full do
+        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA, cache: cache_full)
+      else
+        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
+      end
+
+    jit_incr =
+      if cache_incr do
+        Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA, cache: cache_incr)
+      else
+        Nx.Defn.jit(&InferenceDefn.forward_incremental/6)
+      end
 
     {jit_full, jit_incr}
   end
@@ -457,8 +469,13 @@ defmodule RecGPT.Serve do
 
         cache_to_use = maybe_replicate_cache(cache, batch_size)
         cache_tuple = ensure_cache_tuple(cache_to_use)
-        past_len = Nx.tensor(seq_len - 1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
-        {logits, new_cache} = jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+
+        past_len =
+          Nx.tensor(seq_len - 1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+
+        {logits, new_cache} =
+          jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+
         {logits, new_cache}
       end
     end
@@ -474,20 +491,24 @@ defmodule RecGPT.Serve do
   defp pad_cache_to_fixed(cache_tuple, backend) do
     max_len = Application.get_env(:recgpt, :max_cache_len, 128)
     list = Tuple.to_list(cache_tuple)
+
     padded =
       Enum.map(list, fn {k, v} ->
         {b, n_head, len, hd} = Nx.shape(k)
         pad_count = max(0, max_len - len)
         ttype = Nx.type(k)
+
         if pad_count == 0 do
           {k, v}
         else
           zeros_k = Nx.broadcast(Nx.tensor(0, type: ttype), {b, n_head, pad_count, hd})
           zeros_v = Nx.broadcast(Nx.tensor(0, type: ttype), {b, n_head, pad_count, hd})
+
           {Nx.concatenate([k, zeros_k], axis: 2) |> Nx.backend_transfer(backend),
            Nx.concatenate([v, zeros_v], axis: 2) |> Nx.backend_transfer(backend)}
         end
       end)
+
     List.to_tuple(padded)
   end
 

@@ -77,13 +77,11 @@ defmodule RecGPT.Steam.CanonicalItemText do
   # Python str(dict).replace('{','').replace('}','') — iterate nested dict in order, no outer braces.
   defp python_repr_dict_replace(%Unpickler.Object{} = obj) do
     if obj.set_items != [] do
-      obj.set_items
-      |> Enum.map(fn {k, v} ->
+      Enum.map_join(obj.set_items, ", ", fn {k, v} ->
         k_str = to_string(unwrap_object(k))
         v_str = to_string(unwrap_object(v))
         python_repr_str(k_str) <> ": " <> python_repr_str(v_str)
       end)
-      |> Enum.join(", ")
     else
       ""
     end
@@ -105,7 +103,7 @@ defmodule RecGPT.Steam.CanonicalItemText do
     "'" <> escape_python_repr(s) <> "'"
   end
 
-  defp python_repr_str(other), do: python_repr_str(to_string(other))
+  defp python_repr_str(other) when not is_binary(other), do: python_repr_str(to_string(other))
 
   defp escape_python_repr(s) do
     s

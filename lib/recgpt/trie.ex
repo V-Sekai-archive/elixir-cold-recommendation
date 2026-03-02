@@ -110,7 +110,8 @@ defmodule RecGPT.Trie do
           item_at_leaf: Nx.Tensor.t(),
           num_states: non_neg_integer()
         }
-  def to_tensors(trie, vocab_size) when is_map(trie) and is_integer(vocab_size) and vocab_size > 0 do
+  def to_tensors(trie, vocab_size)
+      when is_map(trie) and is_integer(vocab_size) and vocab_size > 0 do
     {num_states, next_updates, leaf_updates} = collect_trie_transitions(trie, vocab_size)
     next_state = build_transition_tensor(num_states, vocab_size, next_updates)
     item_at_leaf = build_transition_tensor(num_states, vocab_size, leaf_updates)
@@ -119,35 +120,44 @@ defmodule RecGPT.Trie do
 
   defp collect_trie_transitions(trie, _vocab_size) do
     # BFS: (state_id, node, depth). depth 0,1,2 -> next_state; depth 3 -> item_at_leaf.
-    next_updates = %{}  # state_id -> %{token => next_state_id}
-    leaf_updates = %{}   # state_id -> %{token => item_id}
+    # state_id -> %{token => next_state_id}
+    next_updates = %{}
+    # state_id -> %{token => item_id}
+    leaf_updates = %{}
     # state_id 0 = root
     queue = [{0, trie, 0}]
+
     {_queue, next_id, next_updates, leaf_updates} =
       Enum.reduce_while(Stream.cycle([:ok]), {queue, 1, next_updates, leaf_updates}, fn _, acc ->
         {queue, next_id, next_up, leaf_up} = acc
+
         if queue == [] do
           {:halt, {[], next_id, next_up, leaf_up}}
         else
           [{state_id, node, depth} | rest] = queue
           node = node || %{}
           keys = Map.keys(node) |> Enum.sort()
+
           {queue2, next_id2, next_up2, leaf_up2} =
             Enum.reduce(keys, {rest, next_id, next_up, leaf_up}, fn t, {q, nid, nup, lup} ->
               value = node[t]
+
               cond do
                 depth < 3 and is_map(value) ->
                   nup_new = Map.update(nup, state_id, %{t => nid}, fn m -> Map.put(m, t, nid) end)
                   {q ++ [{nid, value, depth + 1}], nid + 1, nup_new, lup}
 
                 depth == 3 and is_integer(value) ->
-                  lup_new = Map.update(lup, state_id, %{t => value}, fn m -> Map.put(m, t, value) end)
+                  lup_new =
+                    Map.update(lup, state_id, %{t => value}, fn m -> Map.put(m, t, value) end)
+
                   {q, nid, nup, lup_new}
 
                 true ->
                   {q, nid, nup, lup}
               end
             end)
+
           {:cont, {queue2, next_id2, next_up2, leaf_up2}}
         end
       end)

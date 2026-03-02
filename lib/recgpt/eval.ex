@@ -103,9 +103,11 @@ defmodule RecGPT.Eval do
             elapsed_sec = now_sec - start_sec
             progress_opts = [elapsed_sec: elapsed_sec]
             arity = progress_fn |> :erlang.fun_info() |> Keyword.get(:arity)
+
             if arity == 4,
               do: progress_fn.(nn, total, metrics_5, progress_opts),
               else: progress_fn.(nn, total, metrics_5)
+
             now_sec
           else
             last_progress_sec
@@ -324,7 +326,7 @@ defmodule RecGPT.Eval do
           |> Enum.map(fn seq ->
             seq = List.wrap(seq)
 
-            if length(seq) >= 1 do
+            if seq != [] do
               %{"context" => Enum.drop(seq, -1), "next_item" => List.last(seq)}
             else
               %{"context" => [], "next_item" => 0}
@@ -381,10 +383,12 @@ defmodule RecGPT.Eval do
         if context == [] or next_item == nil do
           acc_
         else
-          preds = case result do
-            {:ok, p} -> List.wrap(p)
-            _ -> []
-          end
+          preds =
+            case result do
+              {:ok, p} -> List.wrap(p)
+              _ -> []
+            end
+
           add_hit_metrics(acc_, preds, next_item)
         end
       end)
@@ -421,15 +425,22 @@ defmodule RecGPT.Eval do
       mrr = if n > 0, do: Float.round(rr_sum / n, 4), else: 0.0
       total_str = if total, do: "#{done}/#{total}", else: "#{done}"
       elapsed = Keyword.get(opts, :elapsed_sec, 0)
-      rate_str = if elapsed > 0 and done > 0, do: "  #{Float.round(done / elapsed, 1)}/s", else: ""
+
+      rate_str =
+        if elapsed > 0 and done > 0, do: "  #{Float.round(done / elapsed, 1)}/s", else: ""
+
       eta_str =
         if total && total > 0 && done > 0 && elapsed > 0 do
           remaining = total - done
           eta_sec = div(remaining * elapsed, done)
-          if eta_sec >= 60, do: "  ETA ~ #{div(eta_sec, 60)}m #{rem(eta_sec, 60)}s", else: "  ETA ~ #{eta_sec}s"
+
+          if eta_sec >= 60,
+            do: "  ETA ~ #{div(eta_sec, 60)}m #{rem(eta_sec, 60)}s",
+            else: "  ETA ~ #{eta_sec}s"
         else
           ""
         end
+
       IO.puts("  eval progress: #{total_str}  Hit@1=#{hit1}  MRR=#{mrr}#{rate_str}#{eta_str}")
     end
   end

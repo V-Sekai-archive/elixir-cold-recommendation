@@ -14,7 +14,9 @@ config :recgpt, :predict_batch_timeout_ms, 0
 
 # Checkpoint integrity: SHA256 must match. Compute with: mix recgpt.ckpt_sha256 --ckpt data/recgpt_ckpt_export
 # Or set RECGPT_CKPT_SHA256 env var.
-config :recgpt, :ckpt_expected_sha256, "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
+config :recgpt,
+       :ckpt_expected_sha256,
+       "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
 
 # EXLA JIT disk cache: persist compiled XLA binaries for faster setup on restart.
 # Set RECGPT_EXLA_CACHE_DIR to override path; empty string disables caching.

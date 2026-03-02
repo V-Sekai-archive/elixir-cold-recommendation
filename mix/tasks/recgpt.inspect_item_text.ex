@@ -108,7 +108,7 @@ defmodule Mix.Tasks.Recgpt.InspectItemText do
     if title != nil do
       {"map (has title)", "title => #{truncate(to_string(title), 80)}"}
     else
-      keys = Map.keys(v) |> Enum.map(&inspect/1) |> Enum.join(", ")
+      keys = Enum.map_join(Map.keys(v), ", ", &inspect/1)
       {"map", "keys: #{keys}"}
     end
   end

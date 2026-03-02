@@ -31,7 +31,7 @@ defmodule RecGPT.Embedding do
         Map.get(item, "raw") || ""
 
     pairs = [{"title", to_string(title)}]
-    Enum.map(pairs, fn {k, v} -> "'#{k}': '#{escape_single(v)}'" end) |> Enum.join(", ")
+    Enum.map_join(pairs, ", ", fn {k, v} -> "'#{k}': '#{escape_single(v)}'" end)
   end
 
   defp escape_single(s), do: String.replace(s, "'", "\\'")

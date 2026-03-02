@@ -23,8 +23,8 @@ defmodule Mix.Tasks.Recgpt.DumpCanonicalTexts do
   """
   use Mix.Task
 
-  alias RecGPT.Steam.CanonicalItemText
   alias RecGPT.Repo
+  alias RecGPT.Steam.CanonicalItemText
 
   @impl true
   def run(args) do

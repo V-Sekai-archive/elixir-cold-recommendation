@@ -80,8 +80,8 @@ defmodule Recgpt.V1.PredictionServiceTest do
       end)
     end
 
-    # Real Steam catalogue: fixture + ckpt + items.json; top-k 10; assert display_name from catalog.
-    # Run: mix recgpt.fetch_steam data/steam, mix recgpt.build_fixture, mix recgpt.export_ckpt, then mix test --include integration
+    # Real Steam catalogue: fixture + ckpt + items.json; top-k 10.
+    # Run: mix recgpt.fetch_steam data/steam, mix recgpt.build_fixture, mix recgpt.export_ckpt
     @tag :integration
     @tag timeout: 120_000
     test "recommendations use real Steam catalogue (top-k 10, integration)" do
@@ -92,7 +92,8 @@ defmodule Recgpt.V1.PredictionServiceTest do
 
       unless File.regular?(fixture_path) do
         flunk(
-          "Fixture not found: #{fixture_path}. Run: mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture ..."
+          "Fixture not found: #{fixture_path}. " <>
+            "Run: mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture ..."
         )
       end
 

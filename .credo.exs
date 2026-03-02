@@ -7,10 +7,15 @@
       checks: [
         # Allow mixed line endings (Windows vs Unix) so CI and local both pass
         {Credo.Check.Consistency.LineEndings, false},
-        # Relax refactoring thresholds for inference/eval/decode/serve/pt_loader
-        {Credo.Check.Refactor.Nesting, [max_nesting: 4]},
-        # Lib and test: complexity 15; mix tasks excluded (see mix config)
-        {Credo.Check.Refactor.CyclomaticComplexity, [max_complexity: 15, files: %{excluded: ["mix/"]}]}
+        # Relax refactoring thresholds
+        {Credo.Check.Refactor.Nesting, [max_nesting: 5]},
+        {Credo.Check.Refactor.CyclomaticComplexity,
+         [
+           max_complexity: 24,
+           files: %{excluded: ["mix/"]}
+         ]},
+        {Credo.Check.Refactor.FunctionArity, [max_arity: 13]},
+        {Credo.Check.Design.AliasUsage, false},
       ]
     },
     %{

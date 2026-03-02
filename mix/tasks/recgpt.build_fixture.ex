@@ -56,12 +56,19 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   defp run_ramp(opts) do
     Application.ensure_all_started(:recgpt)
+
     items_path =
-      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") ||
+        resolve("data/steam/items.json")
+
     out_path =
-      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") || resolve("data/steam/fixture.json")
+      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        resolve("data/steam/fixture.json")
+
     ckpt_dir =
-      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") || resolve("thirdparty/checkpoints/recgpt")
+      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
+        resolve("thirdparty/checkpoints/recgpt")
+
     start_limit = opts[:ramp_start] || @default_limit
     step = opts[:ramp_step] || 100
     mult = opts[:ramp_mult]
@@ -95,14 +102,16 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       if canonical_texts?, do: Keyword.put(task_opts, :canonical_texts, true), else: task_opts
 
     task_opts =
-      if path = opts[:embeddings_npy],
-        do: Keyword.put(task_opts, :embeddings_npy, path),
-        else: task_opts
+      case opts[:embeddings_npy] do
+        nil -> task_opts
+        path -> Keyword.put(task_opts, :embeddings_npy, path)
+      end
 
     task_opts =
-      if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"),
-        do: Keyword.put(task_opts, :vae_ckpt, Path.expand(path, File.cwd!())),
-        else: task_opts
+      case opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT") do
+        nil -> task_opts
+        path -> Keyword.put(task_opts, :vae_ckpt, Path.expand(path, File.cwd!()))
+      end
 
     last_ok =
       Enum.reduce_while(limits, nil, fn limit, acc ->
@@ -165,12 +174,19 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   defp run_once(opts) do
     Application.ensure_all_started(:recgpt)
+
     items_path =
-      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") ||
+        resolve("data/steam/items.json")
+
     out_path =
-      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") || resolve("data/steam/fixture.json")
+      opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") ||
+        resolve("data/steam/fixture.json")
+
     ckpt_dir =
-      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") || resolve("thirdparty/checkpoints/recgpt")
+      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
+        resolve("thirdparty/checkpoints/recgpt")
+
     limit = opts[:limit] || @default_limit
 
     unless File.regular?(items_path) do
@@ -203,14 +219,16 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       if canonical_texts?, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
 
     build_opts =
-      if path = opts[:embeddings_npy],
-        do: Keyword.put(build_opts, :embeddings_npy, path),
-        else: build_opts
+      case opts[:embeddings_npy] do
+        nil -> build_opts
+        path -> Keyword.put(build_opts, :embeddings_npy, path)
+      end
 
     build_opts =
-      if path = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT"),
-        do: Keyword.put(build_opts, :vae_ckpt, Path.expand(path, File.cwd!())),
-        else: build_opts
+      case opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT") do
+        nil -> build_opts
+        path -> Keyword.put(build_opts, :vae_ckpt, Path.expand(path, File.cwd!()))
+      end
 
     build_opts =
       if System.get_env("RECGPT_SQLITE_PATH"),

@@ -83,9 +83,14 @@ See [docs/06_evaluation_and_testing.md](docs/06_evaluation_and_testing.md) and [
 
 ## Code quality
 
+- **Format** (Elixir formatter):
+  ```bash
+  mix format
+  ```
+
 - **Credo** (style and consistency):
   ```bash
-  mix credo
+  mix credo --strict
   ```
   Config: [.credo.exs](.credo.exs) (e.g. relaxed nesting/complexity for some modules).
 
@@ -135,9 +140,10 @@ When adding features or changing behavior, update the relevant doc and the index
 ## Submitting changes
 
 1. **Tests:** Ensure `mix test` passes (and, if you touch integration/eval paths, run with `--include eval` or `--include integration` as appropriate).
-2. **Style:** Run `mix credo` and fix reported issues (or document why an exception is needed).
-3. **Types:** Run `mix dialyzer` and fix or extend typespecs; update `.dialyzer_ignore.exs` only when necessary and with a short comment.
-4. **Changelog:** Add an entry to [CHANGELOG.md](CHANGELOG.md) under an “Unreleased” or version heading.
-5. **Versioning:** For releases, bump the version in [mix.exs](mix.exs) and tag (e.g. `v0.2.0`); see [README.md](README.md#versioning).
+2. **Format:** Run `mix format` (and ensure `mix format --check-formatted` passes in CI).
+3. **Style:** Run `mix credo --strict` and fix reported issues (or document why an exception is needed).
+4. **Types:** Run `mix dialyzer` and fix or extend typespecs; update `.dialyzer_ignore.exs` only when necessary and with a short comment.
+5. **Changelog:** Add an entry to [CHANGELOG.md](CHANGELOG.md) under an “Unreleased” or version heading.
+6. **Versioning:** For releases, bump the version in [mix.exs](mix.exs) and tag (e.g. `v0.2.0`); see [README.md](README.md#versioning).
 
 If you change the CUDA/build path (e.g. EXLA_TARGET or env vars), document it in this file or in the README so others can reproduce the build.
