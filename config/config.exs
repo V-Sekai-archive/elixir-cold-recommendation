@@ -1,9 +1,11 @@
 # RecGPT: EXLA only. All Nx ops and Defn run on EXLA (host or CUDA per default_client).
+# For low latency (~100ms): use GPU — set default_client to :cuda (e.g. in config/dev.exs or env).
+# With :host (CPU), one Predict can be ~1–2s; with :cuda, typically ~100ms after first-request JIT.
 import Config
 
 config :nx, default_backend: EXLA.Backend
 config :nx, :default_defn_options, compiler: EXLA
-config :exla, :default_client, :host
+config :exla, :default_client, :cuda
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.
 # Default 1 and 0 = one request at a time (no batching).

@@ -8,8 +8,6 @@ defmodule RecGPT.InferenceParams do
   """
 
   @n_embd 768
-  @n_head 12
-  @head_dim 64
   @vocab_size 15_361
   @max_pos 1024
 
@@ -17,13 +15,13 @@ defmodule RecGPT.InferenceParams do
   Build full params for Defn from checkpoint string-key map.
 
   - `params_map`: from `RecGPT.CheckpointLoader.load_from_export/1`
-  - `n_layers`: 0 (stub) or 12 (full). Use `RecGPT.Inference.n_layers_from_params/1` to get it.
+  - `n_layers`: 0 (stub), or 1..12. Use `RecGPT.Inference.n_layers_from_params/1` to get it.
+    When 1..11, layers 0..(n_layers-1) use checkpoint params; layers n_layers..11 get identity.
 
-  Returns a map of atom keys. When n_layers is 0, layer keys get identity tensors
-  (LayerNorm weight=1/bias=0; attn/mlp zeros so block output is 0).
+  Returns a map of atom keys. When n_layers is 0, all 12 layer slots get identity tensors.
   """
-  @spec build_defn_params(map(), 0 | 12) :: map()
-  def build_defn_params(params_map, n_layers) when n_layers in [0, 12] do
+  @spec build_defn_params(map(), 0..12) :: map()
+  def build_defn_params(params_map, n_layers) when n_layers in 0..12 do
     wte = get_wte(params_map)
     wpe = get_wpe(params_map)
     ln_f = get_ln_f(params_map)
@@ -47,7 +45,7 @@ defmodule RecGPT.InferenceParams do
       if n_layers == 0 do
         identity_layers()
       else
-        real_layers(params_map)
+        real_layers_partial(params_map, n_layers)
       end
 
     Map.merge(base, layers)
@@ -142,35 +140,59 @@ defmodule RecGPT.InferenceParams do
     end)
   end
 
-  defp real_layers(params_map) do
+  defp real_layers_partial(params_map, n_layers) do
     prefix = gpt2_prefix(params_map)
     if is_nil(prefix), do: raise("expected full checkpoint with gpt2model.h or transformer.h")
 
     Enum.reduce(0..11, %{}, fn i, acc ->
-      base = prefix <> "h.#{i}."
+      layer_map =
+        if i < n_layers do
+          base = prefix <> "h.#{i}."
+          %{
+            :"layer_#{i}_ln_1_weight" => get_param(params_map, base <> "ln_1.weight", {@n_embd}),
+            :"layer_#{i}_ln_1_bias" => get_param(params_map, base <> "ln_1.bias", {@n_embd}),
+            :"layer_#{i}_attn_c_attn_weight" =>
+              get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd}),
+            :"layer_#{i}_attn_c_attn_bias" =>
+              get_param(params_map, base <> "attn.c_attn.bias", {2304}),
+            :"layer_#{i}_attn_c_proj_weight" =>
+              get_param(params_map, base <> "attn.c_proj.weight", {@n_embd, @n_embd}),
+            :"layer_#{i}_attn_c_proj_bias" =>
+              get_param(params_map, base <> "attn.c_proj.bias", {@n_embd}),
+            :"layer_#{i}_ln_2_weight" => get_param(params_map, base <> "ln_2.weight", {@n_embd}),
+            :"layer_#{i}_ln_2_bias" => get_param(params_map, base <> "ln_2.bias", {@n_embd}),
+            :"layer_#{i}_mlp_c_fc_weight" =>
+              get_param(params_map, base <> "mlp.c_fc.weight", {3072, @n_embd}),
+            :"layer_#{i}_mlp_c_fc_bias" => get_param(params_map, base <> "mlp.c_fc.bias", {3072}),
+            :"layer_#{i}_mlp_c_proj_weight" =>
+              get_param(params_map, base <> "mlp.c_proj.weight", {@n_embd, 3072}),
+            :"layer_#{i}_mlp_c_proj_bias" =>
+              get_param(params_map, base <> "mlp.c_proj.bias", {@n_embd})
+          }
+        else
+          identity_layer_at(i)
+        end
 
-      Map.merge(acc, %{
-        :"layer_#{i}_ln_1_weight" => get_param(params_map, base <> "ln_1.weight", {@n_embd}),
-        :"layer_#{i}_ln_1_bias" => get_param(params_map, base <> "ln_1.bias", {@n_embd}),
-        :"layer_#{i}_attn_c_attn_weight" =>
-          get_param(params_map, base <> "attn.c_attn.weight", {2304, @n_embd}),
-        :"layer_#{i}_attn_c_attn_bias" =>
-          get_param(params_map, base <> "attn.c_attn.bias", {2304}),
-        :"layer_#{i}_attn_c_proj_weight" =>
-          get_param(params_map, base <> "attn.c_proj.weight", {@n_embd, @n_embd}),
-        :"layer_#{i}_attn_c_proj_bias" =>
-          get_param(params_map, base <> "attn.c_proj.bias", {@n_embd}),
-        :"layer_#{i}_ln_2_weight" => get_param(params_map, base <> "ln_2.weight", {@n_embd}),
-        :"layer_#{i}_ln_2_bias" => get_param(params_map, base <> "ln_2.bias", {@n_embd}),
-        :"layer_#{i}_mlp_c_fc_weight" =>
-          get_param(params_map, base <> "mlp.c_fc.weight", {3072, @n_embd}),
-        :"layer_#{i}_mlp_c_fc_bias" => get_param(params_map, base <> "mlp.c_fc.bias", {3072}),
-        :"layer_#{i}_mlp_c_proj_weight" =>
-          get_param(params_map, base <> "mlp.c_proj.weight", {@n_embd, 3072}),
-        :"layer_#{i}_mlp_c_proj_bias" =>
-          get_param(params_map, base <> "mlp.c_proj.bias", {@n_embd})
-      })
+      Map.merge(acc, layer_map)
     end)
+  end
+
+  defp identity_layer_at(i) do
+    prefix = "layer_#{i}_"
+    %{
+      :"#{prefix}ln_1_weight" => ones({@n_embd}),
+      :"#{prefix}ln_1_bias" => zeros({@n_embd}),
+      :"#{prefix}attn_c_attn_weight" => zeros({2304, @n_embd}),
+      :"#{prefix}attn_c_attn_bias" => zeros({2304}),
+      :"#{prefix}attn_c_proj_weight" => zeros({@n_embd, @n_embd}),
+      :"#{prefix}attn_c_proj_bias" => zeros({@n_embd}),
+      :"#{prefix}ln_2_weight" => ones({@n_embd}),
+      :"#{prefix}ln_2_bias" => zeros({@n_embd}),
+      :"#{prefix}mlp_c_fc_weight" => zeros({3072, @n_embd}),
+      :"#{prefix}mlp_c_fc_bias" => zeros({3072}),
+      :"#{prefix}mlp_c_proj_weight" => zeros({@n_embd, 3072}),
+      :"#{prefix}mlp_c_proj_bias" => zeros({@n_embd})
+    }
   end
 
   defp get_param(params_map, key, expected_shape) do

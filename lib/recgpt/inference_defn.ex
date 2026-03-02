@@ -11,7 +11,6 @@ defmodule RecGPT.InferenceDefn do
   @n_embd 768
   @n_head 12
   @head_dim 64
-  @vocab_size 15_361
 
   defn forward_with_cache(batch_token_ids, batch_aux, embed_mask, params) do
     {hidden, cache} = forward_hidden_with_cache(batch_token_ids, batch_aux, embed_mask, params)
@@ -39,18 +38,18 @@ defmodule RecGPT.InferenceDefn do
     aux_768 = apply_aux_encoder(batch_aux, embed_mask, params)
     combined = Nx.add(token_embeds, aux_768)
     h = add_wpe(combined, params, seq_len)
-    {h, c0} = block_with_cache(0, h, params)
-    {h, c1} = block_with_cache(1, h, params)
-    {h, c2} = block_with_cache(2, h, params)
-    {h, c3} = block_with_cache(3, h, params)
-    {h, c4} = block_with_cache(4, h, params)
-    {h, c5} = block_with_cache(5, h, params)
-    {h, c6} = block_with_cache(6, h, params)
-    {h, c7} = block_with_cache(7, h, params)
-    {h, c8} = block_with_cache(8, h, params)
-    {h, c9} = block_with_cache(9, h, params)
-    {h, c10} = block_with_cache(10, h, params)
-    {h, c11} = block_with_cache(11, h, params)
+    {h, c0} = block_with_cache_0(h, params)
+    {h, c1} = block_with_cache_1(h, params)
+    {h, c2} = block_with_cache_2(h, params)
+    {h, c3} = block_with_cache_3(h, params)
+    {h, c4} = block_with_cache_4(h, params)
+    {h, c5} = block_with_cache_5(h, params)
+    {h, c6} = block_with_cache_6(h, params)
+    {h, c7} = block_with_cache_7(h, params)
+    {h, c8} = block_with_cache_8(h, params)
+    {h, c9} = block_with_cache_9(h, params)
+    {h, c10} = block_with_cache_10(h, params)
+    {h, c11} = block_with_cache_11(h, params)
     cache = {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11}
     h = apply_ln_f(h, params)
     {h, cache}
@@ -67,18 +66,18 @@ defmodule RecGPT.InferenceDefn do
     past_len = elem(Nx.shape(elem(elem(past_cache, 0), 0)), 2)
     h = add_wpe_at_position(combined, past_len, params)
     {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11} = past_cache
-    {h, c0} = block_incremental(0, h, params, c0)
-    {h, c1} = block_incremental(1, h, params, c1)
-    {h, c2} = block_incremental(2, h, params, c2)
-    {h, c3} = block_incremental(3, h, params, c3)
-    {h, c4} = block_incremental(4, h, params, c4)
-    {h, c5} = block_incremental(5, h, params, c5)
-    {h, c6} = block_incremental(6, h, params, c6)
-    {h, c7} = block_incremental(7, h, params, c7)
-    {h, c8} = block_incremental(8, h, params, c8)
-    {h, c9} = block_incremental(9, h, params, c9)
-    {h, c10} = block_incremental(10, h, params, c10)
-    {h, c11} = block_incremental(11, h, params, c11)
+    {h, c0} = block_incremental_0(h, params, c0)
+    {h, c1} = block_incremental_1(h, params, c1)
+    {h, c2} = block_incremental_2(h, params, c2)
+    {h, c3} = block_incremental_3(h, params, c3)
+    {h, c4} = block_incremental_4(h, params, c4)
+    {h, c5} = block_incremental_5(h, params, c5)
+    {h, c6} = block_incremental_6(h, params, c6)
+    {h, c7} = block_incremental_7(h, params, c7)
+    {h, c8} = block_incremental_8(h, params, c8)
+    {h, c9} = block_incremental_9(h, params, c9)
+    {h, c10} = block_incremental_10(h, params, c10)
+    {h, c11} = block_incremental_11(h, params, c11)
     new_cache = {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11}
     h = apply_ln_f(h, params)
     {h, new_cache}
@@ -132,60 +131,92 @@ defmodule RecGPT.InferenceDefn do
   end
 
   # One block per layer so param keys are literal (defn cannot use dynamic keys)
-  defnp block_with_cache(0, hidden, params) do
-    block_with_cache_impl(hidden, params, 0)
-  end
-
-  defnp block_with_cache(1, hidden, params) do
-    block_with_cache_impl(hidden, params, 1)
-  end
-
-  defnp block_with_cache(2, hidden, params) do
-    block_with_cache_impl(hidden, params, 2)
-  end
-
-  defnp block_with_cache(3, hidden, params) do
-    block_with_cache_impl(hidden, params, 3)
-  end
-
-  defnp block_with_cache(4, hidden, params) do
-    block_with_cache_impl(hidden, params, 4)
-  end
-
-  defnp block_with_cache(5, hidden, params) do
-    block_with_cache_impl(hidden, params, 5)
-  end
-
-  defnp block_with_cache(6, hidden, params) do
-    block_with_cache_impl(hidden, params, 6)
-  end
-
-  defnp block_with_cache(7, hidden, params) do
-    block_with_cache_impl(hidden, params, 7)
-  end
-
-  defnp block_with_cache(8, hidden, params) do
-    block_with_cache_impl(hidden, params, 8)
-  end
-
-  defnp block_with_cache(9, hidden, params) do
-    block_with_cache_impl(hidden, params, 9)
-  end
-
-  defnp block_with_cache(10, hidden, params) do
-    block_with_cache_impl(hidden, params, 10)
-  end
-
-  defnp block_with_cache(11, hidden, params) do
-    block_with_cache_impl(hidden, params, 11)
-  end
-
-  defnp block_with_cache_impl(hidden, params, layer_idx) do
+  defnp block_with_cache_0(hidden, params) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
-     c_proj_mlp_w,
-     c_proj_mlp_b} =
-      get_layer_params(layer_idx, params)
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_0(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
 
+  defnp block_with_cache_1(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_1(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_2(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_2(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_3(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_3(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_4(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_4(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_5(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_5(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_6(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_6(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_7(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_7(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_8(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_8(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_9(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_9(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_10(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_10(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_11(hidden, params) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_11(params)
+    block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+      ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_with_cache_impl(hidden, ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b,
+         ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b) do
     attn_in = layer_norm(hidden, ln1_w, ln1_b)
     {attn_out, kv} = attn_with_cache(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b)
     h = Nx.add(hidden, attn_out)
@@ -194,7 +225,7 @@ defmodule RecGPT.InferenceDefn do
     {Nx.add(h, mlp_out), kv}
   end
 
-  defnp get_layer_params(0, params) do
+  defnp get_layer_params_0(params) do
     {params[:layer_0_ln_1_weight], params[:layer_0_ln_1_bias],
      params[:layer_0_attn_c_attn_weight], params[:layer_0_attn_c_attn_bias],
      params[:layer_0_attn_c_proj_weight], params[:layer_0_attn_c_proj_bias],
@@ -203,7 +234,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_0_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(1, params) do
+  defnp get_layer_params_1(params) do
     {params[:layer_1_ln_1_weight], params[:layer_1_ln_1_bias],
      params[:layer_1_attn_c_attn_weight], params[:layer_1_attn_c_attn_bias],
      params[:layer_1_attn_c_proj_weight], params[:layer_1_attn_c_proj_bias],
@@ -212,7 +243,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_1_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(2, params) do
+  defnp get_layer_params_2(params) do
     {params[:layer_2_ln_1_weight], params[:layer_2_ln_1_bias],
      params[:layer_2_attn_c_attn_weight], params[:layer_2_attn_c_attn_bias],
      params[:layer_2_attn_c_proj_weight], params[:layer_2_attn_c_proj_bias],
@@ -221,7 +252,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_2_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(3, params) do
+  defnp get_layer_params_3(params) do
     {params[:layer_3_ln_1_weight], params[:layer_3_ln_1_bias],
      params[:layer_3_attn_c_attn_weight], params[:layer_3_attn_c_attn_bias],
      params[:layer_3_attn_c_proj_weight], params[:layer_3_attn_c_proj_bias],
@@ -230,7 +261,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_3_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(4, params) do
+  defnp get_layer_params_4(params) do
     {params[:layer_4_ln_1_weight], params[:layer_4_ln_1_bias],
      params[:layer_4_attn_c_attn_weight], params[:layer_4_attn_c_attn_bias],
      params[:layer_4_attn_c_proj_weight], params[:layer_4_attn_c_proj_bias],
@@ -239,7 +270,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_4_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(5, params) do
+  defnp get_layer_params_5(params) do
     {params[:layer_5_ln_1_weight], params[:layer_5_ln_1_bias],
      params[:layer_5_attn_c_attn_weight], params[:layer_5_attn_c_attn_bias],
      params[:layer_5_attn_c_proj_weight], params[:layer_5_attn_c_proj_bias],
@@ -248,7 +279,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_5_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(6, params) do
+  defnp get_layer_params_6(params) do
     {params[:layer_6_ln_1_weight], params[:layer_6_ln_1_bias],
      params[:layer_6_attn_c_attn_weight], params[:layer_6_attn_c_attn_bias],
      params[:layer_6_attn_c_proj_weight], params[:layer_6_attn_c_proj_bias],
@@ -257,7 +288,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_6_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(7, params) do
+  defnp get_layer_params_7(params) do
     {params[:layer_7_ln_1_weight], params[:layer_7_ln_1_bias],
      params[:layer_7_attn_c_attn_weight], params[:layer_7_attn_c_attn_bias],
      params[:layer_7_attn_c_proj_weight], params[:layer_7_attn_c_proj_bias],
@@ -266,7 +297,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_7_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(8, params) do
+  defnp get_layer_params_8(params) do
     {params[:layer_8_ln_1_weight], params[:layer_8_ln_1_bias],
      params[:layer_8_attn_c_attn_weight], params[:layer_8_attn_c_attn_bias],
      params[:layer_8_attn_c_proj_weight], params[:layer_8_attn_c_proj_bias],
@@ -275,7 +306,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_8_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(9, params) do
+  defnp get_layer_params_9(params) do
     {params[:layer_9_ln_1_weight], params[:layer_9_ln_1_bias],
      params[:layer_9_attn_c_attn_weight], params[:layer_9_attn_c_attn_bias],
      params[:layer_9_attn_c_proj_weight], params[:layer_9_attn_c_proj_bias],
@@ -284,7 +315,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_9_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(10, params) do
+  defnp get_layer_params_10(params) do
     {params[:layer_10_ln_1_weight], params[:layer_10_ln_1_bias],
      params[:layer_10_attn_c_attn_weight], params[:layer_10_attn_c_attn_bias],
      params[:layer_10_attn_c_proj_weight], params[:layer_10_attn_c_proj_bias],
@@ -293,7 +324,7 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_10_mlp_c_proj_weight], params[:layer_10_mlp_c_proj_bias]}
   end
 
-  defnp get_layer_params(11, params) do
+  defnp get_layer_params_11(params) do
     {params[:layer_11_ln_1_weight], params[:layer_11_ln_1_bias],
      params[:layer_11_attn_c_attn_weight], params[:layer_11_attn_c_attn_bias],
      params[:layer_11_attn_c_proj_weight], params[:layer_11_attn_c_proj_bias],
@@ -302,67 +333,144 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_11_mlp_c_proj_weight], params[:layer_11_mlp_c_proj_bias]}
   end
 
-  defnp block_incremental(0, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 0)
+  defnp block_incremental_0(hidden, params, past_kv) do
+    block_incremental_impl_0(hidden, params, past_kv)
   end
 
-  defnp block_incremental(1, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 1)
+  defnp block_incremental_1(hidden, params, past_kv) do
+    block_incremental_impl_1(hidden, params, past_kv)
   end
 
-  defnp block_incremental(2, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 2)
+  defnp block_incremental_2(hidden, params, past_kv) do
+    block_incremental_impl_2(hidden, params, past_kv)
   end
 
-  defnp block_incremental(3, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 3)
+  defnp block_incremental_3(hidden, params, past_kv) do
+    block_incremental_impl_3(hidden, params, past_kv)
   end
 
-  defnp block_incremental(4, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 4)
+  defnp block_incremental_4(hidden, params, past_kv) do
+    block_incremental_impl_4(hidden, params, past_kv)
   end
 
-  defnp block_incremental(5, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 5)
+  defnp block_incremental_5(hidden, params, past_kv) do
+    block_incremental_impl_5(hidden, params, past_kv)
   end
 
-  defnp block_incremental(6, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 6)
+  defnp block_incremental_6(hidden, params, past_kv) do
+    block_incremental_impl_6(hidden, params, past_kv)
   end
 
-  defnp block_incremental(7, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 7)
+  defnp block_incremental_7(hidden, params, past_kv) do
+    block_incremental_impl_7(hidden, params, past_kv)
   end
 
-  defnp block_incremental(8, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 8)
+  defnp block_incremental_8(hidden, params, past_kv) do
+    block_incremental_impl_8(hidden, params, past_kv)
   end
 
-  defnp block_incremental(9, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 9)
+  defnp block_incremental_9(hidden, params, past_kv) do
+    block_incremental_impl_9(hidden, params, past_kv)
   end
 
-  defnp block_incremental(10, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 10)
+  defnp block_incremental_10(hidden, params, past_kv) do
+    block_incremental_impl_10(hidden, params, past_kv)
   end
 
-  defnp block_incremental(11, hidden, params, past_kv) do
-    block_incremental_impl(hidden, params, past_kv, 11)
+  defnp block_incremental_11(hidden, params, past_kv) do
+    block_incremental_impl_11(hidden, params, past_kv)
   end
 
-  defnp block_incremental_impl(hidden, params, past_kv, layer_idx) do
-    {past_k, past_v} = past_kv
-
+  defnp block_incremental_impl_0(hidden, params, past_kv) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
-     c_proj_mlp_w,
-     c_proj_mlp_b} =
-      get_layer_params(layer_idx, params)
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_0(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
 
+  defnp block_incremental_impl_1(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_1(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_2(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_2(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_3(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_3(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_4(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_4(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_5(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_5(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_6(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_6(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_7(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_7(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_8(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_8(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_9(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_9(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_10(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_10(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_11(hidden, params, past_kv) do
+    {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
+     c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_11(params)
+    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+      c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
+  end
+
+  defnp block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+         c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b) do
+    {past_k, past_v} = past_kv
     attn_in = layer_norm(hidden, ln1_w, ln1_b)
-
     {attn_out, new_kv} =
       attn_incremental(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v)
-
     h = Nx.add(hidden, attn_out)
     mlp_in = layer_norm(h, ln2_w, ln2_b)
     mlp_out = mlp(mlp_in, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)

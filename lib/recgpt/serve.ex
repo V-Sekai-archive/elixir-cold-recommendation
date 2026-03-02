@@ -227,7 +227,6 @@ defmodule RecGPT.Serve do
           cache_list = cache_tuple_to_list(cache_tuple)
           {logits, cache_list}
         else
-          cache_tuple = cache_list_to_tuple(cache)
           last_tokens = Enum.map(list_of_token_lists, fn seq -> [List.last(seq)] end)
           batch_one = Nx.tensor(last_tokens, type: {:s, 32})
           aux_one = Nx.broadcast(0.0, {batch_size, 1, 192}) |> Nx.as_type({:f, 32})
