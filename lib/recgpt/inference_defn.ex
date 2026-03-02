@@ -20,9 +20,9 @@ defmodule RecGPT.InferenceDefn do
     {logits, cache}
   end
 
-  defn forward_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache) do
+  defn forward_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache, past_len) do
     {hidden, new_cache} =
-      forward_hidden_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache)
+      forward_hidden_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache, past_len)
 
     last_hidden = Nx.squeeze(hidden, axes: [1])
     logits = apply_head(last_hidden, params)
@@ -55,7 +55,7 @@ defmodule RecGPT.InferenceDefn do
     {h, cache}
   end
 
-  defnp forward_hidden_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache) do
+  defnp forward_hidden_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache, past_len) do
     wte = params[:wte]
     {batch, _seq_len} = Nx.shape(batch_token_ids)
     flat_ids = Nx.reshape(batch_token_ids, {batch})
@@ -63,21 +63,20 @@ defmodule RecGPT.InferenceDefn do
     token_embeds = Nx.reshape(token_embeds, {batch, 1, @n_embd})
     aux_768 = apply_aux_encoder(batch_aux, embed_mask, params)
     combined = Nx.add(token_embeds, aux_768)
-    past_len = elem(Nx.shape(elem(elem(past_cache, 0), 0)), 2)
     h = add_wpe_at_position(combined, past_len, params)
     {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11} = past_cache
-    {h, c0} = block_incremental_0(h, params, c0)
-    {h, c1} = block_incremental_1(h, params, c1)
-    {h, c2} = block_incremental_2(h, params, c2)
-    {h, c3} = block_incremental_3(h, params, c3)
-    {h, c4} = block_incremental_4(h, params, c4)
-    {h, c5} = block_incremental_5(h, params, c5)
-    {h, c6} = block_incremental_6(h, params, c6)
-    {h, c7} = block_incremental_7(h, params, c7)
-    {h, c8} = block_incremental_8(h, params, c8)
-    {h, c9} = block_incremental_9(h, params, c9)
-    {h, c10} = block_incremental_10(h, params, c10)
-    {h, c11} = block_incremental_11(h, params, c11)
+    {h, c0} = block_incremental_0(h, params, c0, past_len)
+    {h, c1} = block_incremental_1(h, params, c1, past_len)
+    {h, c2} = block_incremental_2(h, params, c2, past_len)
+    {h, c3} = block_incremental_3(h, params, c3, past_len)
+    {h, c4} = block_incremental_4(h, params, c4, past_len)
+    {h, c5} = block_incremental_5(h, params, c5, past_len)
+    {h, c6} = block_incremental_6(h, params, c6, past_len)
+    {h, c7} = block_incremental_7(h, params, c7, past_len)
+    {h, c8} = block_incremental_8(h, params, c8, past_len)
+    {h, c9} = block_incremental_9(h, params, c9, past_len)
+    {h, c10} = block_incremental_10(h, params, c10, past_len)
+    {h, c11} = block_incremental_11(h, params, c11, past_len)
     new_cache = {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11}
     h = apply_ln_f(h, params)
     {h, new_cache}
@@ -102,9 +101,10 @@ defmodule RecGPT.InferenceDefn do
     Nx.add(hidden, pe)
   end
 
-  defnp add_wpe_at_position(hidden, position, params) do
+  defnp add_wpe_at_position(hidden, past_len, params) do
     wpe = params[:wpe]
-    pe_row = Nx.slice_along_axis(wpe, position, 1, axis: 0)
+    # past_len is a scalar tensor; Nx.slice supports dynamic start indices
+    pe_row = Nx.slice(wpe, [past_len, 0], [1, @n_embd])
     pe = Nx.reshape(pe_row, {1, 1, @n_embd})
     Nx.add(hidden, pe)
   end
@@ -333,144 +333,144 @@ defmodule RecGPT.InferenceDefn do
      params[:layer_11_mlp_c_proj_weight], params[:layer_11_mlp_c_proj_bias]}
   end
 
-  defnp block_incremental_0(hidden, params, past_kv) do
-    block_incremental_impl_0(hidden, params, past_kv)
+  defnp block_incremental_0(hidden, params, past_kv, past_len) do
+    block_incremental_impl_0(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_1(hidden, params, past_kv) do
-    block_incremental_impl_1(hidden, params, past_kv)
+  defnp block_incremental_1(hidden, params, past_kv, past_len) do
+    block_incremental_impl_1(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_2(hidden, params, past_kv) do
-    block_incremental_impl_2(hidden, params, past_kv)
+  defnp block_incremental_2(hidden, params, past_kv, past_len) do
+    block_incremental_impl_2(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_3(hidden, params, past_kv) do
-    block_incremental_impl_3(hidden, params, past_kv)
+  defnp block_incremental_3(hidden, params, past_kv, past_len) do
+    block_incremental_impl_3(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_4(hidden, params, past_kv) do
-    block_incremental_impl_4(hidden, params, past_kv)
+  defnp block_incremental_4(hidden, params, past_kv, past_len) do
+    block_incremental_impl_4(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_5(hidden, params, past_kv) do
-    block_incremental_impl_5(hidden, params, past_kv)
+  defnp block_incremental_5(hidden, params, past_kv, past_len) do
+    block_incremental_impl_5(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_6(hidden, params, past_kv) do
-    block_incremental_impl_6(hidden, params, past_kv)
+  defnp block_incremental_6(hidden, params, past_kv, past_len) do
+    block_incremental_impl_6(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_7(hidden, params, past_kv) do
-    block_incremental_impl_7(hidden, params, past_kv)
+  defnp block_incremental_7(hidden, params, past_kv, past_len) do
+    block_incremental_impl_7(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_8(hidden, params, past_kv) do
-    block_incremental_impl_8(hidden, params, past_kv)
+  defnp block_incremental_8(hidden, params, past_kv, past_len) do
+    block_incremental_impl_8(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_9(hidden, params, past_kv) do
-    block_incremental_impl_9(hidden, params, past_kv)
+  defnp block_incremental_9(hidden, params, past_kv, past_len) do
+    block_incremental_impl_9(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_10(hidden, params, past_kv) do
-    block_incremental_impl_10(hidden, params, past_kv)
+  defnp block_incremental_10(hidden, params, past_kv, past_len) do
+    block_incremental_impl_10(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_11(hidden, params, past_kv) do
-    block_incremental_impl_11(hidden, params, past_kv)
+  defnp block_incremental_11(hidden, params, past_kv, past_len) do
+    block_incremental_impl_11(hidden, params, past_kv, past_len)
   end
 
-  defnp block_incremental_impl_0(hidden, params, past_kv) do
+  defnp block_incremental_impl_0(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_0(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_1(hidden, params, past_kv) do
+  defnp block_incremental_impl_1(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_1(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_2(hidden, params, past_kv) do
+  defnp block_incremental_impl_2(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_2(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_3(hidden, params, past_kv) do
+  defnp block_incremental_impl_3(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_3(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_4(hidden, params, past_kv) do
+  defnp block_incremental_impl_4(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_4(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_5(hidden, params, past_kv) do
+  defnp block_incremental_impl_5(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_5(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_6(hidden, params, past_kv) do
+  defnp block_incremental_impl_6(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_6(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_7(hidden, params, past_kv) do
+  defnp block_incremental_impl_7(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_7(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_8(hidden, params, past_kv) do
+  defnp block_incremental_impl_8(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_8(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_9(hidden, params, past_kv) do
+  defnp block_incremental_impl_9(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_9(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_10(hidden, params, past_kv) do
+  defnp block_incremental_impl_10(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_10(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_11(hidden, params, past_kv) do
+  defnp block_incremental_impl_11(hidden, params, past_kv, past_len) do
     {ln1_w, ln1_b, c_attn_w, c_attn_b, c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b,
      c_proj_mlp_w, c_proj_mlp_b} = get_layer_params_11(params)
-    block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+    block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
       c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
   end
 
-  defnp block_incremental_impl_body(hidden, past_kv, ln1_w, ln1_b, c_attn_w, c_attn_b,
+  defnp block_incremental_impl_body(hidden, past_kv, past_len, ln1_w, ln1_b, c_attn_w, c_attn_b,
          c_proj_w, c_proj_b, ln2_w, ln2_b, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b) do
     {past_k, past_v} = past_kv
     attn_in = layer_norm(hidden, ln1_w, ln1_b)
     {attn_out, new_kv} =
-      attn_incremental(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v)
+      attn_incremental(attn_in, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v, past_len)
     h = Nx.add(hidden, attn_out)
     mlp_in = layer_norm(h, ln2_w, ln2_b)
     mlp_out = mlp(mlp_in, c_fc_w, c_fc_b, c_proj_mlp_w, c_proj_mlp_b)
@@ -487,7 +487,8 @@ defmodule RecGPT.InferenceDefn do
     q = Nx.reshape(q, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     k = Nx.reshape(k, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
-    scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+    ttype = Nx.type(c_attn_w)
+    scale = Nx.sqrt(Nx.tensor(@head_dim, type: ttype))
     k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
     scores = Nx.dot(q, [3], [0, 1], k_t, [2], [0, 1]) |> Nx.divide(scale)
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
@@ -497,11 +498,11 @@ defmodule RecGPT.InferenceDefn do
     mask =
       Nx.select(
         mask,
-        Nx.broadcast(Nx.tensor(-1.0e10, type: {:f, 32}), {seq, seq}),
-        Nx.broadcast(0.0, {seq, seq})
+        Nx.broadcast(Nx.tensor(-1.0e10, type: ttype), {seq, seq}),
+        Nx.broadcast(Nx.tensor(0.0, type: ttype), {seq, seq})
       )
 
-    mask = Nx.reshape(mask, {1, 1, seq, seq}) |> Nx.as_type({:f, 32})
+    mask = Nx.reshape(mask, {1, 1, seq, seq}) |> Nx.as_type(ttype)
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
@@ -512,7 +513,7 @@ defmodule RecGPT.InferenceDefn do
     {out, {k, v}}
   end
 
-  defnp attn_incremental(x, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v) do
+  defnp attn_incremental(x, c_attn_w, c_attn_b, c_proj_w, c_proj_b, past_k, past_v, past_len) do
     qkv = Nx.dot(x, [2], c_attn_w, [1])
     qkv = Nx.add(qkv, Nx.reshape(c_attn_b, {1, 1, 2304}))
     {batch, _seq, _} = Nx.shape(qkv)
@@ -522,11 +523,24 @@ defmodule RecGPT.InferenceDefn do
     q = Nx.reshape(q, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     k = Nx.reshape(k, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     v = Nx.reshape(v, {batch, 1, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
-    new_k = Nx.concatenate([past_k, k], axis: 2)
-    new_v = Nx.concatenate([past_v, v], axis: 2)
-    scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
+    # Padded cache: write new k,v at position past_len (stable shape for EXLA JIT)
+    new_k = Nx.put_slice(past_k, [0, 0, past_len, 0], k)
+    new_v = Nx.put_slice(past_v, [0, 0, past_len, 0], v)
+    ttype = Nx.type(c_attn_w)
+    scale = Nx.sqrt(Nx.tensor(@head_dim, type: ttype))
     new_k_t = Nx.transpose(new_k, axes: [0, 1, 3, 2])
     scores = Nx.dot(q, [3], [0, 1], new_k_t, [2], [0, 1]) |> Nx.divide(scale)
+    # Mask positions > past_len (padded slots) for stable attention
+    max_len = elem(Nx.shape(past_k), 2)
+    indices = Nx.iota({max_len}, type: {:s, 32})
+    invalid = Nx.greater(indices, past_len)
+    mask = Nx.select(
+      invalid,
+      Nx.broadcast(Nx.tensor(-1.0e10, type: ttype), {max_len}),
+      Nx.broadcast(Nx.tensor(0.0, type: ttype), {max_len})
+    )
+    mask = Nx.reshape(mask, {1, 1, 1, max_len})
+    scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
     out = Nx.dot(probs, [3], [0, 1], new_v, [2], [0, 1])
@@ -545,8 +559,9 @@ defmodule RecGPT.InferenceDefn do
   end
 
   defnp gelu(x) do
-    half = Nx.tensor(0.5, type: {:f, 32})
-    x_scaled = Nx.divide(x, Nx.sqrt(Nx.tensor(2.0, type: {:f, 32})))
+    ttype = Nx.type(x)
+    half = Nx.tensor(0.5, type: ttype)
+    x_scaled = Nx.divide(x, Nx.sqrt(Nx.tensor(2.0, type: ttype)))
     Nx.multiply(Nx.multiply(half, x), Nx.add(1.0, Nx.erf(x_scaled)))
   end
 end

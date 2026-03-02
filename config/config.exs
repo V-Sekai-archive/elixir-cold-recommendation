@@ -20,6 +20,13 @@ config :recgpt, :ckpt_expected_sha256, "b93219448d9800cf1c1b86ab265dfa5ccc6b29ae
 # Set RECGPT_EXLA_CACHE_DIR to override path; empty string disables caching.
 config :recgpt, :exla_jit_cache_dir, System.get_env("RECGPT_EXLA_CACHE_DIR") || "tmp/exla_cache"
 
+# Inference dtype: {:f, 32} (default) or {:bf, 16} for BF16 (Tensor Cores).
+config :recgpt, :inference_dtype, {:f, 32}
+
+# Padded KV cache length for stable EXLA JIT cache keys. Incremental forward uses fixed shape
+# (batch, n_head, max_cache_len, head_dim) so compiled code is reused across steps.
+config :recgpt, :max_cache_len, 128
+
 # SQLite catalog/token storage (optional). Set RECGPT_SQLITE_PATH to use. Run mix ecto.migrate.
 config :recgpt, ecto_repos: [RecGPT.Repo]
 

@@ -21,7 +21,9 @@ Setup 20–30s to 2–5s by persisting compiled XLA binaries so restarts skip JI
 
 ## Cache keying
 
-Derive subdirectory from: EXLA version, Nx version, checkpoint SHA256, inference dtype. Invalidates when any change.
+Derive subdirectory from: EXLA version, Nx version, checkpoint SHA256, inference dtype, max_cache_len. Invalidates when any change.
+
+**Stable canonicalization:** Incremental forward uses a padded KV cache (fixed shape) so the args signature stays constant across beam steps; otherwise varying seq_len (4, 5, 6…) would cause repeated recompilation.
 
 ---
 

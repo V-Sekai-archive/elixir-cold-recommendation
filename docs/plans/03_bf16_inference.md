@@ -24,3 +24,6 @@ Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 ## Profile
 
 BF16 vs FP32 mean/p50 and inference μs/forward.
+
+To compare: set `config :recgpt, :inference_dtype, {:f, 32}` for FP32, then run
+`mix recgpt.trace_predict --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --runs 10 --jitter-ms 3`.
