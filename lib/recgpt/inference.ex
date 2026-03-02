@@ -306,6 +306,9 @@ defmodule RecGPT.Inference do
     {Nx.add(h, mlp_out), new_kv}
   end
 
+  # Scaled dot-product attention (GPT-2): scores = Q K^T / sqrt(d), probs = softmax(scores + mask), out = probs @ V.
+  # Layout: q,k,v (batch, n_head, seq, head_dim). Batch axes [0,1] in Nx.dot/6 so we get batched matmul, not outer product.
+  # Scores: contract head_dim (axis 3 of q, axis 2 of k_t). Output: contract seq_k (axis 3 of probs, axis 2 of v).
   defp gpt2_attn(x, params, base) do
     # c_attn: (batch, seq, 768) -> (batch, seq, 2304) for q,k,v
     c_attn_w = params[base <> "attn.c_attn.weight"]
@@ -324,8 +327,9 @@ defmodule RecGPT.Inference do
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
     # Batched attention: q (batch, n_head, seq, head_dim), k (batch, n_head, seq, head_dim) -> (batch, n_head, seq, seq)
+    # Use dot/6 with batch_axes [0, 1] so we get batched matmul; dot/4 would outer-product to 6D.
     k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
-    scores = Nx.dot(q, [3], k_t, [2]) |> Nx.divide(scale)
+    scores = Nx.dot(q, [3], [0, 1], k_t, [2], [0, 1]) |> Nx.divide(scale)
     # Causal mask: position i may attend only to j <= i. Mask (seq, seq): -1e10 where j > i
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
@@ -342,8 +346,8 @@ defmodule RecGPT.Inference do
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    # Batched: probs (batch, n_head, seq, seq) @ v (batch, n_head, seq, head_dim) -> (batch, n_head, seq, head_dim)
-    out = Nx.dot(probs, [2], v, [2])
+    # Batched: probs (batch, n_head, seq_q, seq_k) @ v (batch, n_head, seq_k, head_dim); contract seq_k (axis 3 of probs, axis 2 of v)
+    out = Nx.dot(probs, [3], [0, 1], v, [2], [0, 1])
     out =
       out
       |> Nx.transpose(axes: [0, 2, 1, 3])
@@ -372,7 +376,7 @@ defmodule RecGPT.Inference do
     v = Nx.reshape(v, {batch, seq, @n_head, @head_dim}) |> Nx.transpose(axes: [0, 2, 1, 3])
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
     k_t = Nx.transpose(k, axes: [0, 1, 3, 2])
-    scores = Nx.dot(q, [3], k_t, [2]) |> Nx.divide(scale)
+    scores = Nx.dot(q, [3], [0, 1], k_t, [2], [0, 1]) |> Nx.divide(scale)
     row = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(-1)
     col = Nx.iota({seq}, type: {:s, 32}) |> Nx.new_axis(0)
     mask = Nx.greater(col, row)
@@ -386,7 +390,7 @@ defmodule RecGPT.Inference do
     scores = Nx.add(scores, mask)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    out = Nx.dot(probs, [2], v, [2])
+    out = Nx.dot(probs, [3], [0, 1], v, [2], [0, 1])
     out =
       out
       |> Nx.transpose(axes: [0, 2, 1, 3])
@@ -419,11 +423,11 @@ defmodule RecGPT.Inference do
     scale = Nx.sqrt(Nx.tensor(@head_dim, type: {:f, 32}))
     # Batched: q (batch, n_head, 1, head_dim), new_k (batch, n_head, seq_len, head_dim) -> (batch, n_head, 1, seq_len)
     new_k_t = Nx.transpose(new_k, axes: [0, 1, 3, 2])
-    scores = Nx.dot(q, [3], new_k_t, [2]) |> Nx.divide(scale)
+    scores = Nx.dot(q, [3], [0, 1], new_k_t, [2], [0, 1]) |> Nx.divide(scale)
     e = Nx.exp(scores)
     probs = Nx.divide(e, Nx.sum(e, axes: [-1], keep_axes: true))
-    # Batched: probs (batch, n_head, 1, seq_len) @ new_v (batch, n_head, seq_len, head_dim) -> (batch, n_head, 1, head_dim)
-    out = Nx.dot(probs, [2], new_v, [2])
+    # Batched: probs (batch, n_head, 1, seq_len) @ new_v (batch, n_head, seq_len, head_dim); contract seq_len (axis 3 of probs, axis 2 of new_v)
+    out = Nx.dot(probs, [3], [0, 1], new_v, [2], [0, 1])
     out = Nx.transpose(out, axes: [0, 2, 1, 3]) |> Nx.reshape({batch, 1, @n_embd})
     c_proj_w = params[base <> "attn.c_proj.weight"]
     c_proj_b = params[base <> "attn.c_proj.bias"]

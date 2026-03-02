@@ -86,16 +86,24 @@ defmodule RecGPT.PredictBatchCollector do
 
       state ->
         for {context_ids, max_results, from, trace?} <- entries do
-          result =
-            if trace? do
-              {recommend_us, recommend_result} =
-                :timer.tc(fn -> RecGPT.Serve.recommend(state, context_ids, max_results) end)
-              {recommend_result, recommend_us}
-            else
-              {RecGPT.Serve.recommend(state, context_ids, max_results), nil}
+          {recommend_result, recommend_us} =
+            try do
+              if trace? do
+                {us, res} =
+                  :timer.tc(fn -> RecGPT.Serve.recommend(state, context_ids, max_results) end)
+                {res, us}
+              else
+                {RecGPT.Serve.recommend(state, context_ids, max_results), nil}
+              end
+            rescue
+              e ->
+                require Logger
+                Logger.error(
+                  "Recommend failed context=#{inspect(context_ids)}: #{Exception.format(:error, e)}"
+                )
+                {{:error, Exception.message(e)}, nil}
             end
 
-          {recommend_result, recommend_us} = result
           reply = build_reply(recommend_result, recommend_us, state, context_ids, max_results)
           GenServer.reply(from, reply)
         end

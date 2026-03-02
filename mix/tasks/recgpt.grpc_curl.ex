@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Recgpt.GrpcCurl do
   ## Options
     * `--port` - gRPC port (default: 50051, or RECGPT_GRPC_PORT)
     * `--context` - Comma-separated context item IDs (default: 0). On PowerShell use quotes: "0,1"
-    * `--max-results` - Max recommendations (default: 10)
+    * `--max-results` or `--max-result` - Max recommendations (default: 10)
     * `--format` - grpcurl output format: json or text (default: json)
   """
   use Mix.Task
@@ -24,12 +24,18 @@ defmodule Mix.Tasks.Recgpt.GrpcCurl do
   def run(args) do
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [port: :integer, context: :string, max_results: :integer, format: :string]
+        switches: [
+          port: :integer,
+          context: :string,
+          max_results: :integer,
+          max_result: :integer,
+          format: :string
+        ]
       )
 
     port = opts[:port] || port_from_env() || 50_051
     context_str = opts[:context] || "0"
-    max_results = opts[:max_results] || 10
+    max_results = opts[:max_results] || opts[:max_result] || 10
     format = opts[:format] || "json"
 
     context_ids =
