@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **EXLA JIT disk cache:** Persist compiled XLA binaries to `tmp/exla_cache` (or `RECGPT_EXLA_CACHE_DIR`); restarts skip recompilation. Cache key includes EXLA/Nx versions, checkpoint SHA256, and dtype.
-- **BF16 inference:** Config `inference_dtype: {:bf, 16}` for Tensor Core acceleration; default remains FP32.
+- **BF16 inference:** Default `inference_dtype: {:bf, 16}` for Tensor Core acceleration.
 - **Padded KV cache:** Fixed shape `(batch, n_head, max_cache_len, head_dim)` for stable EXLA JIT cache keys; `max_cache_len` (default 128) in config.
 - **Adaptive beam width:** Beam width `max(4, min(top_k + 2, 12))` to reduce wasted work for small `top_k`.
 - **Checkpoint SHA256 validation:** `mix recgpt.ckpt_sha256`; config `ckpt_expected_sha256` for integrity checks.

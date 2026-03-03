@@ -207,33 +207,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
   end
 
   defp build_stub_state do
-    alias RecGPT.Inference
-    alias RecGPT.Serve
-    alias RecGPT.Trie
-    token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
-    trie = Trie.build(token_id_list)
-    wte = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_w = Nx.iota({15_361, 768}) |> Nx.divide(15_361 * 768) |> Nx.as_type({:f, 32})
-    head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
-    params = %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
-
-    get_logits_fn = fn token_list ->
-      seq_len = length(token_list)
-      batch_token_ids = Nx.tensor([token_list], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, seq_len, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
-      Inference.forward(batch_token_ids, batch_aux, embed_mask, params)
-    end
-
-    %Serve{
-      params: params,
-      trie: trie,
-      token_id_list: token_id_list,
-      token_id_map: nil,
-      item_text: %{},
-      num_items: 2,
-      get_logits_fn: get_logits_fn
-    }
+    RecGPT.TestSupport.FrozenHelpers.build_stub_state(2)
   end
 
   defp write_results(out_path, results, state) do

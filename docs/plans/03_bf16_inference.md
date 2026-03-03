@@ -16,8 +16,8 @@ Profile after change: `mix recgpt.trace_predict --runs 50 --jitter-ms 3`
 
 - lib/recgpt/inference_params.ex: Add `dtype`; cast params via `Nx.as_type(t, {:bf, 16})`
 - lib/recgpt/inference_defn.ex: Use dtype for aux, mask, scale, constants
-- lib/recgpt/serve.ex: Read `config :recgpt, :inference_dtype, {:f, 32}` and pass to InferenceParams
-- config/config.exs: `config :recgpt, :inference_dtype, {:bf, 16}` to enable
+- lib/recgpt/serve.ex: Read `config :recgpt, :inference_dtype, {:bf, 16}` (default) and pass to InferenceParams
+- config/config.exs: BF16 is default; use `{:f, 32}` for FP32
 
 ---
 

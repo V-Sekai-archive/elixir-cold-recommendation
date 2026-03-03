@@ -158,6 +158,8 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 - **Greedy decode** — `beam_width_override: 1` (RECGPT_BEAM_WIDTH_OVERRIDE) was configurable for latency testing. Config removed; adaptive beam only.
 - **Shorter context** — Using fewer context items (e.g. `[11]` vs `[1,2,3,4]`) considered for speed. Rejected: keep full context for quality.
 - **Context cache** — ETS cache of logits_4 by context_item_ids. Implemented then removed: no measurable improvement in hyperfine benchmark with repeated `[1,2,3,4]`.
+- **Binary** — Need P99 &lt; 80 ms; RecGPT ≈ 200 ms. Competition binds. RecGPT bypassed for Binary; use reflex + bs-p only.
+- **Bundle** — Need P99 &lt; 150 ms; RecGPT ≈ 200 ms. Competition binds. RecGPT bypassed for Bundle; use reflex + bs-p only.
 
 ---
 
