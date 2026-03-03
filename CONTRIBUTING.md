@@ -104,9 +104,7 @@ See [docs/06_evaluation_and_testing.md](docs/06_evaluation_and_testing.md) and [
 
 ## Performance and accuracy
 
-- **Serve benchmark** (recommendation latency):
-  - **Stub (fast, no GPU):** `mix run bench/recgpt_serve_bench.exs` — uses minimal state; measures error-return path only.
-  - **Real latency (fixture + checkpoint):** `mix recgpt.trace_predict --runs 20` — loads state, runs recommend; or run `mix recgpt.serve` and call the gRPC Predict API repeatedly. See [docs/08_latency_and_performance.md](docs/08_latency_and_performance.md).
+- **Serve benchmark** (recommendation latency): `mix recgpt.trace_predict --runs 20` — loads state, runs recommend; or run `mix recgpt.serve` and call the gRPC Predict API repeatedly. See [docs/08_latency_and_performance.md](docs/08_latency_and_performance.md).
 
 - **Accuracy (Hit@k, MRR)** on a held-out test set requires fixture, checkpoint, and test sequences (e.g. after `mix recgpt.fetch_steam data/steam` and `mix recgpt.build_fixture`):
   ```bash

@@ -22,7 +22,7 @@ Make the codebase production-ready with the following improvements. Checklist: [
 - [x] **Integration test** - Full flow: load_state to predict (see prediction_service_test).
 - [x] **Health / readiness** - HTTP endpoint (e.g. port 50052) for K8s probes.
 - [x] **Property-based tests** - StreamData for trie and other invariants.
-- [x] **Benchmarks** - Benchee for Serve.recommend/3; run mix run bench/recgpt_serve_bench.exs.
+- [x] **Benchmarks** - Recommendation latency via `mix recgpt.trace_predict --runs 20` or gRPC Predict (see docs/08_latency_and_performance.md).
 - [x] **Release and Docker** - mix release; RecGPT.ReleaseTasks.serve(); Dockerfile.
 
 ---

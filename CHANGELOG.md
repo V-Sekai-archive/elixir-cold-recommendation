@@ -37,6 +37,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Checkpoint:** Export/load via manifest + `.npy`; optional PyTorch `.pt` import.
 - **Eval:** Hit@k, MRR, null baseline comparison; test/cold splits; `RecGPT.Eval.evaluate/3`, `load_test_cases/1`.
 - **Serving:** `mix recgpt.serve` (gRPC port 50051); HTTP health server on port 50052 for readiness; `RecGPT.ReleaseTasks.serve/0` for releases; Dockerfile.
-- **Quality:** Typespecs (`@spec`) on public APIs; Dialyzer in CI; Credo; property-based tests (StreamData); Benchee script `bench/recgpt_serve_bench.exs`.
+- **Quality:** Typespecs (`@spec`) on public APIs; Dialyzer in CI; Credo; property-based tests (StreamData).
 - **Catalog:** `RecGPT.Catalog.write!/2` for SSD-stable atomic writes; optional `--catalog` path at serve time.
 - **Docs:** Pipeline, gRPC API, eval data shapes, layers and testing, infrastructure and release, top-tier recommendations.

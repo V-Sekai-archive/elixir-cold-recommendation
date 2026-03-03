@@ -57,7 +57,6 @@ defmodule RecGPT.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.2", only: [:dev, :test]},
-      {:benchee, "~> 1.3", only: :dev},
       {:elixir_make, "~> 0.8", runtime: false}
     ]
   end
