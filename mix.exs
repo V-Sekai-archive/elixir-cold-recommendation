@@ -14,6 +14,8 @@ defmodule RecGPT.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:elixir_make] ++ Mix.compilers(),
+      make_cwd: "c_src",
       deps: deps(),
       dialyzer: [
         plt_add_apps: [:mix],
@@ -55,7 +57,8 @@ defmodule RecGPT.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.2", only: [:dev, :test]},
-      {:benchee, "~> 1.3", only: :dev}
+      {:benchee, "~> 1.3", only: :dev},
+      {:elixir_make, "~> 0.8", runtime: false}
     ]
   end
 end

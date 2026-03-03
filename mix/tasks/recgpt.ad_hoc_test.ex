@@ -60,10 +60,10 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     nsys_args = [
       "profile",
       "-o", out_file,
-      "-t", "cuda,nvtx",
-      "--cuda-event-trace=false",
-      "--sample=none",
-      "--backtrace=none",
+      "-t", "cuda,nvtx,osrt",
+      "--cuda-event-trace=true",
+      "--stats=true",
+      "--sample=process-tree",
       "mix", "recgpt.ad_hoc_test" | args_no_profile
     ]
 

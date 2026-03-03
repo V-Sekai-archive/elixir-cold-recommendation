@@ -1,7 +1,9 @@
 defmodule RecGPT.HealthServer do
   @moduledoc """
   Minimal HTTP health endpoint for readiness probes (e.g. K8s).
-  Listens on a configurable port; GET / returns 200 when serve_state is loaded, 503 otherwise.
+  Listens on a configurable port.
+  GET / returns 200 when serve_state is loaded, 503 otherwise.
+  GET /slo returns 200 when recent RecGPT P50/P99 are within target_p50_ms/target_p99_ms, 503 with message otherwise (for CI or alerting).
   """
   @spec child_spec(non_neg_integer() | keyword()) :: map()
   def child_spec(port) when is_integer(port) do
@@ -47,9 +49,22 @@ defmodule RecGPT.HealthServer do
   end
 
   defp handle(socket) do
-    _ = :gen_tcp.recv(socket, 0, 5000)
-    status = if Application.get_env(:recgpt, :serve_state), do: 200, else: 503
-    body = if status == 200, do: "OK", else: "Service Unavailable"
+    {:ok, data} = :gen_tcp.recv(socket, 0, 5000)
+    first_line = data |> String.split("\r\n") |> List.first() || ""
+
+    {status, body} =
+      if String.starts_with?(first_line, "GET /slo") do
+        case RecGPT.LatencyStats.check_slo() do
+          :ok -> {200, "OK"}
+          {:warn, msg} -> {503, "SLO exceeded: " <> msg}
+        end
+      else
+        if Application.get_env(:recgpt, :serve_state) do
+          {200, "OK"}
+        else
+          {503, "Service Unavailable"}
+        end
+      end
 
     resp =
       "HTTP/1.1 #{status} #{body}\r\nContent-Length: #{byte_size(body)}\r\nConnection: close\r\n\r\n#{body}"

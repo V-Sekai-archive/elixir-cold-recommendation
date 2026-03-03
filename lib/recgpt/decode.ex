@@ -66,11 +66,12 @@ defmodule RecGPT.Decode do
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state
     item_at_leaf = trie_tensors.item_at_leaf
-    # Adaptive: cap at 12 to avoid over-beam; use top_k+2 for small top_k exploration
-    beam_width = max(4, min(top_k + 2, 12))
+    # Adaptive: beam 4..20 for expected top_k 1–20; top_k+2 with cap 20
+    beam_width = max(4, min(top_k + 2, 20))
     root_state = Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
     # Step 0: one candidate (state 0), forward context only
+    RecGPT.NVTX.range_push("beam_search_step_0")
     {logits, cache} = batch_tensor_fn.(context_tokens, nil)
     logits = Nx.reshape(logits, {:auto})
     valid = Nx.gather(next_state, root_state) |> Nx.reshape({:auto})
@@ -83,6 +84,7 @@ defmodule RecGPT.Decode do
     new_state_ids = Nx.squeeze(new_state_ids, axes: [1])
     prefix_tokens = Nx.new_axis(top_token_ids, 1)
     beam_scores = Nx.as_type(top_scores, {:f, 32})
+    RecGPT.NVTX.range_pop()
 
     # Steps 1, 2, 3 (step 3 uses item_at_leaf for valid mask and returns item_ids)
     {_state_ids, prefix_tokens, beam_scores, _cache, item_ids} =
@@ -109,6 +111,7 @@ defmodule RecGPT.Decode do
       end)
 
     # Single sync: transfer item_ids, scores, and prefix_tokens (4 tokens per candidate) to host
+    RecGPT.NVTX.range_push("decode_sync")
     item_ids_list = Nx.to_flat_list(item_ids)
     scores_list = Nx.to_flat_list(beam_scores)
 
@@ -118,6 +121,7 @@ defmodule RecGPT.Decode do
       |> Nx.to_flat_list()
 
     prefix_tokens_list = Enum.chunk_every(prefix_tokens, 4)
+    RecGPT.NVTX.range_pop()
 
     candidates =
       item_ids_list
@@ -167,6 +171,7 @@ defmodule RecGPT.Decode do
          cache,
          backend
        ) do
+    RecGPT.NVTX.range_push("beam_search_step_#{step}")
     k = Nx.axis_size(prefix_tokens, 0)
     prefix_len = step
     context_broadcast = Nx.broadcast(context_tokens, {k, context_len})
@@ -220,6 +225,7 @@ defmodule RecGPT.Decode do
     new_prefix_tokens = Nx.concatenate([old_prefixes, new_col], axis: 1)
 
     item_ids = if step == 3, do: new_state_ids, else: nil
+    RecGPT.NVTX.range_pop()
     {new_state_ids, new_prefix_tokens, top_scores, new_cache, item_ids}
   end
 

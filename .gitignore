@@ -63,6 +63,7 @@ tmp/exla_cache/
 
 # Nsight Systems GPU profiles (mix recgpt.ad_hoc_test --profile)
 *.nsys-rep
+*.nsys-rep.sqlite
 
 # Pipeline / runtime data (Steam, checkpoints, fixture, exports)
 data/

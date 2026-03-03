@@ -399,7 +399,9 @@ defmodule RecGPT.Serve do
       end
 
     max_cache = Application.get_env(:recgpt, :max_cache_len, 128)
-    prefix = "exla:#{exla_v}:nx:#{nx_v}:ckpt:#{ckpt_sha}:dtype:#{dtype_str}:pad#{max_cache}"
+    beam = Application.get_env(:recgpt, :jit_cache_beam_width, 12)
+    ctx_tokens = Application.get_env(:recgpt, :jit_cache_max_context_tokens, 4)
+    prefix = "exla:#{exla_v}:nx:#{nx_v}:ckpt:#{ckpt_sha}:dtype:#{dtype_str}:pad#{max_cache}:b#{beam}c#{ctx_tokens}"
 
     cache_key =
       :crypto.hash(:sha256, prefix) |> Base.encode16(case: :lower) |> String.slice(0, 16)
@@ -451,7 +453,9 @@ defmodule RecGPT.Serve do
         |> Nx.backend_transfer(inference_backend)
 
       if cache == nil do
+        RecGPT.NVTX.range_push("forward_with_cache")
         {logits, cache_tuple} = jit_full.(batch_tensor, aux, mask, defn_params)
+        RecGPT.NVTX.range_pop()
         padded = pad_cache_to_fixed(cache_tuple, inference_backend)
         {logits, padded}
       else
@@ -473,8 +477,10 @@ defmodule RecGPT.Serve do
         past_len =
           Nx.tensor(seq_len - 1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
 
+        RecGPT.NVTX.range_push("forward_incremental")
         {logits, new_cache} =
           jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+        RecGPT.NVTX.range_pop()
 
         {logits, new_cache}
       end

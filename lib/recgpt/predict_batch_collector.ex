@@ -135,6 +135,8 @@ defmodule RecGPT.PredictBatchCollector do
         "Predict trace context=#{inspect(context_ids)} top_k=#{max_results} " <>
           "recommend_us=#{recommend_us} total_ms=#{Float.round(recommend_us / 1000, 2)}"
       )
+
+      RecGPT.LatencyStats.record(recommend_us)
     end
 
     {:ok, item_ids, items}

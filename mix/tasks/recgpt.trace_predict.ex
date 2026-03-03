@@ -25,11 +25,13 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     * `--top-k` - Max recommendations (default: 10)
     * `--runs` - Number of timed runs for stats (default: 20)
     * `--jitter-ms` - Max random ms before each run to desync timers (default: 2)
+    * `--profile` - Run under `nsys profile` (NVIDIA Nsight Systems) for GPU profiling; writes .nsys-rep file
 
   ## Examples
       mix recgpt.trace_predict
       mix recgpt.trace_predict --context "0,1" --top-k 10
       mix recgpt.trace_predict --runs 50 --jitter-ms 3
+      mix recgpt.trace_predict --profile --context "0,1"
   """
   use Mix.Task
 
@@ -46,10 +48,65 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
           context: :string,
           top_k: :integer,
           runs: :integer,
-          jitter_ms: :integer
+          jitter_ms: :integer,
+          profile: :boolean
         ]
       )
 
+    if opts[:profile] do
+      run_with_nsys(args, opts)
+    else
+      run_trace(opts)
+    end
+  end
+
+  defp run_with_nsys(args, _opts) do
+    unless System.find_executable("nsys") do
+      Mix.raise(
+        "nsys (NVIDIA Nsight Systems) not found. Install from https://developer.nvidia.com/nsight-systems/get-started"
+      )
+    end
+
+    args_no_profile = args |> Enum.reject(&(&1 in ["--profile", "-profile"]))
+    out_file = "recgpt_trace_#{System.system_time(:millisecond)}.nsys-rep"
+    Mix.shell().info("Profiling with Nsight Systems -> #{out_file}")
+
+    nsys_args = [
+      "profile",
+      "-o", out_file,
+      "-t", "cuda,nvtx,osrt",
+      "--cuda-event-trace=true",
+      "--stats=true",
+      "--sample=process-tree",
+      "mix", "recgpt.trace_predict" | args_no_profile
+    ]
+
+    {output, exit_code} = System.cmd("nsys", nsys_args, stderr_to_stdout: true)
+    IO.write(output)
+
+    exit_code = case exit_code do
+      n when is_integer(n) -> n
+      {:exit_status, n} -> n
+      _ -> 1
+    end
+
+    profile_created = File.regular?(out_file)
+
+    if exit_code != 0 and not profile_created do
+      Mix.shell().error("nsys profile failed (exit #{exit_code}) and no report was generated.")
+      exit({:shutdown, exit_code})
+    end
+
+    if profile_created do
+      Mix.shell().info("Profile written to #{out_file}. Open with nsys-ui or Nsight Systems GUI.")
+    end
+
+    if exit_code != 0 and profile_created do
+      Mix.shell().info("Note: Child process exited abnormally; profile may still be useful.")
+    end
+  end
+
+  defp run_trace(opts) do
     runs = opts[:runs] || 20
     jitter_ms = opts[:jitter_ms] || 2
 
