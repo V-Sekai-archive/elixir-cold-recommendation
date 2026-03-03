@@ -6,15 +6,15 @@ Comparison of `thirdparty/RecGPT-old` (Elixir port + Python reference) vs the cu
 
 ## Architecture Comparison
 
-| Aspect | RecGPT-old (Elixir) | RecGPT-old (Python) | Current (Elixir) |
-|-------|---------------------|---------------------|------------------|
-| **Backend** | Torchx (LibTorch) | PyTorch | EXLA (XLA/CUDA) |
-| **Layers** | From checkpoint (often 3 in reference) | **3 layers** (predict.py default) | From checkpoint (**3** in data/recgpt_ckpt_export; **12** in COG) |
-| **Beam search** | Per-candidate forwards, no batching | Batched predict_aux, beam per seq | **Batched** (beam_width candidates per forward) |
-| **Forward count** | **1 + beam + beam + beam** (e.g. 13 for beam=4) | Varies by batch | **4** (1 full + 3 incremental) |
-| **KV cache** | **No** — full sequence every forward | No (in reference) | **Yes** — incremental for steps 1–3 |
-| **Per-token sync** | **Nx.to_number() per valid token** (many syncs) | No (stays on GPU) | Single sync at end (SPMD) |
-| **Trie** | CPU (Elixir map), no tensors | Python trie | **Trie tensors** on device (SPMD) |
+| Aspect             | RecGPT-old (Elixir)                             | RecGPT-old (Python)               | Current (Elixir)                                                  |
+| ------------------ | ----------------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| **Backend**        | Torchx (LibTorch)                               | PyTorch                           | EXLA (XLA/CUDA)                                                   |
+| **Layers**         | From checkpoint (often 3 in reference)          | **3 layers** (predict.py default) | From checkpoint (**3** in data/recgpt_ckpt_export; **12** in COG) |
+| **Beam search**    | Per-candidate forwards, no batching             | Batched predict_aux, beam per seq | **Batched** (beam_width candidates per forward)                   |
+| **Forward count**  | **1 + beam + beam + beam** (e.g. 13 for beam=4) | Varies by batch                   | **4** (1 full + 3 incremental)                                    |
+| **KV cache**       | **No** — full sequence every forward            | No (in reference)                 | **Yes** — incremental for steps 1–3                               |
+| **Per-token sync** | **Nx.to_number() per valid token** (many syncs) | No (stays on GPU)                 | Single sync at end (SPMD)                                         |
+| **Trie**           | CPU (Elixir map), no tensors                    | Python trie                       | **Trie tensors** on device (SPMD)                                 |
 
 ---
 
@@ -34,6 +34,7 @@ The Python reference uses **3 transformer layers** (`predict.py`: `args.tf_layer
 - **EXLA:** XLA compilation. First run pays JIT cost (~20–30 s cold). Per-request overhead from XLA scheduling.
 
 If RecGPT-old runs with Torchx on GPU (or CPU with small model), it can have:
+
 - No JIT cold cost
 - Potentially faster for very small batches (LibTorch optimized for common shapes)
 
@@ -51,12 +52,12 @@ RecGPT-old `Inference.forward` has a stub path: when `gpt2_n_layers(params) == 0
 
 For the **same model size** and **same context length**:
 
-| Factor | Old | Current | Effect |
-|--------|-----|---------|--------|
-| Forward count | 13 (unbatched) | 4 (batched) | **~3× fewer** |
-| KV cache | No | Yes | **Steps 1–3 ~4× less work** (1 token vs full prefix) |
-| Per-step sync | Many `Nx.to_number` | Single sync at end | **Large** (GPU↔CPU round-trips) |
-| Trie on device | CPU only | SPMD trie tensors | Less sync, better occupancy |
+| Factor         | Old                 | Current            | Effect                                               |
+| -------------- | ------------------- | ------------------ | ---------------------------------------------------- |
+| Forward count  | 13 (unbatched)      | 4 (batched)        | **~3× fewer**                                        |
+| KV cache       | No                  | Yes                | **Steps 1–3 ~4× less work** (1 token vs full prefix) |
+| Per-step sync  | Many `Nx.to_number` | Single sync at end | **Large** (GPU↔CPU round-trips)                      |
+| Trie on device | CPU only            | SPMD trie tensors  | Less sync, better occupancy                          |
 
 The current implementation is built to minimize latency; RecGPT-old was a port with fewer optimizations.
 

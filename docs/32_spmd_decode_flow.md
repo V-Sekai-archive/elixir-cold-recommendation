@@ -7,6 +7,7 @@ Sub-proposal of the [documentation index](README.md). Describes the SPMD-style b
 ## Problem or limitation
 
 Catalog-aware beam search over 4 tokens (one RecGPT item) requires:
+
 - Restricting each step to valid prefix tokens in the trie
 - Batched inference to avoid per-candidate forward passes
 - Minimal CPU–device synchronization to reduce latency
@@ -33,11 +34,11 @@ A list-based decode that walks the trie on the CPU and calls the model per candi
 
 ### Modules and responsibilities
 
-| Module | Responsibility |
-|--------|----------------|
-| **RecGPT.Trie** | Build map trie from `token_id_list`; `to_tensors/2` exports `next_state` and `item_at_leaf` tensors for device-side lookup. |
-| **RecGPT.Decode** | `beam_search_top_k_spmd/7`: accepts trie tensors, `item_id_to_tokens`, context item IDs, `batch_tensor_fn`, backend; returns `{:ok, [item_id]}` or `:not_found`. |
-| **RecGPT.Serve** | Loads state with `trie_tensors`, `item_id_to_tokens_tensor`, `get_logits_batch_tensor_fn`; `recommend/3` calls SPMD exclusively. Raises if SPMD components are missing. |
+| Module            | Responsibility                                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RecGPT.Trie**   | Build map trie from `token_id_list`; `to_tensors/2` exports `next_state` and `item_at_leaf` tensors for device-side lookup.                                             |
+| **RecGPT.Decode** | `beam_search_top_k_spmd/7`: accepts trie tensors, `item_id_to_tokens`, context item IDs, `batch_tensor_fn`, backend; returns `{:ok, [item_id]}` or `:not_found`.        |
+| **RecGPT.Serve**  | Loads state with `trie_tensors`, `item_id_to_tokens_tensor`, `get_logits_batch_tensor_fn`; `recommend/3` calls SPMD exclusively. Raises if SPMD components are missing. |
 
 ### Trie tensor layout
 
@@ -55,11 +56,11 @@ A list-based decode that walks the trie on the CPU and calls the model per candi
 
 ## Limitations and future work
 
-| Limitation | Impact | Possible improvement |
-|------------|--------|----------------------|
-| Single sync still transfers beam_width × (item_ids + scores + 4 tokens) | Minor host overhead; acceptable for beam_width ≤ 20 | Consider keeping scores on device for downstream ranking |
-| Empty context uses dummy token | Stub/tests must handle `[0]`; model may behave differently for true empty | Use a dedicated BOS token or model change for empty-context semantics |
-| No true batched multi-context SPMD | `recommend_batch` calls `recommend` per context | Single batch over B contexts with beam_width each (larger batch, more complex indexing) |
+| Limitation                                                              | Impact                                                                    | Possible improvement                                                                    |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Single sync still transfers beam_width × (item_ids + scores + 4 tokens) | Minor host overhead; acceptable for beam_width ≤ 20                       | Consider keeping scores on device for downstream ranking                                |
+| Empty context uses dummy token                                          | Stub/tests must handle `[0]`; model may behave differently for true empty | Use a dedicated BOS token or model change for empty-context semantics                   |
+| No true batched multi-context SPMD                                      | `recommend_batch` calls `recommend` per context                           | Single batch over B contexts with beam_width each (larger batch, more complex indexing) |
 
 ---
 

@@ -124,15 +124,15 @@ flowchart LR
 
 ## Where time goes and how to optimize
 
-| Stage | What happens | Latency | Optimizations |
-|-------|------------------------|--------|----------------------------------------------------------------|
-| **Request ingress** | gRPC decode, validation, batch collector | Usually &lt;1 ms | Keep validation cheap; batching is throughput-only. |
-| **CPU pre-decode** | List → tensor, `backend_transfer`, `gather` for context tokens | Small | Do once; ensure `item_id_to_tokens` and trie tensors stay on device so no extra transfers. |
-| **Step 0 (GPU)** | One **full** forward: embed → 12 layers (with cache fill) → head. Then trie gather, top_k, mask, select. | **Dominant** (one full seq) | **BF16** (1.3–2×). Single JIT for full forward; EXLA cache key stable (padded cache). |
-| **Steps 1–3 (GPU)** | Three **incremental** forwards: concat context+prefix → embed last token only → 12 incremental layers (KV append) → head. Then trie gather, top_k, flatten, quotient/remainder, gather state_at_top. | **Dominant** (3× incremental) | **BF16**. Keep `context_broadcast` and concat on device. Consider fused step loop in Defn if EXLA can fuse (experimental). |
-| **Sync** | `Nx.to_flat_list(item_ids)`, `to_flat_list(beam_scores)`, `backend_transfer(prefix_tokens)` + `to_flat_list`. | **Blocks GPU** until done | **Single sync** (already). Transfer only what’s needed (item_ids + scores for top_k; prefix_tokens only if fallback needed). Consider async transfer of prefix_tokens if fallback is rare. |
-| **CPU post-decode** | Zip, optional trie fallback (map lookup), sort, top_k, item_id → display_name. | Small | Keep trie fallback O(1) map; response build = map lookups only. |
-| **Egress** | Build protos, gRPC encode. | Small | — |
+| Stage               | What happens                                                                                                                                                                                         | Latency                       | Optimizations                                                                                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Request ingress** | gRPC decode, validation, batch collector                                                                                                                                                             | Usually &lt;1 ms              | Keep validation cheap; batching is throughput-only.                                                                                                                                        |
+| **CPU pre-decode**  | List → tensor, `backend_transfer`, `gather` for context tokens                                                                                                                                       | Small                         | Do once; ensure `item_id_to_tokens` and trie tensors stay on device so no extra transfers.                                                                                                 |
+| **Step 0 (GPU)**    | One **full** forward: embed → 12 layers (with cache fill) → head. Then trie gather, top_k, mask, select.                                                                                             | **Dominant** (one full seq)   | **BF16** (1.3–2×). Single JIT for full forward; EXLA cache key stable (padded cache).                                                                                                      |
+| **Steps 1–3 (GPU)** | Three **incremental** forwards: concat context+prefix → embed last token only → 12 incremental layers (KV append) → head. Then trie gather, top_k, flatten, quotient/remainder, gather state_at_top. | **Dominant** (3× incremental) | **BF16**. Keep `context_broadcast` and concat on device. Consider fused step loop in Defn if EXLA can fuse (experimental).                                                                 |
+| **Sync**            | `Nx.to_flat_list(item_ids)`, `to_flat_list(beam_scores)`, `backend_transfer(prefix_tokens)` + `to_flat_list`.                                                                                        | **Blocks GPU** until done     | **Single sync** (already). Transfer only what’s needed (item_ids + scores for top_k; prefix_tokens only if fallback needed). Consider async transfer of prefix_tokens if fallback is rare. |
+| **CPU post-decode** | Zip, optional trie fallback (map lookup), sort, top_k, item_id → display_name.                                                                                                                       | Small                         | Keep trie fallback O(1) map; response build = map lookups only.                                                                                                                            |
+| **Egress**          | Build protos, gRPC encode.                                                                                                                                                                           | Small                         | —                                                                                                                                                                                          |
 
 ---
 
@@ -140,7 +140,7 @@ flowchart LR
 
 When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total (e.g. ~600 ms per forward × 4) instead of the documented warm **~300–400 ms** for the whole recommend. Main reasons:
 
-1. **Fresh process every time** — `mix recgpt.trace_predict` starts a new Elixir/EXLA process. There is no long-lived in-memory JIT state. The “setup” run compiles and runs once; the *timed* run is still the first “real” use of those compilations in this process, and can pay one-time costs (see below). For warm 200–400 ms, use a long-lived server: `mix recgpt.serve` and call the gRPC Predict API repeatedly.
+1. **Fresh process every time** — `mix recgpt.trace_predict` starts a new Elixir/EXLA process. There is no long-lived in-memory JIT state. The “setup” run compiles and runs once; the _timed_ run is still the first “real” use of those compilations in this process, and can pay one-time costs (see below). For warm 200–400 ms, use a long-lived server: `mix recgpt.serve` and call the gRPC Predict API repeatedly.
 
 2. **EXLA cache shape mismatch** — The JIT disk cache is keyed by (exla, nx, ckpt, dtype, max_cache_len), not by input shapes. If the cached binary was built for different batch/sequence shapes (e.g. from another beam_width or context length), EXLA reports “disk cache does not match configuration” and **recompiles** for the current shapes. So the first recommend in this process may trigger 4 compilations (one full forward + three incremental with different `past_len`). Compilation dominates the first run.
 
@@ -153,6 +153,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 **Takeaway:** For a single `trace_predict` run, expect ~2–3 s (cold). For warm latency, use `--runs 10` or more and look at P50 of runs 2–10, or run the gRPC server and hit it repeatedly.
 
 **Tombstones:**
+
 - **Double warm-up** — Two setup recommends before the timed run in `trace_predict` was tried and reverted; no improvement to the single timed run (~2.7 s).
 - **EXLA JIT disk cache** — With cache enabled, the timed run was ~2.6–3.2 s (~600–750 ms/forward). Without disk cache, the same run was **~371 ms** (~65 ms/forward). Caching code removed; in-process JIT only.
 - **Greedy decode** — `beam_width_override: 1` (RECGPT_BEAM_WIDTH_OVERRIDE) was configurable for latency testing. Config removed; adaptive beam only.
@@ -173,6 +174,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 - **Increasing inlining** — **Fusing** the four forwards into a **single** `Nx.Defn` (one graph that runs step 0 → trie/top_k → step 1 → … → step 3 and returns item_ids) would **reduce kernel launch overhead** and let XLA optimize across steps. That is the “fused Defn for beam search” idea: one launch instead of four, often **~10–25%** gain. **Implemented:** `InferenceDefn.beam_search_fused/14` runs step 0 + steps 1–3 in one JIT graph. Fused is **on for all paths** when no context-cache hit: one JIT compiled at max beam width (`config :recgpt, :fused_beam_width`, default 20); Decode slices the fused result to the request’s beam_width before sync (masks out the rest). **Estimated e2e gain:** ~10–25% of beam-search GPU time → **~15–50 ms** end-to-end if four forwards are ~150–200 ms of a 300 ms recommend (e.g. 300 ms → ~250–285 ms).
 
 **Still to do / config:**
+
 1. **BF16** — Default. Largest single gain (1.3–2×) on the four forward passes.
 2. **Minimize host round-trips** — Single sync only; no extra `backend_transfer` or `to_flat_list` in the loop. All index tensors for `gather_2d` already on same backend as the tensor they index.
 3. **Aux/mask construction** — In `build_get_logits_batch_tensor_fn`, aux and mask are built every call; if shapes are fixed, consider reusing or caching on device (minor).

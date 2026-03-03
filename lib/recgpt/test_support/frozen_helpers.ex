@@ -46,12 +46,22 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
     get_logits_4_fn = fn context_tokens ->
       context_tokens = Nx.backend_transfer(context_tokens, backend)
       {batch_size, seq_len} = Nx.shape(context_tokens)
-      aux = Nx.broadcast(0.0, {batch_size, seq_len, 192}) |> Nx.as_type({:f, 32}) |> Nx.backend_transfer(backend)
-      mask = Nx.broadcast(1.0, {batch_size, seq_len, 1}) |> Nx.as_type({:f, 32}) |> Nx.backend_transfer(backend)
+
+      aux =
+        Nx.broadcast(0.0, {batch_size, seq_len, 192})
+        |> Nx.as_type({:f, 32})
+        |> Nx.backend_transfer(backend)
+
+      mask =
+        Nx.broadcast(1.0, {batch_size, seq_len, 1})
+        |> Nx.as_type({:f, 32})
+        |> Nx.backend_transfer(backend)
+
       jit_single.(context_tokens, aux, mask, defn_params)
     end
 
     trie_tensors = Trie.to_tensors(trie, @vocab_size)
+
     trie_tensors = %{
       next_state: Nx.backend_transfer(trie_tensors.next_state, backend),
       item_at_leaf: Nx.backend_transfer(trie_tensors.item_at_leaf, backend),
@@ -115,5 +125,4 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
     head_b = Nx.broadcast(0.0, {15_361}) |> Nx.as_type({:f, 32})
     %{"wte" => wte, "pred_head.weight" => head_w, "pred_head.bias" => head_b}
   end
-
 end

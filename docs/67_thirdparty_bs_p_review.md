@@ -9,6 +9,7 @@
 **bs-p:** All buffers are caller-allocated; kernel APIs take `*mut` output pointers and write into them. No `malloc` or heap in the quote/analytics path.
 
 **RecGPT:** We already moved in this direction:
+
 - Pre-alloc aux/mask on device (full + incremental shapes).
 - Decode constants (`root_state`, `neg_inf`, `vocab_t`) built once at load and reused.
 - Config read at load, not per request.
@@ -34,6 +35,7 @@
 **RecGPT:** `PredictBatchCollector` uses a GenServer and a list as queue; each request is a `GenServer.call`, so the caller blocks until that request’s `recommend` finishes. There is no separate “ingress thread” and “inference thread” with a lock-free queue between them.
 
 **Borrow (optional):**
+
 - If we split “gRPC acceptor” from “inference worker,” we could put a **bounded queue** between them (e.g. ETS-based queue or a small NIF wrapping an SPSC ring) so the acceptor never blocks on inference and we control back-pressure. Elixir’s `:queue` or a single GenStage producer could approximate this without a C NIF.
 - For true SPSC NIF: we could mirror bs-p’s ring (caller pre-allocates ring + slots; init/push/pop only touch indices and slot memory). That’s a larger change; only worth it if we see acceptor latency or contention in profiling.
 
@@ -74,7 +76,8 @@
 **RecGPT:** `mix recgpt.trace_predict` has a single “setup” run (JIT compile + one recommend) then N timed runs. First timed run can still be cold (kernel launch, etc.).
 
 **Borrow:**
-- Add an optional warm-up count (e.g. `--warm-up 5`) so the first *timed* run is clearly warm, and report “drop first K runs” in docs.
+
+- Add an optional warm-up count (e.g. `--warm-up 5`) so the first _timed_ run is clearly warm, and report “drop first K runs” in docs.
 - When we have micro-benchmarks (e.g. for a single function), pass inputs through a function that the compiler can’t elide (e.g. store in a module attribute or use a no-op that depends on the value) to avoid over-optimization.
 
 ---
@@ -91,16 +94,16 @@
 
 ## Summary table
 
-| Trick              | bs-p usage           | RecGPT relevance | Action |
-|--------------------|----------------------|------------------|--------|
-| Zero hot-path alloc| Caller-owned buffers | Already started  | Keep rule; extend to new code |
-| SoA batch          | SIMD-friendly layout | Already tensor batches | No change |
-| SPSC ring          | Market-data handoff  | Single-process today | Optional: bounded queue if we split acceptor/worker |
-| Cache-line padding | head/tail            | No shared counters yet | Later if we add shared stats |
-| Caller-owned outs  | Batch write into slices | Nx manages device | Use pattern for any CPU batch helpers |
-| Fast sigmoid/log1p | AVX-512 hot path     | GPU does its own | Option for future CPU scoring |
-| Warm-up + black_box| Bench accuracy       | trace_predict    | Add warm-up option; document |
-| Fast vs exact flag | KERNEL_USE_FAST_SIGMOID | Config toggles | Document and keep one “fast path” config story |
+| Trick               | bs-p usage              | RecGPT relevance       | Action                                              |
+| ------------------- | ----------------------- | ---------------------- | --------------------------------------------------- |
+| Zero hot-path alloc | Caller-owned buffers    | Already started        | Keep rule; extend to new code                       |
+| SoA batch           | SIMD-friendly layout    | Already tensor batches | No change                                           |
+| SPSC ring           | Market-data handoff     | Single-process today   | Optional: bounded queue if we split acceptor/worker |
+| Cache-line padding  | head/tail               | No shared counters yet | Later if we add shared stats                        |
+| Caller-owned outs   | Batch write into slices | Nx manages device      | Use pattern for any CPU batch helpers               |
+| Fast sigmoid/log1p  | AVX-512 hot path        | GPU does its own       | Option for future CPU scoring                       |
+| Warm-up + black_box | Bench accuracy          | trace_predict          | Add warm-up option; document                        |
+| Fast vs exact flag  | KERNEL_USE_FAST_SIGMOID | Config toggles         | Document and keep one “fast path” config story      |
 
 ---
 

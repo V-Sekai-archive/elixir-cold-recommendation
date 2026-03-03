@@ -58,9 +58,11 @@ defmodule Mix.Tasks.Recgpt.ConvertMovielens do
     case Convert.run(src, out, convert_opts) do
       :ok ->
         Mix.shell().info("")
+
         Mix.shell().info(
           "Done. Next: mix recgpt.build_fixture --items #{out}/items.json --out #{out}/fixture.json --ckpt data/recgpt_ckpt_export"
         )
+
         Mix.shell().info("Then: mix recgpt.pretrain and mix recgpt.eval")
 
       {:error, reason} ->

@@ -19,6 +19,7 @@ defmodule RecGPT.DecodeSPMDTest do
     best_tok = Enum.at(ids, best_idx || 0)
 
     base = Nx.broadcast(-100.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
+
     row =
       Enum.zip(ids, scores)
       |> Enum.reduce(base, fn {id, score}, a ->
@@ -33,7 +34,12 @@ defmodule RecGPT.DecodeSPMDTest do
 
   defp stub_from_context_spec(spec, backend) do
     fn context_tokens ->
-      ctx = context_tokens |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_flat_list() |> Enum.map(&round/1)
+      ctx =
+        context_tokens
+        |> Nx.backend_transfer(Nx.BinaryBackend)
+        |> Nx.to_flat_list()
+        |> Enum.map(&round/1)
+
       rows = build_logits_4_rows(ctx, spec, 0, [])
       Nx.stack(rows) |> Nx.new_axis(0) |> Nx.backend_transfer(backend)
     end
@@ -256,10 +262,12 @@ defmodule RecGPT.DecodeSPMDTest do
 
       stub_fn = fn _context_tokens ->
         logits_row = Nx.broadcast(0.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
+
         logits_row =
           Enum.reduce(valid_tokens, logits_row, fn t, acc ->
             Nx.put_slice(acc, [0, t], Nx.tensor([[1.0]], type: {:f, 32}))
           end)
+
         Nx.broadcast(logits_row, {1, 4, @vocab_size})
       end
 

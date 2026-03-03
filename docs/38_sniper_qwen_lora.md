@@ -90,10 +90,13 @@ for step in range(50):
 
 Asymmetric payoff: avoiding a trap (+2 vs -5) is more valuable than hitting a win (+1 vs -1).
 
+**Fallback when IsGamed is unobservable:** If we cannot determine IsGamed and only have Resolved_Win + Profit (resolved matches our pick, we made profit), use the profit-based reward in [73 §2b](73_gatekeeper_data_scale_and_clob.md#2b-fallback-no-isgamed--reward-from-resolved_win--profit-only). Approve when we'd profit, veto when we'd lose; no trap/organic distinction.
+
 ---
 
 ## See Also
 
+- [73 Gatekeeper data scale and CLOB](73_gatekeeper_data_scale_and_clob.md) — How many scenarios? Enough data? Live CLOB needs
 - [OpenPipe ART](https://github.com/OpenPipe/ART) — GRPO, `art.Trajectory`, `gather_trajectory_groups`
 - [ART Training Loop](https://art.openpipe.ai/fundamentals/training-loop), [ART Client](https://art.openpipe.ai/fundamentals/art-client)
 - [34 Sniper Mode Moneyball](34_sniper_mode_moneyball_strategy.md) — Overview

@@ -70,7 +70,10 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       end
 
     batch_size = opts[:batch_size] || 8
-    iterations = if Keyword.has_key?(opts, :epochs) && opts[:epochs], do: nil, else: opts[:iterations] || 100
+
+    iterations =
+      if Keyword.has_key?(opts, :epochs) && opts[:epochs], do: nil, else: opts[:iterations] || 100
+
     learning_rate = opts[:learning_rate] || 1.0e-4
     log_every = opts[:log] || 50
     log_interval_sec = opts[:log_interval_sec]

@@ -54,7 +54,8 @@ defmodule RecGPT.Serve do
           get_logits_4_fn: (Nx.Tensor.t() -> Nx.Tensor.t()),
           inference_backend: term() | nil,
           beam_width_override: non_neg_integer() | nil,
-          decode_constants: %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil
+          decode_constants:
+            %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil
         }
 
   @doc """
@@ -309,14 +310,17 @@ defmodule RecGPT.Serve do
     fn context_tokens ->
       {batch_size, seq_len} = Nx.shape(context_tokens)
       dtype = Application.get_env(:recgpt, :inference_dtype, {:bf, 16})
+
       aux =
         Nx.broadcast(0.0, {batch_size, seq_len, 192})
         |> Nx.as_type(dtype)
         |> Nx.backend_transfer(inference_backend)
+
       mask =
         Nx.broadcast(1.0, {batch_size, seq_len, 1})
         |> Nx.as_type(dtype)
         |> Nx.backend_transfer(inference_backend)
+
       jit_single.(context_tokens, aux, mask, defn_params)
     end
   end

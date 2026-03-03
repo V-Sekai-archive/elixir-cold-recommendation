@@ -18,12 +18,10 @@ Tracing winning wallets across datasets over time. Automation of pre-1990s grunt
 
 Same problem as **clustering Steam games by input patterns**:
 
-
 | Domain   | Input                            | Cluster              | Inference                             |
 | -------- | -------------------------------- | -------------------- | ------------------------------------- |
 | Steam    | CSGO, Rainbow Six, Team Fortress | FPS / tac-shooter    | Common control schema, map awareness  |
 | On-chain | Wallet A, B, C                   | Same strategy family | Shared algo, copy-trade, or same firm |
-
 
 Relating inputs across seemingly disjoint sequences reveals latent structure. A wallet's trade legs form a trajectory; clustering trajectories by shape/time/size yields strategy taxonomy.
 
@@ -58,4 +56,3 @@ Use cases: copy-trade reverse engineering, competitor strategy mapping, leaderbo
 - [34 Sniper Mode Moneyball](34_sniper_mode_moneyball_strategy.md)
 - [50 Virix Polymarket Strategy](50_virix_polymarket_strategy_review.md)
 - [60 Rope Bridge Market Analytics](60_rope_bridge_market_analytics_plan.md)
-

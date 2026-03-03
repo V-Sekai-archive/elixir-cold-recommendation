@@ -19,8 +19,10 @@ defmodule Recgpt.V1.PredictionService.Server do
   alias Recgpt.V1.PredictResponse
 
   defp response_item_id_to_int(id) when is_integer(id), do: id
+
   defp response_item_id_to_int(%Nx.Tensor{} = t),
     do: t |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_number() |> round()
+
   defp response_item_id_to_int(x) when is_number(x), do: round(x)
 
   defp normalize_item_summary(%{item_id: id, display_name: name}) do
@@ -40,10 +42,18 @@ defmodule Recgpt.V1.PredictionService.Server do
 
     cond do
       raw_max != 0 and (raw_max < 1 or raw_max > 20) ->
-        {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "max_results must be between 1 and 20")}
+        {:error,
+         GRPC.RPCError.exception(
+           status: :invalid_argument,
+           message: "max_results must be between 1 and 20"
+         )}
 
       context_ids == [] ->
-        {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "context_item_ids must not be empty")}
+        {:error,
+         GRPC.RPCError.exception(
+           status: :invalid_argument,
+           message: "context_item_ids must not be empty"
+         )}
 
       true ->
         trace? = Application.get_env(:recgpt, :trace_predict, false)
@@ -56,13 +66,26 @@ defmodule Recgpt.V1.PredictionService.Server do
             %PredictResponse{item_ids: item_ids, items: items}
 
           {:error, :serve_state_not_loaded} ->
-            {:error, GRPC.RPCError.exception(status: :failed_precondition, message: "Serve state not loaded. Start with mix recgpt.serve (fixture + checkpoint).")}
+            {:error,
+             GRPC.RPCError.exception(
+               status: :failed_precondition,
+               message:
+                 "Serve state not loaded. Start with mix recgpt.serve (fixture + checkpoint)."
+             )}
 
           {:error, :timeout} ->
-            {:error, GRPC.RPCError.exception(status: :deadline_exceeded, message: "Predict timed out (increase predict_timeout_ms or warm server).")}
+            {:error,
+             GRPC.RPCError.exception(
+               status: :deadline_exceeded,
+               message: "Predict timed out (increase predict_timeout_ms or warm server)."
+             )}
 
           {:error, reason} ->
-            {:error, GRPC.RPCError.exception(status: :internal, message: "Recommend failed: #{safe_reason_string(reason)}")}
+            {:error,
+             GRPC.RPCError.exception(
+               status: :internal,
+               message: "Recommend failed: #{safe_reason_string(reason)}"
+             )}
         end
     end
   end

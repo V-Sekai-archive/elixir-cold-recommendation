@@ -6,22 +6,22 @@ RecGPT inference runs **~200–280 ms** warm (BF16, RTX 4090, 4 forward passes).
 
 ## Constraint Framework (Summary)
 
-| Strategy         | Binding constraint | Max P99  |
-|------------------|--------------------|----------|
-| **Binary**       | Competition (sub-100 ms bots dominate) | <80 ms   |
-| **Bundle**       | Competition        | <150 ms  |
-| **Catalyst**     | Opportunity (edge lasts seconds)      | <1 s     |
-| **Combinatorial** | Opportunity (edge lasts minutes)   | <10 s    |
+| Strategy          | Binding constraint                     | Max P99 |
+| ----------------- | -------------------------------------- | ------- |
+| **Binary**        | Competition (sub-100 ms bots dominate) | <80 ms  |
+| **Bundle**        | Competition                            | <150 ms |
+| **Catalyst**      | Opportunity (edge lasts seconds)       | <1 s    |
+| **Combinatorial** | Opportunity (edge lasts minutes)       | <10 s   |
 
 ---
 
 ## RecGPT’s Place
 
-| Metric              | RecGPT (measured) | Binary cap | Bundle cap | Catalyst cap | Combinatorial cap |
-|---------------------|-------------------|------------|------------|--------------|-------------------|
-| Warm P50            | ~230–280 ms       | 80 ms      | 150 ms     | 1 s          | 10 s              |
-| Warm P99            | ~250–450 ms       | 80 ms      | 150 ms     | 1 s          | 10 s              |
-| **Fits strategy?**  | —                 | No         | No         | Yes          | Yes               |
+| Metric             | RecGPT (measured) | Binary cap | Bundle cap | Catalyst cap | Combinatorial cap |
+| ------------------ | ----------------- | ---------- | ---------- | ------------ | ----------------- |
+| Warm P50           | ~230–280 ms       | 80 ms      | 150 ms     | 1 s          | 10 s              |
+| Warm P99           | ~250–450 ms       | 80 ms      | 150 ms     | 1 s          | 10 s              |
+| **Fits strategy?** | —                 | No         | No         | Yes          | Yes               |
 
 **Conclusion:** RecGPT does **not** meet the latency caps for Binary or Bundle. It **does** fit Catalyst and Combinatorial, where opportunity lifetime binds and competition latency is less critical.
 
@@ -49,12 +49,12 @@ max_profitable_P99 = min(0.5 × T, ~0.8 × competitor_speed, economic)
 
 ### 3. Operational Choices
 
-| Use case            | RecGPT role | Reason |
-|---------------------|------------|--------|
-| Binary arbitrage    | Off or bypass | Total latency >80 ms target; RecGPT dominates |
-| Bundle arbitrage   | Off or bypass | Total latency >150 ms target |
-| Catalyst events    | On, full path | Edge ~2–10 s; RecGPT adds ~250 ms |
-| Combinatorial bid grouping | On, full path | Edge ~30 min–1 h; RecGPT negligible |
+| Use case                   | RecGPT role   | Reason                                        |
+| -------------------------- | ------------- | --------------------------------------------- |
+| Binary arbitrage           | Off or bypass | Total latency >80 ms target; RecGPT dominates |
+| Bundle arbitrage           | Off or bypass | Total latency >150 ms target                  |
+| Catalyst events            | On, full path | Edge ~2–10 s; RecGPT adds ~250 ms             |
+| Combinatorial bid grouping | On, full path | Edge ~30 min–1 h; RecGPT negligible           |
 
 ### 4. How to Bypass
 
@@ -84,9 +84,9 @@ Until then, assume this latency ceiling and choose strategies accordingly.
 
 ## Summary
 
-| Constraint binds   | Strategies         | RecGPT?   |
-|--------------------|--------------------|-----------|
-| Competition        | Binary, Bundle     | No (bypass) |
-| Opportunity        | Catalyst, Combinatorial | Yes (full path) |
+| Constraint binds | Strategies              | RecGPT?         |
+| ---------------- | ----------------------- | --------------- |
+| Competition      | Binary, Bundle          | No (bypass)     |
+| Opportunity      | Catalyst, Combinatorial | Yes (full path) |
 
 **Action:** Use RecGPT for Catalyst and Combinatorial. Bypass or disable RecGPT for Binary and Bundle. Document this split in routing/config so the combination system applies RecGPT only where latency allows.

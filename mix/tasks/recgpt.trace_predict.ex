@@ -107,22 +107,26 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
     nsys_args = [
       "profile",
-      "-o", out_file,
-      "-t", "cuda,nvtx,osrt",
+      "-o",
+      out_file,
+      "-t",
+      "cuda,nvtx,osrt",
       "--cuda-event-trace=true",
       "--stats=true",
       "--sample=process-tree",
-      "mix", "recgpt.trace_predict" | args_no_profile
+      "mix",
+      "recgpt.trace_predict" | args_no_profile
     ]
 
     {output, exit_code} = System.cmd("nsys", nsys_args, stderr_to_stdout: true)
     IO.write(output)
 
-    exit_code = case exit_code do
-      n when is_integer(n) -> n
-      {:exit_status, n} -> n
-      _ -> 1
-    end
+    exit_code =
+      case exit_code do
+        n when is_integer(n) -> n
+        {:exit_status, n} -> n
+        _ -> 1
+      end
 
     profile_created = File.regular?(out_file)
 
@@ -235,9 +239,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
         "  inference (forward): #{last.inference_us} μs  (#{last.inference_calls} calls)"
       )
     else
-      Mix.shell().info(
-        "  inference: (time in beam_search_total above)"
-      )
+      Mix.shell().info("  inference: (time in beam_search_total above)")
     end
 
     Mix.shell().info("  response_build:     #{last.response_us} μs")
@@ -264,9 +266,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       pct = Float.round(100.0 * last.inference_us / last.total_us, 1)
       Mix.shell().info("  inference % of total: #{pct}%  (avg #{avg_inference_us} μs/forward)")
 
-      Mix.shell().info(
-        "  → #{last.inference_calls} forward passes. Speed up: GPU, KV-cache."
-      )
+      Mix.shell().info("  → #{last.inference_calls} forward passes. Speed up: GPU, KV-cache.")
     else
       pct = Float.round(100.0 * last.beam_search_us / last.total_us, 1)
       Mix.shell().info("  beam_search % of total: #{pct}%")

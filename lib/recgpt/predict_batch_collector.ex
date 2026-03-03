@@ -116,6 +116,7 @@ defmodule RecGPT.PredictBatchCollector do
                 :timer.tc(fn ->
                   recommend_with_timeout(state, context_ids, max_results, timeout_ms)
                 end)
+
               {res, us}
             else
               {recommend_with_timeout(state, context_ids, max_results, timeout_ms), nil}
@@ -134,6 +135,7 @@ defmodule RecGPT.PredictBatchCollector do
     items =
       Enum.map(item_ids, fn id ->
         id_int = item_id_to_int(id)
+
         name =
           case Map.get(state.item_text, id_int) do
             t when is_binary(t) -> t
@@ -161,14 +163,17 @@ defmodule RecGPT.PredictBatchCollector do
   defp build_reply({:error, _} = err, _recommend_us, _state, _context_ids, _max_results), do: err
 
   defp item_id_to_int(id) when is_integer(id), do: id
+
   defp item_id_to_int(%Nx.Tensor{} = t),
     do: t |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_number() |> round()
+
   defp item_id_to_int(x) when is_number(x), do: round(x)
 
   # Proto/GRPC require display_name to be a string; avoid String.Chars on Nx.Tensor or other types.
   defp ensure_display_string(x, _id_int) when is_binary(x), do: x
   defp ensure_display_string(%Nx.Tensor{}, id_int), do: Integer.to_string(id_int)
   defp ensure_display_string(x, _id_int) when is_integer(x), do: Integer.to_string(x)
+
   defp ensure_display_string(x, id_int) do
     if String.Chars.impl_for(x), do: to_string(x), else: Integer.to_string(id_int)
   end

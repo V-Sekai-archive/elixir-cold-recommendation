@@ -19,9 +19,11 @@ defmodule RecGPT.NVTX do
 
   def load_nif do
     path = :filename.join(:code.priv_dir(:recgpt), "recgpt_nvtx")
+
     case :erlang.load_nif(path, 0) do
       :ok -> :ok
-      {:error, {:load_failed, _}} -> :ok  # NIF not built or unavailable; module still works via fallbacks
+      # NIF not built or unavailable; module still works via fallbacks
+      {:error, {:load_failed, _}} -> :ok
       {:error, reason} -> "NVTX NIF load failed: #{inspect(reason)}"
     end
   end

@@ -129,7 +129,7 @@ defmodule RecGPT.AxonTrain do
               last_log_sec
             end
 
-          if save_every > 0 and save_fn && rem(i + 1, save_every) == 0 do
+          if (save_every > 0 and save_fn) && rem(i + 1, save_every) == 0 do
             save_fn.(i + 1, new_params)
           end
 

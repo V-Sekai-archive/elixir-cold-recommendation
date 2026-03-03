@@ -14,19 +14,19 @@ Goal: Find a dataset in `thirdparty/recgpt-trajectories` suitable for RecGPT pre
 
 From [05_eval_data_shapes](05_eval_data_shapes.md) and [07_steam_splits_and_pretraining](07_steam_splits_and_pretraining.md):
 
-| File | Shape | Purpose |
-|------|-------|---------|
-| `items.json` | `{"num_items", "items": [{"id", "title"}, ...]}` | Catalog; input to build_fixture |
-| `train_sequences.json` | `{"num_items", "sequences": [[id, ...], ...]}` | Pretraining input |
-| `test_sequences.json` | `{"num_items", "test_cases": [{"context", "next_item"}, ...]}` | Eval (held-out) |
-| `cold_test_sequences.json` | Same as test_sequences | Cold-start eval (required for eval) |
-| `cold_train_sequences.json` | Same as train_sequences | Optional; train sequences with cold items |
+| File                        | Shape                                                          | Purpose                                   |
+| --------------------------- | -------------------------------------------------------------- | ----------------------------------------- |
+| `items.json`                | `{"num_items", "items": [{"id", "title"}, ...]}`               | Catalog; input to build_fixture           |
+| `train_sequences.json`      | `{"num_items", "sequences": [[id, ...], ...]}`                 | Pretraining input                         |
+| `test_sequences.json`       | `{"num_items", "test_cases": [{"context", "next_item"}, ...]}` | Eval (held-out)                           |
+| `cold_test_sequences.json`  | Same as test_sequences                                         | Cold-start eval (required for eval)       |
+| `cold_train_sequences.json` | Same as train_sequences                                        | Optional; train sequences with cold items |
 
 Optional for embedding parity with released checkpoint:
 
-| File | Purpose |
-|------|---------|
-| `item_text_dict.pkl` | Canonical item text (Python pickle) |
+| File                       | Purpose                                           |
+| -------------------------- | ------------------------------------------------- |
+| `item_text_dict.pkl`       | Canonical item text (Python pickle)               |
 | `item_text_embeddings.npy` | Precomputed 768-d embeddings (for fixture parity) |
 
 ---
@@ -43,6 +43,7 @@ Optional for embedding parity with released checkpoint:
 ## MovieLens 20M: Convert and Run
 
 1. **Convert** (writes to `data/movielens-20m/` by default)
+
    ```bash
    mix recgpt.convert_movielens
    mix recgpt.convert_movielens --max-items 5000   # faster iteration
@@ -50,21 +51,25 @@ Optional for embedding parity with released checkpoint:
    ```
 
 2. **Build fixture**
+
    ```bash
    mix recgpt.build_fixture --items data/movielens-20m/items.json --out data/movielens-20m/fixture.json --ckpt data/recgpt_ckpt_export --limit 5000 --no-canonical-texts
    ```
 
 3. **Pretrain**
+
    ```bash
    mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --train data/movielens-20m/train_sequences.json --items data/movielens-20m/items.json --out data/movielens-20m/ckpt_pretrained
    ```
 
 4. **Eval baseline** (zero-shot)
+
    ```bash
    mix recgpt.eval --data-dir data/movielens-20m --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
    ```
 
 5. **Eval pretrained**
+
    ```bash
    mix recgpt.eval --data-dir data/movielens-20m --ckpt data/movielens-20m/ckpt_pretrained --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
    ```
@@ -78,12 +83,15 @@ Optional for embedding parity with released checkpoint:
 1. **Copy or symlink** into `data/recgpt-trajectories/` (or another dir).
 
 2. **Build fixture**
+
    ```bash
    mix recgpt.build_fixture --items data/recgpt-trajectories/items.json --out data/recgpt-trajectories/fixture.json
    ```
+
    Use `--embeddings-npy` and `--vae-ckpt` if you have them for parity with released checkpoint.
 
 3. **Pretrain**
+
    ```bash
    mix recgpt.pretrain \
      --ckpt data/recgpt_ckpt_export \
@@ -94,6 +102,7 @@ Optional for embedding parity with released checkpoint:
    ```
 
 4. **Eval (baseline = zero-shot)**
+
    ```bash
    mix recgpt.eval \
      --data-dir data/recgpt-trajectories \
@@ -104,6 +113,7 @@ Optional for embedding parity with released checkpoint:
    ```
 
 5. **Eval (after pretrain)**
+
    ```bash
    mix recgpt.eval \
      --data-dir data/recgpt-trajectories \

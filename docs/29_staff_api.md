@@ -53,7 +53,7 @@ The API is designed so it can be used in an **SPMD** (Single Program Multiple Da
 - **Explicit scope:** All operations take explicit parameters (path, data*dir, items_path, ckpt_dir, out_dir). There is no implicit global catalog or fixture in the contract; each rank can pass rank-specific paths (e.g. `data_dir = "data/steam/rank*#{rank}"`).
 - **Optional rank in gRPC:** Every Staff request and `PredictRequest` include an optional `rank` (int32, 0-based). Single-rank servers ignore it. Multi-rank deployments can use it to route the request to the correct shard or to derive rank-scoped paths (e.g. prefix paths with `rank_N/`).
 - **Determinism:** For a given (rank, paths, inputs), the result is deterministic. Metrics (e.g. eval) can be reduced across ranks (sum hits, sum MRR numerator/denominator) when moving to multi-rank eval.
-- **No process-global state in the contract:** The library may use process-local state (e.g. Repo, serve_state); the _API contract_ does not assume a single global instance. Each rank can run the same binary with rank-specific config or paths.
+- **No process-global state in the contract:** The library may use process-local state (e.g. Repo, serve*state); the \_API contract* does not assume a single global instance. Each rank can run the same binary with rank-specific config or paths.
 
 See [25 MVP guard rails](25_mvp_guard_rails.md): we do not implement multi-rank execution yet; the API is compatible so that when guard rails are lifted, the same proto and behaviour can be used.
 

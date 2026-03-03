@@ -24,27 +24,27 @@ Writes `recgpt_trace_<timestamp>.nsys-rep`. Focuses on warm recommend after JIT 
 
 When libnvToolsExt is available, these markers annotate the timeline:
 
-| Range | Location |
-|-------|----------|
-| `beam_search_step_0` | First forward (context only, full sequence) |
-| `beam_search_step_1` | Incremental step 1 (batch = beam_width) |
-| `beam_search_step_2` | Incremental step 2 |
-| `beam_search_step_3` | Incremental step 3 (item_at_leaf, returns item_ids) |
-| `forward_with_cache` | Full forward_with_cache (step 0) |
-| `forward_incremental` | Incremental forward (steps 1–3) |
-| `decode_sync` | Final CPU sync (`Nx.to_flat_list`, `backend_transfer`) |
+| Range                 | Location                                               |
+| --------------------- | ------------------------------------------------------ |
+| `beam_search_step_0`  | First forward (context only, full sequence)            |
+| `beam_search_step_1`  | Incremental step 1 (batch = beam_width)                |
+| `beam_search_step_2`  | Incremental step 2                                     |
+| `beam_search_step_3`  | Incremental step 3 (item_at_leaf, returns item_ids)    |
+| `forward_with_cache`  | Full forward_with_cache (step 0)                       |
+| `forward_incremental` | Incremental forward (steps 1–3)                        |
+| `decode_sync`         | Final CPU sync (`Nx.to_flat_list`, `backend_transfer`) |
 
 NVTX uses `dlopen` at runtime; if libnvToolsExt is not found, markers no-op.
 
 ## What to look for
 
-| Area | Question | Expected |
-|------|----------|----------|
-| **Kernel time** | Is inference (GEMM/dot) dominant? | Yes — 4 forwards, mostly attention/dense |
-| **Step 0 vs 1–3** | Is step 0 (full context forward) much larger than incremental? | Step 0: full sequence; 1–3: 1 token + cache |
-| **GPU utilization** | Gaps between kernel launches? | Possible CPU-side work between steps |
-| **Sync points** | Where does CPU wait on GPU? | `Nx.to_flat_list`, `Nx.backend_transfer` at end |
-| **Memory** | H2D/D2H copies? | Context tokens, final item_ids/scores |
+| Area                | Question                                                       | Expected                                        |
+| ------------------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| **Kernel time**     | Is inference (GEMM/dot) dominant?                              | Yes — 4 forwards, mostly attention/dense        |
+| **Step 0 vs 1–3**   | Is step 0 (full context forward) much larger than incremental? | Step 0: full sequence; 1–3: 1 token + cache     |
+| **GPU utilization** | Gaps between kernel launches?                                  | Possible CPU-side work between steps            |
+| **Sync points**     | Where does CPU wait on GPU?                                    | `Nx.to_flat_list`, `Nx.backend_transfer` at end |
+| **Memory**          | H2D/D2H copies?                                                | Context tokens, final item_ids/scores           |
 
 ## Baseline trace findings (RTX 4090, 12-layer)
 

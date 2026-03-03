@@ -61,12 +61,12 @@ top_k item_ids          (market_id,             outcome_id) --> price    payoff 
 
 ### 4.2 What We Need
 
-| Layer | Input | Output | Source |
-|-------|-------|--------|--------|
-| **Catalog** | item_id | (market_id, outcome_id), condition_id | DB or JSON; maps RecGPT items to Polymarket outcomes |
-| **Price feed** | (market_id, outcome_id) | bid, ask, or mid (0..1) | Polymarket CLOB API, or mock for paper |
-| **Resolution** | (market_id, outcome_id) | 1.0 if won, 0.0 else | Polymarket API or simulated |
-| **Assignment** | Valid outcome combo | list of {market_id, outcome_id} we hold | Solver or quick checks |
+| Layer          | Input                   | Output                                  | Source                                               |
+| -------------- | ----------------------- | --------------------------------------- | ---------------------------------------------------- |
+| **Catalog**    | item_id                 | (market_id, outcome_id), condition_id   | DB or JSON; maps RecGPT items to Polymarket outcomes |
+| **Price feed** | (market_id, outcome_id) | bid, ask, or mid (0..1)                 | Polymarket CLOB API, or mock for paper               |
+| **Resolution** | (market_id, outcome_id) | 1.0 if won, 0.0 else                    | Polymarket API or simulated                          |
+| **Assignment** | Valid outcome combo     | list of {market_id, outcome_id} we hold | Solver or quick checks                               |
 
 ### 4.3 Formula
 
@@ -97,6 +97,22 @@ Same formula: `cost` = sum of (price_i × quantity_i) for legs we buy; `payoff` 
 
 **Problem**: Scout outputs item_ids; we need **pairs/sets of markets** to compute butterfly profit. How does Scout's learned catalogue intent become trade legs?
 
+### 5.0 Can we determine the legs?
+
+We **can** determine legs **iff** we have:
+
+| Requirement                                                     | Status            | Source                                                                                                                          |
+| --------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Catalog** `item_id` → `(market_id, outcome_id, condition_id)` | Build required    | Extend items.json or add mapping table; Polymarket datasets (Kaggle, Jon-Becker) have condition_id, outcome structure           |
+| **Market structure** (which outcomes share a condition)         | Available in data | Polymarket API, markets.csv, Jon-Becker Parquet: each condition lists its outcomes                                              |
+| **Same-market butterfly** (3+ outcomes in one condition)        | Determinable      | Once catalog has condition_id per item, group by condition_id; pick lower/body/upper wing from outcome set                      |
+| **Cross-market implication** (A ⇒ B)                            | Build required    | See [§5.4](#54-how-to-build-the-cross-market-implication-graph): RecGPT sequences, topical similarity, timeliness, domain rules |
+| **Prices** per `(market_id, outcome_id)`                        | Available         | CLOB API, price feed; needed for profit calc                                                                                    |
+
+**What we know:** Polymarket data contains condition_id, outcome_ids, and market structure. Scout's item_id is our 0-based catalog index. We need a **mapping layer**: item_id → (condition_id, outcome_id). Once that exists, we can group items by condition_id and form same-market butterflies. Cross-market butterflies need an implication graph we have not yet built.
+
+**Measurement:** We can measure butterfly profit **only after** catalog resolution. Until item_id → Polymarket outcome exists, we cannot compute cost or payoff for Scout output.
+
 ### 5.1 How RecGPT Encodes Intent
 
 - **Sequential recommendation**: RecGPT predicts next item from context (leader sequences, market text). It learns which items tend to follow each other.
@@ -106,12 +122,12 @@ Same formula: `cost` = sum of (price_i × quantity_i) for legs we buy; `payoff` 
 
 ### 5.2 Scout Output → Pairs/Sets
 
-| Scout gives | We need for butterfly | Mapping |
-|-------------|------------------------|---------|
-| context_item_ids + top_k item_ids | Pairs/sets of (market_id, outcome_id) | Catalog: item_id → market/outcome |
-| Sequence [A, B, C, D] | Same-market outcomes (one event, many buckets) | Catalog groups by condition_id/event |
-| Sequence [A, B, C, D] | Cross-market implication (A ⇒ B) | Build dependency graph from catalog |
-| Leader-follow sequences | Markets leaders trade together | Use sequence as candidate set |
+| Scout gives                       | We need for butterfly                          | Mapping                              |
+| --------------------------------- | ---------------------------------------------- | ------------------------------------ |
+| context_item_ids + top_k item_ids | Pairs/sets of (market_id, outcome_id)          | Catalog: item_id → market/outcome    |
+| Sequence [A, B, C, D]             | Same-market outcomes (one event, many buckets) | Catalog groups by condition_id/event |
+| Sequence [A, B, C, D]             | Cross-market implication (A ⇒ B)               | Build dependency graph from catalog  |
+| Leader-follow sequences           | Markets leaders trade together                 | Use sequence as candidate set        |
 
 ### 5.3 Build Order: From Scout to Profit
 
@@ -126,11 +142,121 @@ Same formula: `cost` = sum of (price_i × quantity_i) for legs we buy; `payoff` 
 6. **Profit check**: For each pair/set, compute cost and payoff; run solver for valid assignments if needed.
 7. **Trade only if profit > 0** (after fees).
 
-### 5.4 References
+### 5.4 Cross-market implication graph: technical design
+
+An edge A ⇒ B means: if condition A resolves true, condition B is more likely (or logically implied) true. Valid pairs for cross-market butterflies are `(outcome_A, outcome_B)` where A⇒B.
+
+#### 5.4.0 How do we build it? Sequence order vs embeddings vs semantic id
+
+| Source                        | Role                | Used for                                                                                                                                                                                                                                |
+| ----------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sequence order (item_id)**  | **Primary**         | Train/leader sequences are lists of item_ids. Extract adjacent pairs (a, b): a before b → candidate edge (condition_a, condition_b). Co-occurrence count = weight. No embeddings or semantic id involved.                               |
+| **Semantic id (4-token FSQ)** | **Not used**        | RecGPT’s semantic id is the 4-token FSQ code per item. We could cluster items by similar codes and add edges within clusters, but the current design does not. Graph is built from **sequence position**, not from semantic similarity. |
+| **Market embeddings (768-d)** | **Optional filter** | Embed market titles with `RecGPT.Embedding`; cosine_sim(A, B) ≥ threshold → keep edge. Use only to **prune** false edges from unrelated markets that co-occur by chance. Not the primary builder.                                       |
+
+**Summary:** We build the graph from **sequence co-occurrence** (item A before item B in train/leader sequences). That gives candidate edges. We optionally **filter** by embeddings (topical similarity) and timeliness (resolution overlap). Semantic id is not used. The graph is **order-based**, not **similarity-based**.
+
+#### 5.4.1 Graph representation
+
+| Structure                  | Format                                                                                                     | Use                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Adjacency list**         | `%{condition_id_a => [condition_id_b, ...]}`                                                               | Forward edges; O(1) successor lookup                           |
+| **Edge list with weights** | `[{c_a, c_b, weight}, ...]`                                                                                | Sorting, filtering; weight = co-occurrence count or cosine sim |
+| **JSON output**            | `{"edges": [{"from": "cid_a", "to": "cid_b", "weight": n, "source": "sequence"}], "condition_ids": [...]}` | Persistence; downstream consumers                              |
+
+Vertices = `condition_id` (Polymarket condition). Catalog maps `item_id` → `condition_id`; multiple item_ids may map to same condition (e.g. different outcome buckets).
+
+#### 5.4.2 Algorithms
+
+**Transition extraction (from train_sequences.json):**
+
+```
+Input: sequences = [[i1, i2, i3, ...], ...]  (item_ids)
+       catalog: item_id -> condition_id
+Output: edge_counts: %{(c_a, c_b) => count}
+
+for each seq in sequences:
+  for each adjacent pair (a, b) in seq:  # a at pos i, b at pos i+1
+    c_a = catalog[a]
+    c_b = catalog[b]
+    if c_a != c_b and c_a != nil and c_b != nil:
+      edge_counts[(c_a, c_b)] += 1
+
+Filter: keep edges where count >= min_count (e.g. 5)
+```
+
+**Optional: k-step transitions** — for sequence `[A, B, C, D]`, add (A,D) as well as (A,B), (B,C), (C,D) to capture longer-range implication. Weight by `1 / (k+1)` for decay.
+
+**Topical filter (optional):** Embed market titles with `RecGPT.Embedding` or Bumblebee; cosine_sim(market_A, market_B) ≥ threshold → keep edge. Reduces false edges from unrelated markets that happen to co-occur.
+
+**Timeliness filter:** Join with Polymarket market metadata; keep only edges where `resolution_end_a` and `resolution_end_b` overlap within a window (e.g. ±7 days). Prevents pairing markets that resolve in different epochs.
+
+#### 5.4.3 Proposed tooling
+
+| Tool                                 | Purpose                                | Input                                          | Output                                   |
+| ------------------------------------ | -------------------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| `mix recgpt.build_implication_graph` | Extract edges from sequences + catalog | `--train`, `--catalog`, `--min-count`, `--out` | `implication_graph.json`                 |
+| `RecGPT.ImplicationGraph` module     | Build, merge, filter graph             | Same                                           | In-memory graph or JSON                  |
+| Catalog schema extension             | Store condition_id per item            | `items.json` or `item_condition_mapping.json`  | `item_id` → `(condition_id, outcome_id)` |
+
+**Mix task contract:**
+
+```
+mix recgpt.build_implication_graph \
+  --train data/polymarket/train_sequences.json \
+  --catalog data/polymarket/items.json \
+  --min-count 5 \
+  --out data/polymarket/implication_graph.json
+```
+
+**Output schema (implication_graph.json):**
+
+```json
+{
+  "version": 1,
+  "edges": [
+    { "from": "0x...", "to": "0x...", "weight": 42, "source": "sequence" },
+    { "from": "0x...", "to": "0x...", "weight": 12, "source": "domain_rule" }
+  ],
+  "stats": { "num_edges": 150, "num_conditions": 80 }
+}
+```
+
+#### 5.4.4 Catalog requirement
+
+Catalog must include `condition_id` (and `outcome_id`) per item. Extend `items.json`:
+
+```json
+{ "id": 0, "title": "...", "condition_id": "0x...", "outcome_id": "0x..." }
+```
+
+Or separate mapping file `item_condition_mapping.json`:
+
+```json
+{
+  "mappings": [{ "item_id": 0, "condition_id": "0x...", "outcome_id": "0x..." }]
+}
+```
+
+#### 5.4.5 Build pipeline
+
+1. **Catalog** — Ensure item_id → condition_id exists (from Polymarket fetch or manual mapping).
+2. **Extract** — `mix recgpt.build_implication_graph` reads train_sequences, emits candidate edges.
+3. **Merge** (optional) — Append domain rules from `domain_rules.json` (hand-curated edges).
+4. **Filter** — Apply timeliness (resolution overlap) and topical similarity if metadata/embeddings available.
+5. **Validate** — Backtest: for each edge, check if (outcome_A, outcome_B) ever yielded profit in historical resolution. Drop edges that never do.
+
+#### 5.4.6 Current status
+
+No implementation exists. `RecGPT.Catalog.Sync` and `RecGPT.PretrainRunner` load train_sequences but do not extract transitions. Catalog schema has `item_id` and `title` only; no `condition_id`. Build order: extend catalog schema → implement `RecGPT.ImplicationGraph.extract_from_sequences/2` → add mix task → add filters.
+
+**Reference:** [Unravelling the Probabilistic Forest](https://arxiv.org/abs/2508.03474) — heuristic reduction by timeliness, topical similarity, combinatorial relationships; validated by expert input.
+
+### 5.5 References
 
 - [Unravelling the Probabilistic Forest](https://arxiv.org/abs/2508.03474) — combinatorial arb; heuristic reduction by timeliness, topical similarity.
-- Doc 44: Build graph from **RecGPT dataset** (not full chart).
 - [41_butterfly_negrisk_greeks](../thirdparty/reflex-logic-market/polymarket/docs/41_butterfly_negrisk_greeks.md): 4 legs, 3 strikes.
+- [76 Generalized pairing sources](76_generalized_pairing_sources.md) — arXiv gold standard, dhruv575 CSV, build-your-own pairing pipeline.
 
 ---
 
@@ -138,11 +264,11 @@ Same formula: `cost` = sum of (price_i × quantity_i) for legs we buy; `payoff` 
 
 We need to **solve** mixed-integer constraints to determine positive expectancy (cost < payoff, valid outcome combinations).
 
-| Option | How it works | Pros | Cons |
-|--------|---------------|------|------|
-| **Dantzig (HiGHS)** | Elixir lib wraps HiGHS; LP/MILP in-process. arb_opt already uses it. | Battle-tested, in-process, Hex package | CPU only |
-| **MiniZinc** | Declarative .mzn models; compiles to FlatZinc; calls solvers via subprocess. | Flexible modeling, solver-agnostic | External process, I/O overhead |
-| **HiGHS in EXLA** | Port simplex to Nx/EXLA; batched LP solve on GPU/CPU. | In-process, GPU batching | Major port; research project |
+| Option              | How it works                                                                 | Pros                                   | Cons                           |
+| ------------------- | ---------------------------------------------------------------------------- | -------------------------------------- | ------------------------------ |
+| **Dantzig (HiGHS)** | Elixir lib wraps HiGHS; LP/MILP in-process. arb_opt already uses it.         | Battle-tested, in-process, Hex package | CPU only                       |
+| **MiniZinc**        | Declarative .mzn models; compiles to FlatZinc; calls solvers via subprocess. | Flexible modeling, solver-agnostic     | External process, I/O overhead |
+| **HiGHS in EXLA**   | Port simplex to Nx/EXLA; batched LP solve on GPU/CPU.                        | In-process, GPU batching               | Major port; research project   |
 
 **Recommendation**: Start with **Dantzig**. Use **MiniZinc** if richer modeling is needed. **EXLA port** only if we hit latency limits.
 
@@ -191,13 +317,13 @@ If Rustler is undesirable: implement sigmoid, logit, greeks, Kelly, shock in Nx 
 
 Only ~12.7% of Polymarket users are profitable. How we get there:
 
-| Dimension | What we do |
-|-----------|------------|
-| **Edge** | RecGPT Scout (text-driven, combinatorial, implication); edge filter (cost < payoff); paper-first validation |
-| **Survivorship** | Kelly sizing, Greeks, shock tests, wallet, bankruptcy rule |
-| **Execution** | Target catalyst/combinatorial (2–10s windows); avoid simple arb races vs sub-100ms bots |
-| **Discipline** | Positive strategies only; tombstone failures; consensus signals over single leaders |
-| **Validation** | Paper trade end-to-end; only trade when profit > 0; size with Kelly; enforce bankruptcy rule |
+| Dimension        | What we do                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Edge**         | RecGPT Scout (text-driven, combinatorial, implication); edge filter (cost < payoff); paper-first validation |
+| **Survivorship** | Kelly sizing, Greeks, shock tests, wallet, bankruptcy rule                                                  |
+| **Execution**    | Target catalyst/combinatorial (2–10s windows); avoid simple arb races vs sub-100ms bots                     |
+| **Discipline**   | Positive strategies only; tombstone failures; consensus signals over single leaders                         |
+| **Validation**   | Paper trade end-to-end; only trade when profit > 0; size with Kelly; enforce bankruptcy rule                |
 
 ---
 
@@ -206,22 +332,22 @@ Only ~12.7% of Polymarket users are profitable. How we get there:
 - ~$40M arb extracted (Apr 2024–Apr 2025); most by sub-100ms bots.
 - Combinatorial arb: ~$95K (small but less crowded).
 - ~87% of copy traders get rekt; leaders hide from copycats.
-- **Our position**: Use leader data as *context* for RecGPT, not blind copytrade. Focus on combinatorial/catalyst where speed is less critical. Paper-trade first; only go live if results justify it.
+- **Our position**: Use leader data as _context_ for RecGPT, not blind copytrade. Focus on combinatorial/catalyst where speed is less critical. Paper-trade first; only go live if results justify it.
 
 ---
 
 ## 10. Summary Table
 
-| Item | Decision |
-|------|----------|
-| **Problem** | Paper trade without going bankrupt; advance to busy-road and multilane-highway |
-| **Primary analytics** | Rustler NIF with extracted bs-p in `native/recgpt_analytics/` |
-| **Fallback** | Pure Elixir/Nx port |
-| **Profit calc** | cost = sum(prices); payoff = $1 if we win; profit = payoff - cost |
-| **Scout → butterfly** | item_ids → catalog → pairs/sets → prices → profit check → trade if profit > 0 |
-| **Solver** | Dantzig first; MiniZinc if needed; EXLA port for research |
-| **Stack** | Rustler, C (kernel + analytics), Rust (NIF glue), Dantzig for LP/MILP |
-| **Path to 12.7%** | Edge filter + survivorship + catalyst focus + discipline |
+| Item                  | Decision                                                                       |
+| --------------------- | ------------------------------------------------------------------------------ |
+| **Problem**           | Paper trade without going bankrupt; advance to busy-road and multilane-highway |
+| **Primary analytics** | Rustler NIF with extracted bs-p in `native/recgpt_analytics/`                  |
+| **Fallback**          | Pure Elixir/Nx port                                                            |
+| **Profit calc**       | cost = sum(prices); payoff = $1 if we win; profit = payoff - cost              |
+| **Scout → butterfly** | item_ids → catalog → pairs/sets → prices → profit check → trade if profit > 0  |
+| **Solver**            | Dantzig first; MiniZinc if needed; EXLA port for research                      |
+| **Stack**             | Rustler, C (kernel + analytics), Rust (NIF glue), Dantzig for LP/MILP          |
+| **Path to 12.7%**     | Edge filter + survivorship + catalyst focus + discipline                       |
 
 ---
 

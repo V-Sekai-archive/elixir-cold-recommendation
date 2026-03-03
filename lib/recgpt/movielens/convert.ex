@@ -125,7 +125,11 @@ defmodule RecGPT.MovieLens.Convert do
       end)
 
     item_map = Map.new(Enum.with_index(ordered), fn {old, i} -> {old, i} end)
-    items = Enum.map(item_map, fn {old_id, new_id} -> %{"id" => new_id, "title" => movies[old_id] || "Movie #{old_id}"} end)
+
+    items =
+      Enum.map(item_map, fn {old_id, new_id} ->
+        %{"id" => new_id, "title" => movies[old_id] || "Movie #{old_id}"}
+      end)
 
     {:ok, item_map, items}
   end
@@ -173,6 +177,7 @@ defmodule RecGPT.MovieLens.Convert do
 
   defp seq_to_test_case([]), do: %{"context" => [], "next_item" => 0}
   defp seq_to_test_case([single]), do: %{"context" => [], "next_item" => single}
+
   defp seq_to_test_case(seq) do
     context = seq |> Enum.drop(-1) |> Enum.take(-@max_context)
     next_item = List.last(seq)

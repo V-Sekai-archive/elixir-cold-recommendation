@@ -6,13 +6,13 @@ Divergence analysis: Virix vs Sniper Mode. Source: [Ilya | Virix Labs](https://x
 
 ## Divergence
 
-| Virix | Us |
-|-------|-----|
-| Rule-based scoring (markets, orderbook, wallets, cross, news) | Rules generated from market data; RecGPT Scout + Qwen Gatekeeper (learned) |
-| On-chain wallet tracking | Leaders' trade legs; catalog maps to outcomes (surface-level concept substantially better) |
-| No explicit veto / trap-avoidance | GRPO on IsGamed; veto on traps |
-| Perplexity for news | Market is the truth; Polymarket and NYSE track closer than news. News industry too slow (2006 thinking). |
-| No Kelly; narrow focus, small capital | Kelly sizing; [60 Rope bridge](60_rope_bridge_market_analytics_plan.md) survivorship |
+| Virix                                                         | Us                                                                                                       |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Rule-based scoring (markets, orderbook, wallets, cross, news) | Rules generated from market data; RecGPT Scout + Qwen Gatekeeper (learned)                               |
+| On-chain wallet tracking                                      | Leaders' trade legs; catalog maps to outcomes (surface-level concept substantially better)               |
+| No explicit veto / trap-avoidance                             | GRPO on IsGamed; veto on traps                                                                           |
+| Perplexity for news                                           | Market is the truth; Polymarket and NYSE track closer than news. News industry too slow (2006 thinking). |
+| No Kelly; narrow focus, small capital                         | Kelly sizing; [60 Rope bridge](60_rope_bridge_market_analytics_plan.md) survivorship                     |
 
 ---
 

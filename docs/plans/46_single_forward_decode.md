@@ -52,12 +52,12 @@ Replace 4 incremental forwards (with KV cache) with **one full-sequence forward*
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `lib/recgpt/inference_defn.ex` | Added `forward_last_4_logits/4` |
-| `lib/recgpt/decode.ex` | Added `beam_search_single_forward_spmd/8`, `run_single_forward_beam`, `spmd_step_from_logits` |
-| `lib/recgpt/serve.ex` | Config flag, `get_logits_4_fn`, recommend branch |
-| `config/config.exs` | Added `single_forward_decode` (RECGPT_SINGLE_FORWARD=1) |
+| File                           | Change                                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `lib/recgpt/inference_defn.ex` | Added `forward_last_4_logits/4`                                                               |
+| `lib/recgpt/decode.ex`         | Added `beam_search_single_forward_spmd/8`, `run_single_forward_beam`, `spmd_step_from_logits` |
+| `lib/recgpt/serve.ex`          | Config flag, `get_logits_4_fn`, recommend branch                                              |
+| `config/config.exs`            | Added `single_forward_decode` (RECGPT_SINGLE_FORWARD=1)                                       |
 
 ## Usage
 

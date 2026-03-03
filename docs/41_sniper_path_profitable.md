@@ -10,13 +10,13 @@ Part of [34 Sniper Mode Moneyball](34_sniper_mode_moneyball_strategy.md).
 
 From [60 Rope bridge](60_rope_bridge_market_analytics_plan.md):
 
-| Dimension | What we do |
-|-----------|------------|
-| **Edge** | RecGPT Scout + Gatekeeper veto; edge filter (cost < payoff); butterfly profit check |
-| **Survivorship** | Kelly sizing, Greeks, shock tests, wallet, bankruptcy rule |
-| **Execution** | Catalyst/Combinatorial (10-min window); avoid Binary/Bundle vs sub-100ms bots |
-| **Discipline** | Positive expectancy only; veto when gamed-ness exceeds threshold |
-| **Validation** | Paper trade first; only go live if results justify |
+| Dimension        | What we do                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| **Edge**         | RecGPT Scout + Gatekeeper veto; edge filter (cost < payoff); butterfly profit check |
+| **Survivorship** | Kelly sizing, Greeks, shock tests, wallet, bankruptcy rule                          |
+| **Execution**    | Catalyst/Combinatorial (10-min window); avoid Binary/Bundle vs sub-100ms bots       |
+| **Discipline**   | Positive expectancy only; veto when gamed-ness exceeds threshold                    |
+| **Validation**   | Paper trade first; only go live if results justify                                  |
 
 ---
 

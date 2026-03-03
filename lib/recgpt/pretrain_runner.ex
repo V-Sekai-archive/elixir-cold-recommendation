@@ -68,7 +68,11 @@ defmodule RecGPT.PretrainRunner do
                load_item_embeddings(items_path, fixture_num_items, opts) do
           epochs = epochs || 1
           steps_per_epoch = div(length(sequences) + batch_size - 1, batch_size)
-          iterations = if Keyword.get(opts, :epochs), do: epochs * steps_per_epoch, else: Keyword.get(opts, :iterations, 100)
+
+          iterations =
+            if Keyword.get(opts, :epochs),
+              do: epochs * steps_per_epoch,
+              else: Keyword.get(opts, :iterations, 100)
 
           stream =
             AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
@@ -78,10 +82,16 @@ defmodule RecGPT.PretrainRunner do
             )
 
           save_every = Keyword.get(opts, :save_every, 0)
+
           save_fn =
             if save_every > 0 do
               fn step, params ->
-                step_dir = Path.join(out_dir, "step_#{String.pad_leading(Integer.to_string(step), 6, "0")}")
+                step_dir =
+                  Path.join(
+                    out_dir,
+                    "step_#{String.pad_leading(Integer.to_string(step), 6, "0")}"
+                  )
+
                 File.mkdir_p!(step_dir)
                 CheckpointExport.write_export(params, step_dir)
                 require Logger
@@ -99,7 +109,11 @@ defmodule RecGPT.PretrainRunner do
             resource_check_interval: 5,
             resource_check_opts: resource_check_opts
           ]
-          train_opts = if save_every > 0, do: Keyword.merge(train_opts, save_every: save_every, save_fn: save_fn), else: train_opts
+
+          train_opts =
+            if save_every > 0,
+              do: Keyword.merge(train_opts, save_every: save_every, save_fn: save_fn),
+              else: train_opts
 
           trained = AxonTrain.run(stream, params, train_opts)
 

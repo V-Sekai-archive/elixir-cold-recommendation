@@ -29,7 +29,9 @@ defmodule RecGPT.LatencyStats do
   @doc "Return recent percentiles in μs, or nil if no samples. Keys: p50_us, p95_us, p99_us, n."
   def get_percentiles do
     case Process.whereis(__MODULE__) do
-      nil -> nil
+      nil ->
+        nil
+
       _ ->
         list = Agent.get(__MODULE__, & &1)
         compute_percentiles(list)
@@ -45,15 +47,20 @@ defmodule RecGPT.LatencyStats do
     target_p99 = Application.get_env(:recgpt, :target_p99_ms, 60)
 
     case get_percentiles() do
-      nil -> :ok
-      %{n: n} when n < 5 -> :ok
+      nil ->
+        :ok
+
+      %{n: n} when n < 5 ->
+        :ok
+
       %{p50_us: p50_us, p99_us: p99_us} ->
         p50_ms = p50_us / 1000
         p99_ms = p99_us / 1000
 
         cond do
           p50_ms > target_p50 and p99_ms > target_p99 ->
-            {:warn, "RecGPT P50=#{Float.round(p50_ms, 1)}ms (target #{target_p50}ms) P99=#{Float.round(p99_ms, 1)}ms (target #{target_p99}ms)"}
+            {:warn,
+             "RecGPT P50=#{Float.round(p50_ms, 1)}ms (target #{target_p50}ms) P99=#{Float.round(p99_ms, 1)}ms (target #{target_p99}ms)"}
 
           p50_ms > target_p50 ->
             {:warn, "RecGPT P50=#{Float.round(p50_ms, 1)}ms exceeds target #{target_p50}ms"}

@@ -234,6 +234,7 @@ defmodule RecGPT.InferenceTest do
     logits_inference_last = logits_inference
 
     diff = Nx.subtract(logits_inference_last, logits_defn_last) |> Nx.abs() |> Nx.reduce_max()
+
     # Stub params with identity layers can have slight numerical drift between Evaluator and Inference
     assert Nx.to_number(diff) < 1.0e-1,
            "Inference and Defn last-position logits should match (diff max #{Nx.to_number(diff)})"

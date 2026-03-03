@@ -59,22 +59,26 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
 
     nsys_args = [
       "profile",
-      "-o", out_file,
-      "-t", "cuda,nvtx,osrt",
+      "-o",
+      out_file,
+      "-t",
+      "cuda,nvtx,osrt",
       "--cuda-event-trace=true",
       "--stats=true",
       "--sample=process-tree",
-      "mix", "recgpt.ad_hoc_test" | args_no_profile
+      "mix",
+      "recgpt.ad_hoc_test" | args_no_profile
     ]
 
     {output, exit_code} = System.cmd("nsys", nsys_args, stderr_to_stdout: true)
     IO.write(output)
 
-    exit_code = case exit_code do
-      n when is_integer(n) -> n
-      {:exit_status, n} -> n
-      _ -> 1
-    end
+    exit_code =
+      case exit_code do
+        n when is_integer(n) -> n
+        {:exit_status, n} -> n
+        _ -> 1
+      end
 
     profile_created = File.regular?(out_file)
 

@@ -19,11 +19,13 @@ The paper uses **5 epochs** of pre-training on 11 datasets. For a single dataset
 ## Prerequisites
 
 1. **Convert MovieLens** to RecGPT JSON:
+
    ```bash
    mix recgpt.convert_movielens --max-items 5000 --out data/movielens-20m
    ```
 
 2. **Build fixture**:
+
    ```bash
    mix recgpt.build_fixture --items data/movielens-20m/items.json \
      --out data/movielens-20m/fixture.json --ckpt data/recgpt_ckpt_export \
@@ -49,6 +51,7 @@ mix recgpt.pretrain \
 ```
 
 **Options:**
+
 - `--epochs 5` — 5 full passes over the training data (overrides `--iterations`).
 - `--batch-size 16` — Larger batches speed up training; use 8 if GPU memory is tight.
 - `--save-every 3236` — Save checkpoint every 3236 steps (~1 per epoch). Writes to `--out/step_003236/`, `step_006472/`, etc.
@@ -58,6 +61,7 @@ mix recgpt.pretrain \
 ## Expected Duration
 
 With ~51,764 train sequences and batch size 16:
+
 - **Steps per epoch:** ~3,236
 - **Total steps (5 epochs):** ~16,180
 - **Estimated time:** 8–12 hours (depends on GPU)
@@ -87,6 +91,7 @@ Compare Hit@1, Hit@5, Hit@10, MRR with the baseline (zero-shot) and with the sho
 ## Loss and Checkpoint Selection
 
 The paper states:
+
 > "The goal of evaluation is to select the model weights from the numerous checkpoints saved during the pre-training phase that have the **lowest loss** on the evaluation set."
 
 Use `--save-every N` to save periodic checkpoints during training (e.g. `--save-every 3236` for one per epoch). Checkpoints are written to `--out/step_003236/`, `step_006472/`, etc. The final checkpoint is always written to `--out/`.

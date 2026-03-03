@@ -11,8 +11,8 @@ Part of [34 Sniper Mode Moneyball](34_sniper_mode_moneyball_strategy.md).
 Gatekeeper approves only when **all three** hold:
 
 1. **Organic Tape** — No structural signs of gaming in JSON-LD
-2. **Rule Alignment** — Polymarket rule-set matches Tape
-3. **News Signal** — Tape consistent with external news
+2. **Rule Alignment** — Tape matches Polymarket rule-set
+3. **Tape as Signal** — Tape (trade legs, leader activity) is our primary signal; sufficient and internally coherent. We do not use external news (too slow—market leads news; see [50 Virix review](50_virix_polymarket_strategy_review.md)).
 
 If any fails → PICK_0.
 

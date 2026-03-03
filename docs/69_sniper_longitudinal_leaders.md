@@ -6,13 +6,13 @@ Applying [68 Wallet Longitudinal Adversary Research](68_wallet_longitudinal_adve
 
 ## Mapping
 
-| 68 Concept | Sniper Application |
-|------------|---------------------|
-| Trace winning wallets longitudinally | **Leaders' trade legs** – follow Fat Head / Mid-Tail leaders across time, markets, venues |
-| Cluster trajectories by shape/time/size | **Pipeline N+2 (cluster)** – cluster leaders by execution style, not just catalog items |
-| Infer algorithm from observable behavior | **Scout catalog** – trajectory taxonomy maps to outcomes; RecGPT learns which trajectories win |
-| Adversary research, trap-avoidance | **Gatekeeper veto** – longitudinal trace of trap-hitters vs trap-escapers → calibrate GRPO reward |
-| Confirm algo via timing/size curves | **Butterfly arbitrage** – leaders who size consistently with known patterns get higher confidence |
+| 68 Concept                               | Sniper Application                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Trace winning wallets longitudinally     | **Leaders' trade legs** – follow Fat Head / Mid-Tail leaders across time, markets, venues         |
+| Cluster trajectories by shape/time/size  | **Pipeline N+2 (cluster)** – cluster leaders by execution style, not just catalog items           |
+| Infer algorithm from observable behavior | **Scout catalog** – trajectory taxonomy maps to outcomes; RecGPT learns which trajectories win    |
+| Adversary research, trap-avoidance       | **Gatekeeper veto** – longitudinal trace of trap-hitters vs trap-escapers → calibrate GRPO reward |
+| Confirm algo via timing/size curves      | **Butterfly arbitrage** – leaders who size consistently with known patterns get higher confidence |
 
 ---
 
@@ -41,12 +41,12 @@ Adversary research: trace both cohorts longitudinally. Feed escape patterns into
 
 ## Pipeline Integration
 
-| Step | Before | After (68 applied) |
-|------|--------|--------------------|
-| N (catalog) | Items, markets | + Leader IDs, wallet→outcome mappings |
-| N+1 (RecGPT) | Pretrain on sequences | + Trajectory-conditioned sequences (timing, size curves) |
-| N+2 (cluster) | Cluster by item co-occurrence | + Cluster by **trajectory shape** (same strategy family = same cluster) |
-| N+3 (Qwen LoRA) | GRPO on IsGamed, veto | + GRPO reward informed by longitudinal trap-hit/escape rates |
+| Step            | Before                        | After (68 applied)                                                      |
+| --------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| N (catalog)     | Items, markets                | + Leader IDs, wallet→outcome mappings                                   |
+| N+1 (RecGPT)    | Pretrain on sequences         | + Trajectory-conditioned sequences (timing, size curves)                |
+| N+2 (cluster)   | Cluster by item co-occurrence | + Cluster by **trajectory shape** (same strategy family = same cluster) |
+| N+3 (Qwen LoRA) | GRPO on IsGamed, veto         | + GRPO reward informed by longitudinal trap-hit/escape rates            |
 
 ---
 
@@ -54,12 +54,12 @@ Adversary research: trace both cohorts longitudinally. Feed escape patterns into
 
 Like clustering CSGO / Rainbow Six / Team Fortress by input schema:
 
-| Trajectory Cluster | Inference | Sniper Use |
-|--------------------|-----------|------------|
-| Fat Head, consistent size, early entry | Market-maker or insider | Bypass Scout; high confidence |
-| Mid-Tail, variable size, veto patterns | Quant / trap-aware | Scout + Gatekeeper; normal flow |
-| Long Tail, random size, late entry | Retail / copy-trade | Early edge or skip |
-| Trap-hitter profile | Predictable sucker pattern | Gatekeeper veto; negative signal |
+| Trajectory Cluster                     | Inference                  | Sniper Use                       |
+| -------------------------------------- | -------------------------- | -------------------------------- |
+| Fat Head, consistent size, early entry | Market-maker or insider    | Bypass Scout; high confidence    |
+| Mid-Tail, variable size, veto patterns | Quant / trap-aware         | Scout + Gatekeeper; normal flow  |
+| Long Tail, random size, late entry     | Retail / copy-trade        | Early edge or skip               |
+| Trap-hitter profile                    | Predictable sucker pattern | Gatekeeper veto; negative signal |
 
 ---
 

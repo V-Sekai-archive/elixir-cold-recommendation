@@ -68,13 +68,20 @@ defmodule RecGPT.Decode do
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state
     item_at_leaf = trie_tensors.item_at_leaf
+
     beam_width =
-      case Keyword.get(opts, :beam_width_override) || Application.get_env(:recgpt, :beam_width_override) do
+      case Keyword.get(opts, :beam_width_override) ||
+             Application.get_env(:recgpt, :beam_width_override) do
         n when is_integer(n) and n >= 1 -> n
         _ -> max(4, min(top_k + 2, 20))
       end
+
     constants = Keyword.get(opts, :constants)
-    root_state = if constants, do: constants.root_state, else: Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
+
+    root_state =
+      if constants,
+        do: constants.root_state,
+        else: Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
     {item_ids, beam_scores, prefix_tokens} =
       run_single_forward_beam(
@@ -103,6 +110,7 @@ defmodule RecGPT.Decode do
     item_ids_host = Nx.backend_transfer(item_ids_slice, Nx.BinaryBackend)
     item_ids_list = item_ids_host |> Nx.to_flat_list() |> Enum.map(&decode_item_id_to_int/1)
     scores_list = Nx.backend_transfer(scores_slice, Nx.BinaryBackend) |> Nx.to_flat_list()
+
     prefix_tokens_list =
       prefix_tokens_slice
       |> Nx.backend_transfer(Nx.BinaryBackend)
@@ -136,7 +144,10 @@ defmodule RecGPT.Decode do
   end
 
   defp decode_item_id_to_int(x) when is_integer(x), do: x
-  defp decode_item_id_to_int(%Nx.Tensor{} = t), do: t |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_number() |> round()
+
+  defp decode_item_id_to_int(%Nx.Tensor{} = t),
+    do: t |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_number() |> round()
+
   defp decode_item_id_to_int(x) when is_number(x), do: round(x)
 
   defp run_single_forward_beam(
@@ -160,12 +171,18 @@ defmodule RecGPT.Decode do
     logits = Nx.reshape(logits_0, {:auto})
     valid = Nx.gather(next_state, root_state) |> Nx.reshape({:auto})
     valid_mask = Nx.greater_equal(valid, 0)
+
     neg_inf =
-      if constants, do: constants.neg_inf, else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
+      if constants,
+        do: constants.neg_inf,
+        else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
+
     scores = Nx.select(valid_mask, logits, neg_inf)
     {top_scores, top_indices} = Nx.top_k(scores, k: beam_width)
+
     top_token_ids =
       Nx.reshape(top_indices, {:auto}) |> Nx.as_type({:s, 32}) |> Nx.backend_transfer(backend)
+
     new_state_ids = gather_2d(next_state, root_state, top_token_ids, backend)
     new_state_ids = Nx.squeeze(new_state_ids, axes: [1])
     prefix_tokens = Nx.new_axis(top_token_ids, 1)
@@ -174,9 +191,11 @@ defmodule RecGPT.Decode do
 
     {_state_ids, prefix_tokens, beam_scores, item_ids} =
       Enum.reduce(1..3, {new_state_ids, prefix_tokens, beam_scores, nil}, fn step,
-                                                                              {state_ids, prefixes, scores, _} ->
+                                                                             {state_ids, prefixes,
+                                                                              scores, _} ->
         logits_i = logits_4 |> Nx.slice_along_axis(step, 1, axis: 1) |> Nx.squeeze(axes: [1])
         logits_broadcast = Nx.broadcast(logits_i, {beam_width, vocab_size})
+
         spmd_step_from_logits(
           next_state,
           item_at_leaf,
@@ -220,15 +239,23 @@ defmodule RecGPT.Decode do
       end
 
     valid_mask = Nx.greater_equal(valid_rows, 0)
+
     neg_inf =
-      if constants, do: constants.neg_inf, else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
+      if constants,
+        do: constants.neg_inf,
+        else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
+
     scores_per_token = Nx.select(valid_mask, logits, neg_inf)
     beam_scores_broadcast = Nx.new_axis(beam_scores, 1)
     scores_per_token = Nx.add(scores_per_token, beam_scores_broadcast)
     flat = Nx.reshape(scores_per_token, {:auto})
     {top_scores, top_flat} = Nx.top_k(flat, k: beam_width)
+
     vocab_t =
-      if constants, do: constants.vocab_t, else: Nx.tensor(vocab_size, type: {:s, 32}) |> Nx.backend_transfer(backend)
+      if constants,
+        do: constants.vocab_t,
+        else: Nx.tensor(vocab_size, type: {:s, 32}) |> Nx.backend_transfer(backend)
+
     top_flat = Nx.as_type(top_flat, {:s, 32}) |> Nx.backend_transfer(backend)
     batch_indices = Nx.quotient(top_flat, vocab_t)
     token_ids = Nx.remainder(top_flat, vocab_t)
@@ -242,10 +269,12 @@ defmodule RecGPT.Decode do
       if step == 3 do
         gather_2d(item_at_leaf, state_at_top_safe, token_ids_b, backend) |> Nx.squeeze(axes: [1])
       else
-        gather_2d(transition_tensor, state_at_top_safe, token_ids_b, backend) |> Nx.squeeze(axes: [1])
+        gather_2d(transition_tensor, state_at_top_safe, token_ids_b, backend)
+        |> Nx.squeeze(axes: [1])
       end
 
     prefix_len = step
+
     old_prefixes =
       Nx.gather(prefix_tokens, Nx.new_axis(batch_indices_b, -1))
       |> Nx.reshape({beam_width, prefix_len})
