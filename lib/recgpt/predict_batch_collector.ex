@@ -128,7 +128,7 @@ defmodule RecGPT.PredictBatchCollector do
   end
 
   defp build_reply({:ok, item_ids}, recommend_us, state, context_ids, max_results) do
-    # Coerce to plain integers (fused path can leave scalar tensors in rare cases)
+    # Coerce to plain integers (decode can leave scalar tensors in rare cases)
     item_ids = Enum.map(item_ids, &item_id_to_int/1)
 
     items =

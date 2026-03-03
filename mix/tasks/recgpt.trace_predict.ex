@@ -6,13 +6,13 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
   Aligns with Replicate COG stages: setup (one-time load + JIT compile) ~20–30s;
   predict (per-request inference) ~300–400ms on 12-layer + RTX 4090. Most time
-  is usually in beam search (fused: 1 graph, or unfused: 4 forward passes).
+  is usually in beam search (4 forward passes).
 
   Loads state (fixture + checkpoint + optional catalog), runs recommend with
-  the same opts as Serve (fused path when no context-cache hit), and reports:
+  the same opts as Serve, and reports:
   - context_to_tokens_us: building context token sequence from item IDs
   - beam_search_total: total time in beam search
-  - inference: when unfused, time inside get_logits (4 calls); when fused, one graph (time in beam_search_total)
+  - inference: time inside get_logits (4 forward passes)
   - response_build_us: building item_ids + display_name list
   - total_us and percentiles over runs
 
@@ -197,7 +197,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       )
     else
       Mix.shell().info(
-        "  inference: fused path (1 graph, time in beam_search_total above)"
+        "  inference: (time in beam_search_total above)"
       )
     end
 
@@ -226,7 +226,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       Mix.shell().info("  inference % of total: #{pct}%  (avg #{avg_inference_us} μs/forward)")
 
       Mix.shell().info(
-        "  → Unfused path (#{last.inference_calls} forward passes). Speed up: GPU, KV-cache."
+        "  → #{last.inference_calls} forward passes. Speed up: GPU, KV-cache."
       )
     else
       pct = Float.round(100.0 * last.beam_search_us / last.total_us, 1)

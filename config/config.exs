@@ -24,14 +24,6 @@ config :recgpt, :ckpt_expected_sha256,
 
 config :recgpt, :inference_dtype, :f8_e4m3fn
 
-# Fused beam search: compile one JIT at this (max) beam width; slice results to request beam_width.
-# Set force_unfused_beam to true to always use the unfused (per-step) beam path.
-config :recgpt, :fused_beam_width, 20
-config :recgpt, :force_unfused_beam, true
-
-# At startup, run one fused beam call to trigger JIT so first client request is fast. Set false for faster startup.
-config :recgpt, :warm_fused_jit, true
-
 # Ablation: fix beam width (e.g. 1 for greedy). RECGPT_BEAM_WIDTH_OVERRIDE=1 to test.
 config :recgpt, :beam_width_override,
   (case System.get_env("RECGPT_BEAM_WIDTH_OVERRIDE") do

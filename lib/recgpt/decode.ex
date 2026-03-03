@@ -80,50 +80,20 @@ defmodule RecGPT.Decode do
     constants = Keyword.get(opts, :constants)
     root_state = if constants, do: constants.root_state, else: Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
-    # Fused path: one JIT for all four forwards when no context-cache hit and fused_fn is provided.
-    # Fused runs at max beam width; slice to request beam_width before sync.
-    fused_fn = Keyword.get(opts, :fused_fn)
     {item_ids, beam_scores, prefix_tokens} =
-      if is_function(fused_fn, 2) and !Keyword.get(opts, :initial_step0) do
-        case fused_fn.(context_tokens, beam_width) do
-          {:ok, iid, bs, pt} ->
-            # Mask/slice to request beam_width (fused returns max width)
-            k = min(beam_width, Nx.axis_size(iid, 0))
-            {
-              Nx.slice_along_axis(iid, 0, k, axis: 0),
-              Nx.slice_along_axis(bs, 0, k, axis: 0),
-              Nx.slice_along_axis(pt, 0, k, axis: 0)
-            }
-          :unavailable ->
-            run_unfused_beam(
-              batch_tensor_fn,
-              context_tokens,
-              context_len,
-              next_state,
-              item_at_leaf,
-              root_state,
-              backend,
-              constants,
-              beam_width,
-              vocab_size,
-              opts
-            )
-        end
-      else
-        run_unfused_beam(
-          batch_tensor_fn,
-          context_tokens,
-          context_len,
-          next_state,
-          item_at_leaf,
-          root_state,
-          backend,
-          constants,
-          beam_width,
-          vocab_size,
-          opts
-        )
-      end
+      run_unfused_beam(
+        batch_tensor_fn,
+        context_tokens,
+        context_len,
+        next_state,
+        item_at_leaf,
+        root_state,
+        backend,
+        constants,
+        beam_width,
+        vocab_size,
+        opts
+      )
 
     # STATIC: GPU-side top-k selection so we transfer only top_k elements (minimal sync).
     RecGPT.NVTX.range_push("decode_sync")

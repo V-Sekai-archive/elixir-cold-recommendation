@@ -1,4 +1,13 @@
-# Benchmark Serve.recommend/3. Run: mix run bench/recgpt_serve_bench.exs
+# Benchmark Serve.recommend/3. Run in dev only: MIX_ENV=dev mix run bench/recgpt_serve_bench.exs
+#
+# NOTE: This uses a minimal stub state (no trie_tensors, get_logits_batch_tensor_fn, etc.).
+# Serve.recommend/3 returns {:error, _} immediately, so results measure the error path only.
+# For real recommendation latency, use: mix recgpt.trace_predict --runs 20
+# or run mix recgpt.serve and call the gRPC Predict API repeatedly (see docs/08_latency_and_performance.md).
+
+unless Mix.env() == :dev do
+  raise "Benchee benchmark is dev-only. Run: MIX_ENV=dev mix run bench/recgpt_serve_bench.exs"
+end
 
 Application.ensure_all_started(:nx)
 token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]

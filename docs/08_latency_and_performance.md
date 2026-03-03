@@ -4,6 +4,8 @@ Terminology aligns with [Replicate COG](https://replicate.com/docs/guides/build/
 
 **Note:** `mix recgpt.trace_predict` starts a fresh process each run, so it never benefits from in-memory JIT. For warm 200–400ms, run `mix recgpt.serve` and call the gRPC Predict API repeatedly.
 
+**Config:** `predict_timeout_ms` (default 120_000) limits how long a single Predict request may run.
+
 **Stable EXLA cache:** Incremental forward uses a padded KV cache (fixed shape `batch × n_head × max_cache_len × head_dim`) so the JIT cache key stays the same across steps. Configure `config :recgpt, :max_cache_len, 128` (default).
 
 ## What we did wrong (and what we fixed)
