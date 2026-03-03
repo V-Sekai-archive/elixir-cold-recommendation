@@ -24,11 +24,15 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     * `--top-k` - Max recommendations (default: 10)
     * `--runs` - Number of timed runs for stats (default: 20)
     * `--jitter-ms` - Max random ms before each run to desync timers (default: 2)
+    * `--dtype` - Inference dtype: float32 or bf16 (overrides config for this run)
+    * `--scan-dtypes` - Run trace for each dtype (float32, bf16) in sequence
     * `--profile` - Run under `nsys profile` (NVIDIA Nsight Systems) for GPU profiling; writes .nsys-rep file
 
   ## Examples
       mix recgpt.trace_predict
       mix recgpt.trace_predict --context "0,1" --top-k 10
+      mix recgpt.trace_predict --runs 20 --dtype float32
+      mix recgpt.trace_predict --runs 20 --scan-dtypes
       mix recgpt.trace_predict --runs 50 --jitter-ms 3
       mix recgpt.trace_predict --profile --context "0,1"
   """
@@ -48,6 +52,8 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
           top_k: :integer,
           runs: :integer,
           jitter_ms: :integer,
+          dtype: :string,
+          scan_dtypes: :boolean,
           profile: :boolean
         ]
       )
@@ -55,9 +61,38 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     if opts[:profile] do
       run_with_nsys(args, opts)
     else
-      run_trace(opts)
+      if opts[:scan_dtypes] do
+        run_scan_dtypes(opts)
+      else
+        run_trace(opts)
+      end
     end
   end
+
+  defp run_scan_dtypes(opts) do
+    dtypes = [{"float32", {:f, 32}}, {"bf16", {:bf, 16}}]
+
+    for {label, dtype_value} <- dtypes do
+      Mix.shell().info("")
+      Mix.shell().info("========== inference_dtype: #{label} ==========")
+      apply_dtype(dtype_value)
+      run_trace(opts)
+    end
+
+    Mix.shell().info("")
+    Mix.shell().info("========== scan complete ==========")
+  end
+
+  defp apply_dtype(nil), do: :ok
+
+  defp apply_dtype(dtype_value) do
+    Application.put_env(:recgpt, :inference_dtype, dtype_value)
+  end
+
+  defp parse_dtype_opt(nil), do: nil
+  defp parse_dtype_opt("float32"), do: {:f, 32}
+  defp parse_dtype_opt("bf16"), do: {:bf, 16}
+  defp parse_dtype_opt(_), do: nil
 
   defp run_with_nsys(args, _opts) do
     unless System.find_executable("nsys") do
@@ -108,6 +143,10 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   defp run_trace(opts) do
     runs = opts[:runs] || 20
     jitter_ms = opts[:jitter_ms] || 2
+
+    if dtype_override = parse_dtype_opt(opts[:dtype]) do
+      apply_dtype(dtype_override)
+    end
 
     Application.ensure_all_started(:recgpt)
     Application.ensure_all_started(:nx)
@@ -240,8 +279,8 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   defp run_timed_recommends(state, context_ids, top_k, runs, jitter_ms) do
     {:ok, agent} = Agent.start_link(fn -> {0, 0} end)
 
-    traced_tensor_fn = fn batch_tensor, cache ->
-      {us, res} = :timer.tc(fn -> state.get_logits_batch_tensor_fn.(batch_tensor, cache) end)
+    traced_get_logits_4_fn = fn context_tokens ->
+      {us, res} = :timer.tc(fn -> state.get_logits_4_fn.(context_tokens) end)
       Agent.update(agent, fn {t, n} -> {t + us, n + 1} end)
       res
     end
@@ -260,7 +299,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
             state.item_id_to_tokens_tensor,
             context_ids,
             top_k,
-            traced_tensor_fn,
+            traced_get_logits_4_fn,
             state.inference_backend,
             state.trie,
             opts

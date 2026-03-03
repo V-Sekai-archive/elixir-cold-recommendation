@@ -12,24 +12,30 @@ defmodule RecGPT.DecodeSPMDTest do
     tensor |> Nx.slice([row, col], [1, 1]) |> Nx.squeeze() |> Nx.to_number()
   end
 
-  defp stub_from_seq_spec(spec, backend) do
-    fn batch, nil ->
-      rows = batch |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_list()
+  defp build_logits_4_rows(ctx, spec, i, prefix) when i < 4 do
+    seq = ctx ++ prefix
+    {ids, scores} = Map.get(spec, seq, {[0], [0.0]})
+    best_idx = Enum.find_index(scores, &(&1 == Enum.max(scores)))
+    best_tok = Enum.at(ids, best_idx || 0)
 
-      logits_rows =
-        for row <- rows do
-          seq = Enum.map(List.flatten([row]), &round/1)
-          {ids, scores} = Map.get(spec, seq, {[0], [0.0]})
-          base = Nx.broadcast(-100.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
+    base = Nx.broadcast(-100.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
+    row =
+      Enum.zip(ids, scores)
+      |> Enum.reduce(base, fn {id, score}, a ->
+        Nx.put_slice(a, [0, id], Nx.tensor([[score]], type: {:f, 32}))
+      end)
+      |> Nx.squeeze(axes: [0])
 
-          Enum.zip(ids, scores)
-          |> Enum.reduce(base, fn {id, score}, acc ->
-            Nx.put_slice(acc, [0, id], Nx.tensor([[score]], type: {:f, 32}))
-          end)
-          |> Nx.squeeze(axes: [0])
-        end
+    [row | build_logits_4_rows(ctx, spec, i + 1, prefix ++ [best_tok])]
+  end
 
-      {Nx.stack(logits_rows) |> Nx.backend_transfer(backend), nil}
+  defp build_logits_4_rows(_ctx, _spec, 4, _prefix), do: []
+
+  defp stub_from_context_spec(spec, backend) do
+    fn context_tokens ->
+      ctx = context_tokens |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_flat_list() |> Enum.map(&round/1)
+      rows = build_logits_4_rows(ctx, spec, 0, [])
+      Nx.stack(rows) |> Nx.new_axis(0) |> Nx.backend_transfer(backend)
     end
   end
 
@@ -45,7 +51,7 @@ defmodule RecGPT.DecodeSPMDTest do
     }
 
     item_id_to_tokens = Nx.backend_transfer(item_id_to_tokens, backend)
-    stub = stub_from_seq_spec(spec, backend)
+    stub = stub_from_context_spec(spec, backend)
 
     previous = Nx.default_backend()
 
@@ -185,9 +191,8 @@ defmodule RecGPT.DecodeSPMDTest do
 
       item_id_to_tokens = Nx.backend_transfer(item_id_to_tokens, backend)
 
-      stub = fn batch, nil ->
-        {b, _} = Nx.shape(batch)
-        {Nx.broadcast(0.0, {b, @vocab_size}) |> Nx.as_type({:f, 32}), nil}
+      stub = fn _context_tokens ->
+        Nx.broadcast(0.0, {1, 4, @vocab_size}) |> Nx.as_type({:f, 32})
       end
 
       previous = Nx.default_backend()
@@ -249,20 +254,13 @@ defmodule RecGPT.DecodeSPMDTest do
       tensors = Trie.to_tensors(trie, @vocab_size)
       item_id_to_tokens = Nx.tensor(token_id_list, type: {:s, 32})
 
-      stub_fn = fn batch, nil ->
-        {batch_size, _} = Nx.shape(batch)
-        logits = Nx.broadcast(0.0, {batch_size, @vocab_size}) |> Nx.as_type({:f, 32})
-
-        logits =
-          Enum.reduce(valid_tokens, logits, fn t, acc ->
-            Nx.put_slice(
-              acc,
-              [0, t],
-              Nx.broadcast(Nx.tensor(1.0, type: {:f, 32}), {batch_size, 1})
-            )
+      stub_fn = fn _context_tokens ->
+        logits_row = Nx.broadcast(0.0, {1, @vocab_size}) |> Nx.as_type({:f, 32})
+        logits_row =
+          Enum.reduce(valid_tokens, logits_row, fn t, acc ->
+            Nx.put_slice(acc, [0, t], Nx.tensor([[1.0]], type: {:f, 32}))
           end)
-
-        {logits, nil}
+        Nx.broadcast(logits_row, {1, 4, @vocab_size})
       end
 
       previous_backend = Nx.default_backend()

@@ -148,13 +148,16 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 4. **Small batch sizes** — Step 0 uses batch size **1** (one context sequence); steps 1–3 use batch size **beam_width** (4–20 for top_k 1–20). Small batches underutilize the GPU (low occupancy, kernel launch overhead). That can add ~2× vs ideal; BF16 and larger effective batches (e.g. multi-request batching) help.
 
-5. **FP32** — Default inference is FP32. BF16 on Tensor Cores is typically 1.3–2× faster; enable in prod with `config :recgpt, :inference_dtype, {:bf, 16}` after validating quality.
+5. **BF16** — Default inference is BF16 on Tensor Cores (typically 1.3–2× faster than FP32). Use `config :recgpt, :inference_dtype, {:f, 32}` for FP32 if needed.
 
 **Takeaway:** For a single `trace_predict` run, expect ~2–3 s (cold). For warm latency, use `--runs 10` or more and look at P50 of runs 2–10, or run the gRPC server and hit it repeatedly.
 
 **Tombstones:**
 - **Double warm-up** — Two setup recommends before the timed run in `trace_predict` was tried and reverted; no improvement to the single timed run (~2.7 s).
 - **EXLA JIT disk cache** — With cache enabled, the timed run was ~2.6–3.2 s (~600–750 ms/forward). Without disk cache, the same run was **~371 ms** (~65 ms/forward). Caching code removed; in-process JIT only.
+- **Greedy decode** — `beam_width_override: 1` (RECGPT_BEAM_WIDTH_OVERRIDE) was configurable for latency testing. Config removed; adaptive beam only.
+- **Shorter context** — Using fewer context items (e.g. `[11]` vs `[1,2,3,4]`) considered for speed. Rejected: keep full context for quality.
+- **Context cache** — ETS cache of logits_4 by context_item_ids. Implemented then removed: no measurable improvement in hyperfine benchmark with repeated `[1,2,3,4]`.
 
 ---
 
@@ -168,7 +171,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 - **Increasing inlining** — **Fusing** the four forwards into a **single** `Nx.Defn` (one graph that runs step 0 → trie/top_k → step 1 → … → step 3 and returns item_ids) would **reduce kernel launch overhead** and let XLA optimize across steps. That is the “fused Defn for beam search” idea: one launch instead of four, often **~10–25%** gain. **Implemented:** `InferenceDefn.beam_search_fused/14` runs step 0 + steps 1–3 in one JIT graph. Fused is **on for all paths** when no context-cache hit: one JIT compiled at max beam width (`config :recgpt, :fused_beam_width`, default 20); Decode slices the fused result to the request’s beam_width before sync (masks out the rest). **Estimated e2e gain:** ~10–25% of beam-search GPU time → **~15–50 ms** end-to-end if four forwards are ~150–200 ms of a 300 ms recommend (e.g. 300 ms → ~250–285 ms).
 
 **Still to do / config:**
-1. **BF16** — Set `config :recgpt, :inference_dtype, {:bf, 16}`. Largest single gain (1.3–2×) on the four forward passes.
+1. **BF16** — Default. Largest single gain (1.3–2×) on the four forward passes.
 2. **Minimize host round-trips** — Single sync only; no extra `backend_transfer` or `to_flat_list` in the loop. All index tensors for `gather_2d` already on same backend as the tensor they index.
 3. **Aux/mask construction** — In `build_get_logits_batch_tensor_fn`, aux and mask are built every call; if shapes are fixed, consider reusing or caching on device (minor).
 4. **Cache replicate/pad** — `maybe_replicate_cache` and `pad_cache_to_fixed` run when cache is not nil; ensure they don’t add unnecessary transfers; pad once to `max_cache_len` and keep on device.
@@ -182,6 +185,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 ## See also
 
 - [08_latency_and_performance.md](08_latency_and_performance.md) — Industry context, what we fixed, summary table.
+- [strategy_given_latency_ceiling.md](strategy_given_latency_ceiling.md) — Which strategies RecGPT fits (Catalyst, Combinatorial); when to bypass (Binary, Bundle).
 - [nsys_tracing.md](nsys_tracing.md) — How to profile with Nsight Systems and NVTX markers.
 - [ablation_tensor_graph.md](ablation_tensor_graph.md) — What can be removed or simplified without breaking semantic id or top-k (ablation testing).
 - Plan: P99 latency target with buffer (RecGPT target P50 = 20 ms, P99 ≤ 60 ms).
