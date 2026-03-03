@@ -17,7 +17,7 @@ defmodule RecGPT.InferenceParams do
   - `params_map`: from `RecGPT.CheckpointLoader.load_from_export/1`
   - `n_layers`: 0 (stub), or 1..12. Use `RecGPT.Inference.n_layers_from_params/1` to get it.
     When 1..11, layers 0..(n_layers-1) use checkpoint params; layers n_layers..11 get identity.
-  - `dtype`: optional, default `{:f, 32}`. Use `{:bf, 16}` for BF16 inference (Tensor Cores).
+  - `dtype`: optional, default `{:f, 32}`. Use `{:bf, 16}` for BF16 or `:f8_e4m3fn` for FP8 (EXLA 0.11, Tensor Cores).
 
   Returns a map of atom keys. When n_layers is 0, all 12 layer slots get identity tensors.
   """
@@ -54,6 +54,7 @@ defmodule RecGPT.InferenceParams do
   end
 
   defp as_dtype(tensor, dtype) when is_tuple(dtype), do: Nx.as_type(tensor, dtype)
+  defp as_dtype(tensor, :f8_e4m3fn), do: Nx.as_type(tensor, :f8_e4m3fn)
   defp as_dtype(tensor, _), do: tensor
 
   defp get_wte(params) do

@@ -124,6 +124,7 @@ defmodule RecGPT.Serve do
       }
 
       state = maybe_warm_context_cache(state)
+      state = warm_fused_jit(state)
       {:ok, state}
     end
   end
@@ -188,6 +189,7 @@ defmodule RecGPT.Serve do
 
       # Context cache warming only supported when item_id_to_tokens_tensor is a single tensor (fixture path)
       state = maybe_warm_context_cache(state)
+      state = warm_fused_jit(state)
       {:ok, state}
     end
   end
@@ -376,9 +378,6 @@ defmodule RecGPT.Serve do
     end
 
     {:ok, batch_fn}
-  rescue
-    e ->
-      {:error, "Inference (non-defn) failed: #{inspect(e)}"}
   end
 
   defp maybe_transfer_to_inference_backend({a, b, c}, backend) do
@@ -429,10 +428,14 @@ defmodule RecGPT.Serve do
   defp build_decode_constants(backend, vocab_size) do
     dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
     root_state = Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
-    neg_inf = Nx.tensor(-1.0e9, type: dtype) |> Nx.backend_transfer(backend)
+    neg_inf = neg_inf_for_dtype(dtype) |> Nx.backend_transfer(backend)
     vocab_t = Nx.tensor(vocab_size, type: {:s, 32}) |> Nx.backend_transfer(backend)
     %{root_state: root_state, neg_inf: neg_inf, vocab_t: vocab_t}
   end
+
+  # FP8 E4M3 has limited range (~[-448, 448]); use -448 for mask.
+  defp neg_inf_for_dtype(:f8_e4m3fn), do: Nx.tensor(-448.0, type: :f8_e4m3fn)
+  defp neg_inf_for_dtype(dtype), do: Nx.tensor(-1.0e9, type: dtype)
 
   defp context_cache_key(context_ids) when is_list(context_ids) do
     :erlang.phash2(:erlang.term_to_binary(context_ids))
@@ -514,6 +517,16 @@ defmodule RecGPT.Serve do
     List.to_tuple(sliced)
   end
 
+  defp warm_fused_jit(state) do
+    if Application.get_env(:recgpt, :warm_fused_jit, true) and
+         not Application.get_env(:recgpt, :force_unfused_beam, true) do
+      minimal = Nx.tensor([[0]], type: {:s, 32}) |> Nx.backend_transfer(state.inference_backend)
+      _ = state.beam_search_fused_fn.(minimal, 5)
+    end
+
+    state
+  end
+
   defp maybe_warm_context_cache(state) do
     warm_list = Application.get_env(:recgpt, :context_cache_warm_list, [])
     batch_size = Application.get_env(:recgpt, :context_cache_warm_batch_size, 4)
@@ -562,14 +575,21 @@ defmodule RecGPT.Serve do
   @pre_alloc_max_beam 20
 
   defp build_beam_search_fused_fn(params, inference_backend, trie_tensors, decode_constants) do
+    if Application.get_env(:recgpt, :force_unfused_beam, true) do
+      fn _context_tokens, _request_beam_width -> :unavailable end
+    else
+      build_beam_search_fused_jit(params, inference_backend, trie_tensors, decode_constants)
+    end
+  end
+
+  defp build_beam_search_fused_jit(params, inference_backend, trie_tensors, decode_constants) do
     n_layers = Inference.n_layers_from_params(params)
     dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
     defn_params = InferenceParams.build_defn_params(params, n_layers, dtype)
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
 
-    # Compile at max beam width; Decode slices results to request beam_width
-    fused_beam_width = Application.get_env(:recgpt, :fused_beam_width, 20)
-    jit_fused = Nx.Defn.jit(&InferenceDefn.beam_search_fused/14, compiler: EXLA)
+    fused_beam_width = Application.get_env(:recgpt, :fused_beam_width, 20) |> min(20) |> max(4)
+    jit_fused = Nx.Defn.jit(InferenceDefn.beam_search_fused_fun_for_k(fused_beam_width), compiler: EXLA)
 
     pre_aux_full =
       Nx.broadcast(0.0, {1, @pre_alloc_max_context, 192})
@@ -592,37 +612,44 @@ defmodule RecGPT.Serve do
     vocab_t = decode_constants.vocab_t
 
     fn context_tokens, _request_beam_width ->
-      # Always run fused at compiled beam width; Decode slices to request_beam_width
-      {_batch, context_len} = Nx.shape(context_tokens)
-      context_len_scalar =
-        Nx.tensor(context_len, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+      # Skip fused if any input is a Defn expression (EXLA would raise); use unfused path instead.
+      if not concrete_tensor?(context_tokens) do
+        :unavailable
+      else
+        # Always run fused at compiled beam width; Decode slices to request_beam_width
+        {_batch, context_len} = Nx.shape(context_tokens)
+        context_len_scalar =
+          Nx.tensor(context_len, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
 
-      aux_0 = pre_aux_full |> Nx.slice_along_axis(0, context_len, axis: 1)
-      mask_0 = pre_mask_full |> Nx.slice_along_axis(0, context_len, axis: 1)
+        aux_0 = pre_aux_full |> Nx.slice_along_axis(0, context_len, axis: 1)
+        mask_0 = pre_mask_full |> Nx.slice_along_axis(0, context_len, axis: 1)
 
-      RecGPT.NVTX.range_push("beam_search_fused")
-      {item_ids, beam_scores, prefix_tokens} =
-        jit_fused.(
-          context_tokens,
-          context_len_scalar,
-          past_len_0,
-          past_len_1,
-          past_len_2,
-          aux_0,
-          mask_0,
-          defn_params,
-          next_state,
-          item_at_leaf,
-          root_state,
-          neg_inf,
-          vocab_t,
-          fused_beam_width
-        )
-      RecGPT.NVTX.range_pop()
+        RecGPT.NVTX.range_push("beam_search_fused")
+        {item_ids, beam_scores, prefix_tokens} =
+          jit_fused.(
+            context_tokens,
+            context_len_scalar,
+            past_len_0,
+            past_len_1,
+            past_len_2,
+            aux_0,
+            mask_0,
+            defn_params,
+            next_state,
+            item_at_leaf,
+            root_state,
+            neg_inf,
+            vocab_t
+          )
+        RecGPT.NVTX.range_pop()
 
-      {:ok, item_ids, beam_scores, prefix_tokens}
+        {:ok, item_ids, beam_scores, prefix_tokens}
+      end
     end
   end
+
+  defp concrete_tensor?(%Nx.Tensor{data: data}), do: not is_struct(data, Nx.Defn.Expr)
+  defp concrete_tensor?(_), do: false
 
   defp build_get_logits_batch_tensor_fn(params, inference_backend, _ckpt_export_dir) do
     n_layers = Inference.n_layers_from_params(params)
@@ -805,28 +832,28 @@ defmodule RecGPT.Serve do
     else
       top_k = min(top_k, 20)
 
-      unless state.trie_tensors && state.item_id_to_tokens_tensor &&
-               state.get_logits_batch_tensor_fn do
-        raise "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"
-      end
+      if !state.trie_tensors || !state.item_id_to_tokens_tensor || !state.get_logits_batch_tensor_fn do
+        {:error,
+         "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"}
+      else
+        opts = decode_opts(state, item_ids)
 
-      opts = decode_opts(state, item_ids)
+        result =
+          Decode.beam_search_top_k_spmd(
+            state.trie_tensors,
+            state.item_id_to_tokens_tensor,
+            item_ids,
+            top_k,
+            state.get_logits_batch_tensor_fn,
+            state.inference_backend,
+            state.trie,
+            opts
+          )
 
-      result =
-        Decode.beam_search_top_k_spmd(
-          state.trie_tensors,
-          state.item_id_to_tokens_tensor,
-          item_ids,
-          top_k,
-          state.get_logits_batch_tensor_fn,
-          state.inference_backend,
-          state.trie,
-          opts
-        )
-
-      case result do
-        {:ok, list} -> {:ok, list}
-        :not_found -> {:ok, []}
+        case result do
+          {:ok, list} -> {:ok, list}
+          :not_found -> {:ok, []}
+        end
       end
     end
   end

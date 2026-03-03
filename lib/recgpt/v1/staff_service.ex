@@ -49,7 +49,7 @@ defmodule Recgpt.V1.StaffService.Server do
         %ListItemsResponse{items: catalog_items}
 
       {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "ListItems failed: #{inspect(reason)}"
+        {:error, GRPC.RPCError.exception(status: :internal, message: "ListItems failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
     end
   end
 
@@ -65,7 +65,7 @@ defmodule Recgpt.V1.StaffService.Server do
         %GetItemResponse{item_id: item_id, title: title, found: true}
 
       {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "GetItem failed: #{inspect(reason)}"
+        {:error, GRPC.RPCError.exception(status: :internal, message: "GetItem failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
     end
   end
 
@@ -74,15 +74,15 @@ defmodule Recgpt.V1.StaffService.Server do
       (request.items || []) |> Enum.map(fn c -> %{item_id: c.item_id, title: c.title || ""} end)
 
     if entries == [] do
-      raise GRPC.RPCError, status: :invalid_argument, message: "items must not be empty"
-    end
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "items must not be empty")}
+    else
+      case RecGPT.StaffApi.upsert_items(entries) do
+        :ok ->
+          %UpsertItemsResponse{}
 
-    case RecGPT.StaffApi.upsert_items(entries) do
-      :ok ->
-        %UpsertItemsResponse{}
-
-      {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "UpsertItems failed: #{inspect(reason)}"
+        {:error, reason} ->
+          {:error, GRPC.RPCError.exception(status: :internal, message: "UpsertItems failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+      end
     end
   end
 
@@ -90,17 +90,15 @@ defmodule Recgpt.V1.StaffService.Server do
     path = request.path || ""
 
     if path == "" do
-      raise GRPC.RPCError, status: :invalid_argument, message: "path is required"
-    end
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "path is required")}
+    else
+      case RecGPT.StaffApi.sync_items_from_json(path) do
+        :ok ->
+          %SyncItemsFromJsonResponse{}
 
-    case RecGPT.StaffApi.sync_items_from_json(path) do
-      :ok ->
-        %SyncItemsFromJsonResponse{}
-
-      {:error, reason} ->
-        raise GRPC.RPCError,
-          status: :internal,
-          message: "SyncItemsFromJson failed: #{inspect(reason)}"
+        {:error, reason} ->
+          {:error, GRPC.RPCError.exception(status: :internal, message: "SyncItemsFromJson failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+      end
     end
   end
 
@@ -112,17 +110,15 @@ defmodule Recgpt.V1.StaffService.Server do
       |> Enum.map(fn c -> %{"id" => c.item_id, "title" => c.title || ""} end)
 
     if path == "" do
-      raise GRPC.RPCError, status: :invalid_argument, message: "path is required"
-    end
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "path is required")}
+    else
+      case RecGPT.StaffApi.write_items_json(path, items) do
+        :ok ->
+          %WriteItemsJsonResponse{}
 
-    case RecGPT.StaffApi.write_items_json(path, items) do
-      :ok ->
-        %WriteItemsJsonResponse{}
-
-      {:error, reason} ->
-        raise GRPC.RPCError,
-          status: :internal,
-          message: "WriteItemsJson failed: #{inspect(reason)}"
+        {:error, reason} ->
+          {:error, GRPC.RPCError.exception(status: :internal, message: "WriteItemsJson failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+      end
     end
   end
 
@@ -130,17 +126,15 @@ defmodule Recgpt.V1.StaffService.Server do
     data_dir = request.data_dir || ""
 
     if data_dir == "" do
-      raise GRPC.RPCError, status: :invalid_argument, message: "data_dir is required"
-    end
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "data_dir is required")}
+    else
+      case RecGPT.StaffApi.sync_sequences(data_dir) do
+        :ok ->
+          %SyncSequencesResponse{}
 
-    case RecGPT.StaffApi.sync_sequences(data_dir) do
-      :ok ->
-        %SyncSequencesResponse{}
-
-      {:error, reason} ->
-        raise GRPC.RPCError,
-          status: :internal,
-          message: "SyncSequences failed: #{inspect(reason)}"
+        {:error, reason} ->
+          {:error, GRPC.RPCError.exception(status: :internal, message: "SyncSequences failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+      end
     end
   end
 
@@ -149,12 +143,9 @@ defmodule Recgpt.V1.StaffService.Server do
     ckpt_dir = request.ckpt_dir || ""
 
     if items_path == "" or ckpt_dir == "" do
-      raise GRPC.RPCError,
-        status: :invalid_argument,
-        message: "items_path and ckpt_dir are required"
-    end
-
-    opts = []
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "items_path and ckpt_dir are required")}
+    else
+      opts = []
 
     opts =
       if request.limit != nil and request.limit > 0,
@@ -182,16 +173,15 @@ defmodule Recgpt.V1.StaffService.Server do
               %BuildFixtureResponse{num_items: num_items, out_path: out_path}
 
             {:error, reason} ->
-              raise GRPC.RPCError,
-                status: :internal,
-                message: "WriteFixture failed: #{inspect(reason)}"
+              {:error, GRPC.RPCError.exception(status: :internal, message: "WriteFixture failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
           end
         else
           %BuildFixtureResponse{num_items: num_items, out_path: ""}
         end
 
       {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "BuildFixture failed: #{inspect(reason)}"
+        {:error, GRPC.RPCError.exception(status: :internal, message: "BuildFixture failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+    end
     end
   end
 
@@ -199,13 +189,14 @@ defmodule Recgpt.V1.StaffService.Server do
     path = request.path || ""
 
     if path == "" do
-      raise GRPC.RPCError, status: :invalid_argument, message: "path is required"
+      {:error, GRPC.RPCError.exception(status: :invalid_argument, message: "path is required")}
+    else
+      {:error,
+       GRPC.RPCError.exception(
+         status: :unimplemented,
+         message: "WriteFixture requires a prior BuildFixture with out_path; use BuildFixture with out_path set instead"
+       )}
     end
-
-    raise GRPC.RPCError,
-      status: :unimplemented,
-      message:
-        "WriteFixture requires a prior BuildFixture with out_path; use BuildFixture with out_path set instead"
   end
 
   def pretrain(request, _stream) do
@@ -217,12 +208,13 @@ defmodule Recgpt.V1.StaffService.Server do
 
     if ckpt_dir == "" or fixture_path == "" or train_path == "" or items_path == "" or
          out_dir == "" do
-      raise GRPC.RPCError,
-        status: :invalid_argument,
-        message: "ckpt_dir, fixture_path, train_path, items_path, out_dir are required"
-    end
-
-    opts =
+      {:error,
+       GRPC.RPCError.exception(
+         status: :invalid_argument,
+         message: "ckpt_dir, fixture_path, train_path, items_path, out_dir are required"
+       )}
+    else
+      opts =
       [
         ckpt_dir: ckpt_dir,
         fixture_path: fixture_path,
@@ -236,12 +228,13 @@ defmodule Recgpt.V1.StaffService.Server do
       ]
       |> Enum.reject(fn {_k, v} -> v == nil end)
 
-    case RecGPT.StaffApi.pretrain(opts) do
-      :ok ->
-        %PretrainResponse{}
+      case RecGPT.StaffApi.pretrain(opts) do
+        :ok ->
+          %PretrainResponse{}
 
-      {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "Pretrain failed: #{inspect(reason)}"
+        {:error, reason} ->
+          {:error, GRPC.RPCError.exception(status: :internal, message: "Pretrain failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
+      end
     end
   end
 
@@ -254,9 +247,7 @@ defmodule Recgpt.V1.StaffService.Server do
         %SetCanonicalTextsResponse{}
 
       {:error, reason} ->
-        raise GRPC.RPCError,
-          status: :internal,
-          message: "SetCanonicalTexts failed: #{inspect(reason)}"
+        {:error, GRPC.RPCError.exception(status: :internal, message: "SetCanonicalTexts failed: #{RecGPT.SafeInspect.safe_inspect(reason)}")}
     end
   end
 end

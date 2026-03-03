@@ -20,6 +20,19 @@ defmodule RecGPT.InferenceDefn do
     {logits, cache}
   end
 
+  # Map return avoids tuple/element/2 so EXLA defn accepts it; used only by generated beam_search_fused_k.
+  defn forward_with_cache_map(batch_token_ids, batch_aux, embed_mask, params) do
+    res = forward_hidden_with_cache_map(batch_token_ids, batch_aux, embed_mask, params)
+    last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
+    last_hidden = res.hidden |> Nx.slice_along_axis(last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
+    logits = apply_head(last_hidden, params)
+    %{
+      logits: logits,
+      c0: res.c0, c1: res.c1, c2: res.c2, c3: res.c3, c4: res.c4, c5: res.c5,
+      c6: res.c6, c7: res.c7, c8: res.c8, c9: res.c9, c10: res.c10, c11: res.c11
+    }
+  end
+
   defn forward_incremental(batch_token_ids, batch_aux, embed_mask, params, past_cache, past_len) do
     {hidden, new_cache} =
       forward_hidden_incremental(
@@ -40,9 +53,8 @@ defmodule RecGPT.InferenceDefn do
   Fused beam search: one Defn for step 0 + steps 1–3 (four forwards in a single graph).
   Reduces kernel launch overhead. All inputs must be on the same EXLA backend.
 
-  context_len_scalar: scalar tensor (type {:s, 32}) with the context length (same as axis 1 of context_tokens).
-  Returns {item_ids, beam_scores, prefix_tokens} for the single sync and post-decode.
-  Does not support initial_step0 (context cache); use unfused path when cache hit.
+  Use beam_search_fused_k_N/13 (N = 4..20) so that Nx.top_k receives a literal k and
+  Nx.Shape.top_k is not given an expression (which would trigger String.Chars on error path).
   """
   defn beam_search_fused(
         context_tokens,
@@ -58,97 +70,54 @@ defmodule RecGPT.InferenceDefn do
         root_state,
         neg_inf,
         vocab_t,
-        beam_width
+        _beam_width
       ) do
-    # Step 0: full forward, then trie/top_k
-    {logits_0, cache} = forward_with_cache(context_tokens, batch_aux_0, embed_mask_0, params)
-    # logits_0 {1, vocab_size}
-    context_len = Nx.axis_size(context_tokens, 1)
-    vocab_size = elem(Nx.shape(next_state), 1)
+    # Delegates to k=20 variant; use beam_search_fused_k_N/13 in production to avoid Defn.Expr in Nx.top_k.
+    beam_search_fused_k_20(
+      context_tokens,
+      context_len_scalar,
+      past_len_offset_1,
+      past_len_offset_2,
+      past_len_offset_3,
+      batch_aux_0,
+      embed_mask_0,
+      params,
+      next_state,
+      item_at_leaf,
+      root_state,
+      neg_inf,
+      vocab_t
+    )
+  end
 
-    valid_0 = Nx.gather(next_state, Nx.reshape(root_state, {1, 1})) |> Nx.reshape({:auto})
-    valid_mask_0 = Nx.greater_equal(valid_0, 0)
-    scores_0 = Nx.select(valid_mask_0, Nx.reshape(logits_0, {:auto}), neg_inf)
-    {top_scores_0, top_indices_0} = Nx.top_k(scores_0, k: beam_width)
-    top_token_ids_0 = Nx.reshape(top_indices_0, {:auto}) |> Nx.as_type({:s, 32})
-    state_ids_0 = gather_2d_defn(next_state, root_state, top_token_ids_0)
-    prefix_tokens_0 = Nx.reshape(top_token_ids_0, {beam_width, 1})
-    beam_scores_0 = Nx.as_type(top_scores_0, {:f, 32})
+  # Generated fused beam search with literal k (4..20) so Nx.top_k(scores, k: k) gets an integer.
+  use RecGPT.InferenceDefn.BeamSearchFused
 
-    cache_rep = replicate_cache_defn(cache, beam_width)
-    aux_incr = Nx.broadcast(Nx.tensor(0, type: Nx.type(batch_aux_0)), {beam_width, 1, 192})
-    mask_incr = Nx.broadcast(Nx.tensor(1, type: Nx.type(embed_mask_0)), {beam_width, 1, 1})
-
-    # Step 1
-    {state_ids_1, prefix_tokens_1, beam_scores_1, cache_1} =
-      beam_step_defn(
-        next_state,
-        item_at_leaf,
-        context_tokens,
-        context_len,
-        context_len_scalar,
-        past_len_offset_1,
-        1,
-        beam_width,
-        vocab_size,
-        state_ids_0,
-        prefix_tokens_0,
-        beam_scores_0,
-        cache_rep,
-        params,
-        aux_incr,
-        mask_incr,
-        neg_inf,
-        vocab_t
-      )
-
-    # Step 2
-    {state_ids_2, prefix_tokens_2, beam_scores_2, cache_2} =
-      beam_step_defn(
-        next_state,
-        item_at_leaf,
-        context_tokens,
-        context_len,
-        context_len_scalar,
-        past_len_offset_2,
-        2,
-        beam_width,
-        vocab_size,
-        state_ids_1,
-        prefix_tokens_1,
-        beam_scores_1,
-        cache_1,
-        params,
-        aux_incr,
-        mask_incr,
-        neg_inf,
-        vocab_t
-      )
-
-    # Step 3: returns item_ids and prefix_tokens
-    {_state_ids_3, prefix_tokens_3, beam_scores_3, _cache_3, item_ids} =
-      beam_step_defn(
-        next_state,
-        item_at_leaf,
-        context_tokens,
-        context_len,
-        context_len_scalar,
-        past_len_offset_3,
-        3,
-        beam_width,
-        vocab_size,
-        state_ids_2,
-        prefix_tokens_2,
-        beam_scores_2,
-        cache_2,
-        params,
-        aux_incr,
-        mask_incr,
-        neg_inf,
-        vocab_t
-      )
-
-    {item_ids, beam_scores_3, prefix_tokens_3}
+  @doc """
+  Returns the beam_search_fused_k_N/13 function for the given k (4..20).
+  Used by Serve to JIT the correct variant so Nx.top_k receives a literal k.
+  """
+  def beam_search_fused_fun_for_k(k) when k in 4..20 do
+    case k do
+      4 -> &beam_search_fused_k_4/13
+      5 -> &beam_search_fused_k_5/13
+      6 -> &beam_search_fused_k_6/13
+      7 -> &beam_search_fused_k_7/13
+      8 -> &beam_search_fused_k_8/13
+      9 -> &beam_search_fused_k_9/13
+      10 -> &beam_search_fused_k_10/13
+      11 -> &beam_search_fused_k_11/13
+      12 -> &beam_search_fused_k_12/13
+      13 -> &beam_search_fused_k_13/13
+      14 -> &beam_search_fused_k_14/13
+      15 -> &beam_search_fused_k_15/13
+      16 -> &beam_search_fused_k_16/13
+      17 -> &beam_search_fused_k_17/13
+      18 -> &beam_search_fused_k_18/13
+      19 -> &beam_search_fused_k_19/13
+      20 -> &beam_search_fused_k_20/13
+      _ -> &beam_search_fused_k_20/13
+    end
   end
 
   defnp replicate_cache_defn(cache_tuple, batch_size) do
@@ -286,6 +255,32 @@ defmodule RecGPT.InferenceDefn do
     {h, cache}
   end
 
+  # Map return for fused beam only; avoids tuple so EXLA does not hit element/2.
+  defnp forward_hidden_with_cache_map(batch_token_ids, batch_aux, embed_mask, params) do
+    wte = params[:wte]
+    {batch, seq_len} = Nx.shape(batch_token_ids)
+    flat_ids = Nx.reshape(batch_token_ids, {batch * seq_len})
+    token_embeds = Nx.gather(wte, Nx.new_axis(flat_ids, -1))
+    token_embeds = Nx.reshape(token_embeds, {batch, seq_len, @n_embd})
+    aux_768 = apply_aux_encoder(batch_aux, embed_mask, params)
+    combined = Nx.add(token_embeds, aux_768)
+    h = add_wpe(combined, params, seq_len)
+    {h, c0} = block_with_cache_0(h, params)
+    {h, c1} = block_with_cache_1(h, params)
+    {h, c2} = block_with_cache_2(h, params)
+    {h, c3} = block_with_cache_3(h, params)
+    {h, c4} = block_with_cache_4(h, params)
+    {h, c5} = block_with_cache_5(h, params)
+    {h, c6} = block_with_cache_6(h, params)
+    {h, c7} = block_with_cache_7(h, params)
+    {h, c8} = block_with_cache_8(h, params)
+    {h, c9} = block_with_cache_9(h, params)
+    {h, c10} = block_with_cache_10(h, params)
+    {h, c11} = block_with_cache_11(h, params)
+    h = apply_ln_f(h, params)
+    %{hidden: h, c0: c0, c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, c9: c9, c10: c10, c11: c11}
+  end
+
   defnp forward_hidden_incremental(
           batch_token_ids,
           batch_aux,
@@ -318,6 +313,59 @@ defmodule RecGPT.InferenceDefn do
     new_cache = {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11}
     h = apply_ln_f(h, params)
     {h, new_cache}
+  end
+
+  # 12 cache args + past_len; map return for fused beam (no tuple/element/2).
+  defnp forward_hidden_incremental_12(
+          batch_token_ids,
+          batch_aux,
+          embed_mask,
+          params,
+          c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11,
+          past_len
+        ) do
+    wte = params[:wte]
+    {batch, _seq_len} = Nx.shape(batch_token_ids)
+    flat_ids = Nx.reshape(batch_token_ids, {batch})
+    token_embeds = Nx.gather(wte, Nx.new_axis(flat_ids, -1))
+    token_embeds = Nx.reshape(token_embeds, {batch, 1, @n_embd})
+    aux_768 = apply_aux_encoder(batch_aux, embed_mask, params)
+    combined = Nx.add(token_embeds, aux_768)
+    h = add_wpe_at_position(combined, past_len, params)
+    {h, c0} = block_incremental_0(h, params, c0, past_len)
+    {h, c1} = block_incremental_1(h, params, c1, past_len)
+    {h, c2} = block_incremental_2(h, params, c2, past_len)
+    {h, c3} = block_incremental_3(h, params, c3, past_len)
+    {h, c4} = block_incremental_4(h, params, c4, past_len)
+    {h, c5} = block_incremental_5(h, params, c5, past_len)
+    {h, c6} = block_incremental_6(h, params, c6, past_len)
+    {h, c7} = block_incremental_7(h, params, c7, past_len)
+    {h, c8} = block_incremental_8(h, params, c8, past_len)
+    {h, c9} = block_incremental_9(h, params, c9, past_len)
+    {h, c10} = block_incremental_10(h, params, c10, past_len)
+    {h, c11} = block_incremental_11(h, params, c11, past_len)
+    h = apply_ln_f(h, params)
+    %{hidden: h, c0: c0, c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, c9: c9, c10: c10, c11: c11}
+  end
+
+  defn forward_incremental_map(batch_token_ids, batch_aux, embed_mask, params, cache_map, past_len) do
+    res =
+      forward_hidden_incremental_12(
+        batch_token_ids,
+        batch_aux,
+        embed_mask,
+        params,
+        cache_map.c0, cache_map.c1, cache_map.c2, cache_map.c3, cache_map.c4, cache_map.c5,
+        cache_map.c6, cache_map.c7, cache_map.c8, cache_map.c9, cache_map.c10, cache_map.c11,
+        past_len
+      )
+    last_hidden = Nx.squeeze(res.hidden, axes: [1])
+    logits = apply_head(last_hidden, params)
+    %{
+      logits: logits,
+      c0: res.c0, c1: res.c1, c2: res.c2, c3: res.c3, c4: res.c4, c5: res.c5,
+      c6: res.c6, c7: res.c7, c8: res.c8, c9: res.c9, c10: res.c10, c11: res.c11
+    }
   end
 
   defnp apply_aux_encoder(aux_192, mask, params) do

@@ -5,6 +5,9 @@ defmodule RecGPT.Decode do
   Decodes 4 tokens (one RecGPT item) over 4 steps, restricting at each step
   to tokens that are valid prefixes in the catalog trie. Uses trie tensors
   and batch inference on device with a single CPU sync at the end.
+
+  STATIC-style minimal sync: top-k selection is done on GPU (Nx.top_k + gather);
+  only the top-k item_ids, scores, and prefix_tokens are transferred to host.
   """
 
   alias RecGPT.Trie
@@ -122,27 +125,24 @@ defmodule RecGPT.Decode do
         )
       end
 
-    # Single sync: transfer item_ids and scores; only transfer prefix_tokens when any item_id < 0 (trie fallback)
+    # STATIC: GPU-side top-k selection so we transfer only top_k elements (minimal sync).
     RecGPT.NVTX.range_push("decode_sync")
-    # Force host transfer so fused/EXLA tensors are materialized, then coerce to plain integers
-    item_ids_host = Nx.backend_transfer(item_ids, Nx.BinaryBackend)
-    item_ids_list =
-      item_ids_host
-      |> Nx.to_flat_list()
-      |> Enum.map(&decode_item_id_to_int/1)
+    k = min(top_k, Nx.axis_size(item_ids, 0))
+    {_top_scores, sort_indices} = Nx.top_k(beam_scores, k: k)
+    sort_indices = Nx.new_axis(sort_indices, -1)
+    item_ids_slice = Nx.gather(item_ids, sort_indices) |> Nx.reshape({:auto})
+    scores_slice = Nx.gather(beam_scores, sort_indices) |> Nx.reshape({:auto})
+    prefix_tokens_slice = Nx.gather(prefix_tokens, sort_indices)
 
-    scores_list = Nx.to_flat_list(beam_scores)
-
+    # Single host transfer: only the top_k slice (not full beam).
+    item_ids_host = Nx.backend_transfer(item_ids_slice, Nx.BinaryBackend)
+    item_ids_list = item_ids_host |> Nx.to_flat_list() |> Enum.map(&decode_item_id_to_int/1)
+    scores_list = Nx.backend_transfer(scores_slice, Nx.BinaryBackend) |> Nx.to_flat_list()
     prefix_tokens_list =
-      if Enum.any?(item_ids_list, &(&1 < 0)) do
-        prefix_tokens
-        |> Nx.backend_transfer(Nx.BinaryBackend)
-        |> Nx.to_flat_list()
-        |> Enum.chunk_every(4)
-      else
-        # Ablation: skip device→host transfer when all item_ids resolved from item_at_leaf
-        List.duplicate([0, 0, 0, 0], length(item_ids_list))
-      end
+      prefix_tokens_slice
+      |> Nx.backend_transfer(Nx.BinaryBackend)
+      |> Nx.to_flat_list()
+      |> Enum.chunk_every(4)
 
     RecGPT.NVTX.range_pop()
 

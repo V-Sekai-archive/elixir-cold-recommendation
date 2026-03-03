@@ -4,6 +4,8 @@ defmodule RecGPT.GRPCEndpoint do
   """
   use GRPC.Endpoint
 
+  intercept(RecGPT.GRPC.ErrorReturnInterceptor)
+
   run(Recgpt.V1.PredictionService.Server)
   run(Recgpt.V1.StaffService.Server)
 end
