@@ -1,6 +1,6 @@
 # Review: thirdparty/bs-p — tricks we can borrow
 
-`bs-p` (polymarket-kernel) is a low-latency C/Rust kernel for prediction-market quoting and analytics. It emphasizes **zero hot-path allocation**, **SoA batch layout**, **lock-free SPSC ring buffer**, and **fast math**. Below is what RecGPT can reuse or adapt.
+[bs-p](https://github.com/lubluniky/bs-p) (polymarket-kernel) is a low-latency C/Rust kernel for prediction-market quoting and analytics. It emphasizes **zero hot-path allocation**, **SoA batch layout**, **lock-free SPSC ring buffer**, and **fast math**. Below is what RecGPT can reuse or adapt.
 
 ---
 
@@ -106,8 +106,9 @@
 
 ## References
 
-- `thirdparty/bs-p/README.md` — overview, features, benchmark snapshot.
-- `thirdparty/bs-p/DOCS.md` — math (logit space, Avellaneda–Stoikov, analytics).
+- [bs-p (GitHub)](https://github.com/lubluniky/bs-p) — polymarket-kernel repo
+- [README.md](https://github.com/lubluniky/bs-p/blob/main/README.md) — overview, features, benchmark snapshot
+- [DOCS.md](https://github.com/lubluniky/bs-p/blob/main/DOCS.md) — math (logit space, Avellaneda–Stoikov, analytics)
 - `thirdparty/bs-p/src/ring_buffer.rs` — SPSC API; `c_src/ring_buffer.c` — lock-free impl.
 - `thirdparty/bs-p/c_src/kernel.c` — AVX-512 batch sigmoid, log1p, quote loop.
 - `thirdparty/bs-p/examples/bench.rs` — warm-up, black_box, quote + SPSC throughput.
