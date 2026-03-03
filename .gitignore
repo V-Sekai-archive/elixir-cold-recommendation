@@ -61,6 +61,9 @@ data/recgpt_ckpt_export/*
 # EXLA JIT disk cache (compiled XLA binaries)
 tmp/exla_cache/
 
+# Nsight Systems GPU profiles (mix recgpt.ad_hoc_test --profile)
+*.nsys-rep
+
 # Pipeline / runtime data (Steam, checkpoints, fixture, exports)
 data/
 
