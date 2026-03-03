@@ -59,6 +59,24 @@ RecGPT’s share of the latency budget:
 - **Target P50:** **20 ms** (primary round-number target for the RecGPT component; reflex-logic-market + bs-p add &lt;0.1 ms).
 - **Target P99:** configurable (e.g. 60 ms with buffer under E2E ceiling). Formula: `RecGPT_target_P99 = max_profitable_P99 − reflex_logic_market_P99 − bs_p_P99 − buffer_ms`.
 
-**Config:** `config :recgpt, :target_p50_ms, 20` and `config :recgpt, :target_p99_ms, 60` (or env `RECGPT_TARGET_P50_MS` / `RECGPT_TARGET_P99_MS`). See [latency_flow.md](latency_flow.md) for the end-to-end flow diagram and per-stage optimization table.
+**Config:** `config :recgpt, :target_p50_ms, 20` and `config :recgpt, :target_p99_ms, 60` (or env `RECGPT_TARGET_P50_MS` / `RECGPT_TARGET_P99_MS`). See [latency_flow.md](latency_flow.md) for the end-to-end flow diagram and per-stage optimization table. **Strategy given latency ceiling:** [strategy_given_latency_ceiling.md](strategy_given_latency_ceiling.md) maps RecGPT's ~200–280 ms to the constraint framework (Binary/Bundle vs Catalyst/Combinatorial) and defines when to use or bypass RecGPT.
 
 **Monitoring:** With `config :recgpt, :trace_predict, true`, per-request latencies are recorded in `RecGPT.LatencyStats`. Use `RecGPT.LatencyStats.get_percentiles/0` for recent P50/P95/P99 and `RecGPT.LatencyStats.check_slo/0` to assert targets. The health server exposes **GET /slo** (e.g. `curl http://localhost:50052/slo`): 200 when within SLO, 503 with message when P50 or P99 exceed target (for CI or alerting).
+
+**External benchmark (hyperfine + grpcurl):** With `mix recgpt.serve` running, measure client-side latency and percentiles:
+
+```bash
+hyperfine --warmup 3 --runs 50 --export-json /tmp/hf.json -- "grpcurl -plaintext -import-path /workspaces/elixir-recgpt/priv/proto -proto recgpt/v1/recommendation.proto -d '{\"max_results\":5,\"context_item_ids\":[1,2,3,4]}' -format json localhost:50051 recgpt.v1.PredictionService/Predict" && python3 -c "
+import json
+with open('/tmp/hf.json') as f:
+    data = json.load(f)
+times = sorted(data['results'][0]['times'])
+n = len(times)
+p50 = times[int((n-1) * 50 / 100)] * 1000
+p90 = times[int((n-1) * 90 / 100)] * 1000
+p99 = times[int((n-1) * 99 / 100)] * 1000
+print(f'p50: {p50:.2f} ms')
+print(f'p90: {p90:.2f} ms')
+print(f'p99: {p99:.2f} ms')
+"
+```
