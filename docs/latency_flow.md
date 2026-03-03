@@ -160,6 +160,9 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 ## Optimizations to reach 20 ms P50
 
+**Implemented (hot path):** Config and constants are read once at load: `beam_width_override` and decode constants (`root_state`, `neg_inf`, `vocab_t`) live in Serve state and are passed to Decode via opts, so no `Application.get_env` or repeated tensor create+transfer per request. Pre-alloc aux/mask on device for full (1×256×192) and incremental (20×1×192); closure slices when shape fits. KV cache padding uses a zero scalar on the target backend before broadcast so padding stays on device.
+
+**Still to do / config:**
 1. **BF16** — Set `config :recgpt, :inference_dtype, {:bf, 16}`. Largest single gain (1.3–2×) on the four forward passes.
 2. **Minimize host round-trips** — Single sync only; no extra `backend_transfer` or `to_flat_list` in the loop. All index tensors for `gather_2d` already on same backend as the tensor they index.
 3. **Aux/mask construction** — In `build_get_logits_batch_tensor_fn`, aux and mask are built every call; if shapes are fixed, consider reusing or caching on device (minor).

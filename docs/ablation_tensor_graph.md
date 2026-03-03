@@ -7,7 +7,7 @@ Goal: identify components that can be removed or simplified to improve latency *
 
 Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor graph.
 
-**Pretraining compatibility:** Inference-only ablations (e.g. skip aux path when aux=0, skip prefix_tokens transfer, beam_width override) do not change the model or checkpoint; pretraining continues to use the full graph (e.g. aux encoder in training). Ablations that remove a component from the *model* (e.g. delete aux encoder entirely) would require pretraining again without that component and a new checkpoint.
+**Pretraining compatibility:** Inference-only ablations (e.g. skip prefix_tokens transfer, beam_width override) do not change the model or checkpoint; pretraining continues to use the full graph (e.g. aux encoder in training). Ablations that remove a component from the *model* (e.g. delete aux encoder entirely) would require pretraining again without that component and a new checkpoint.
 
 **Methodology:** Remove or change one component at a time and re-measure so the impact is not confounded. Report both latency (e.g. mean and P50/P99 from `mix recgpt.trace_predict --runs N`) and quality (Hit@k, MRR from `mix recgpt.eval`) when comparing baseline vs ablated config. Re-test with different context lengths and top_k where relevant (e.g. beam ablation affects steps 1–3 more for larger beam).
 
@@ -32,7 +32,7 @@ Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor gr
 
 ## What must stay (cannot remove without breaking)
 
-- **Pretraining:** Training code (e.g. `RecGPT.Training`, `RecGPT.AxonTrain`, inference used in loss) must keep the full graph so we can pretrain; inference-only shortcuts (e.g. skip_aux_encoder when aux=0) do not touch training.
+- **Pretraining:** Training code (e.g. `RecGPT.Training`, `RecGPT.AxonTrain`, inference used in loss) must keep the full graph so we can pretrain; inference-only shortcuts (e.g. beam_width override) do not touch training.
 - **Context → tokens** and **embed**: model input.
 - **WPE**: position information.
 - **All 12 blocks + LN + head**: model body; changing depth requires a different model.
@@ -78,17 +78,15 @@ Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor gr
 
 ## Implemented ablations
 
-- **Aux path:** Set `config :recgpt, :skip_aux_encoder, true` to use `forward_with_cache_no_aux` / `forward_incremental_no_aux` (no aux/mask build or add). Compare item_ids to baseline; if unchanged, keep.
 - **Beam width:** Set `RECGPT_BEAM_WIDTH_OVERRIDE=1` (or `config :recgpt, :beam_width_override, 1`) for greedy decode. Compare latency and quality vs adaptive beam.
 - **Sync:** Decode now transfers `prefix_tokens` to host only when any `item_id < 0` (trie fallback). When all resolved from `item_at_leaf`, transfer is skipped.
-- **Mask skip:** Handled by the no-aux path (no multiply when skip_aux_encoder is true).
+
+**Removed:** The skip_aux_encoder (no-aux) path was removed: it changed recommendation item_ids and did not improve latency in testing.
 
 ## Suggested ablation order
 
-1. **Aux path** — Run with `skip_aux_encoder: true`, trace_predict and a small test set; compare item_ids (and scores if needed). If unchanged, keep skip.
-2. **Beam width** — For top_k=1, `RECGPT_BEAM_WIDTH_OVERRIDE=1 mix recgpt.trace_predict` vs default; compare latency and one-item quality.
-3. **Sync** — Already on: prefix_tokens transfer skipped when all item_ids ≥ 0. Measure and confirm -1 rarely occurs.
-4. **Mask skip** — Use no-aux path (step 1).
+1. **Beam width** — For top_k=1, `RECGPT_BEAM_WIDTH_OVERRIDE=1 mix recgpt.trace_predict` vs default; compare latency and one-item quality.
+2. **Sync** — Already on: prefix_tokens transfer skipped when all item_ids ≥ 0. Measure and confirm -1 rarely occurs.
 
 ---
 
@@ -96,6 +94,8 @@ Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor gr
 
 - **Latency:** `mix recgpt.trace_predict --runs 10 --jitter-ms 3` (or more runs). Compare total ms, P50/P99, and inference μs between baseline and ablated config. Use the same context/top_k for both.
 - **Quality:** `mix recgpt.eval` (or `mix recgpt.eval_grpc`) on the same fixture, checkpoint, and test set. Compare Hit@1, Hit@5, Hit@10, and MRR; ensure ablated config does not regress beyond an acceptable threshold. See [06 Evaluation and testing](06_evaluation_and_testing.md) and `mix recgpt.eval --help`.
+
+**Sample run (3 runs, context=[0], top_k=10):** Baseline (default beam): mean ≈524 ms, p50 ≈523 ms, item_ids e.g. [49,43,6,157,301,…]. With `RECGPT_BEAM_WIDTH_OVERRIDE=1`: one item returned [411], mean ≈543 ms; use for top_k=1 latency vs quality tradeoff.
 
 ---
 

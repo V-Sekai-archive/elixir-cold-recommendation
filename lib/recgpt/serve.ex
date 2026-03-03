@@ -33,7 +33,9 @@ defmodule RecGPT.Serve do
     :get_logits_fn,
     :get_logits_batch_fn,
     :get_logits_batch_tensor_fn,
-    :inference_backend
+    :inference_backend,
+    :beam_width_override,
+    :decode_constants
   ]
 
   @type state :: %__MODULE__{
@@ -54,7 +56,9 @@ defmodule RecGPT.Serve do
           get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
           get_logits_batch_fn: ([[non_neg_integer()]], term() -> {Nx.Tensor.t(), term()}) | nil,
           get_logits_batch_tensor_fn: (Nx.Tensor.t(), term() -> {Nx.Tensor.t(), term()}) | nil,
-          inference_backend: term() | nil
+          inference_backend: term() | nil,
+          beam_width_override: non_neg_integer() | nil,
+          decode_constants: %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil
         }
 
   @doc """
@@ -84,6 +88,10 @@ defmodule RecGPT.Serve do
       get_logits_batch_tensor_fn =
         build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
+      {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
+      decode_constants = build_decode_constants(inference_backend, vocab_size)
+      beam_width_override = Application.get_env(:recgpt, :beam_width_override)
+
       state = %__MODULE__{
         params: params,
         trie: trie,
@@ -96,7 +104,9 @@ defmodule RecGPT.Serve do
         get_logits_fn: get_logits_fn,
         get_logits_batch_fn: get_logits_batch_fn,
         get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
-        inference_backend: inference_backend
+        inference_backend: inference_backend,
+        beam_width_override: beam_width_override,
+        decode_constants: decode_constants
       }
 
       {:ok, state}
@@ -130,6 +140,10 @@ defmodule RecGPT.Serve do
       get_logits_batch_tensor_fn =
         build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir)
 
+      {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
+      decode_constants = build_decode_constants(inference_backend, vocab_size)
+      beam_width_override = Application.get_env(:recgpt, :beam_width_override)
+
       state = %__MODULE__{
         params: params,
         trie: trie,
@@ -142,7 +156,9 @@ defmodule RecGPT.Serve do
         get_logits_fn: get_logits_fn,
         get_logits_batch_fn: get_logits_batch_fn,
         get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
-        inference_backend: inference_backend
+        inference_backend: inference_backend,
+        beam_width_override: beam_width_override,
+        decode_constants: decode_constants
       }
 
       {:ok, state}
@@ -383,17 +399,22 @@ defmodule RecGPT.Serve do
     }
   end
 
-  defp build_jit(skip_aux) do
-    if skip_aux do
-      jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache_no_aux/2, compiler: EXLA)
-      jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental_no_aux/4, compiler: EXLA)
-      {:no_aux, jit_full, jit_incr}
-    else
-      jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
-      jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
-      {:aux, jit_full, jit_incr}
-    end
+  defp build_decode_constants(backend, vocab_size) do
+    dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
+    root_state = Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
+    neg_inf = Nx.tensor(-1.0e9, type: dtype) |> Nx.backend_transfer(backend)
+    vocab_t = Nx.tensor(vocab_size, type: {:s, 32}) |> Nx.backend_transfer(backend)
+    %{root_state: root_state, neg_inf: neg_inf, vocab_t: vocab_t}
   end
+
+  defp build_jit do
+    jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+    jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
+    {jit_full, jit_incr}
+  end
+
+  @pre_alloc_max_context 256
+  @pre_alloc_max_beam 20
 
   defp build_get_logits_batch_tensor_fn(params, inference_backend, _ckpt_export_dir) do
     n_layers = Inference.n_layers_from_params(params)
@@ -401,17 +422,38 @@ defmodule RecGPT.Serve do
     defn_params = InferenceParams.build_defn_params(params, n_layers, dtype)
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
 
-    skip_aux = Application.get_env(:recgpt, :skip_aux_encoder, false)
-    {aux_mode, jit_full, jit_incr} = build_jit(skip_aux)
+    {jit_full, jit_incr} = build_jit()
+
+    # Pre-alloc aux/mask on device for common shapes to avoid repeated alloc+transfer per request
+    pre_aux_full =
+      Nx.broadcast(0.0, {1, @pre_alloc_max_context, 192})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
+    pre_mask_full =
+      Nx.broadcast(1.0, {1, @pre_alloc_max_context, 1})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
+
+    pre_aux_incr =
+      Nx.broadcast(0.0, {@pre_alloc_max_beam, 1, 192})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
+    pre_mask_incr =
+      Nx.broadcast(1.0, {@pre_alloc_max_beam, 1, 1})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
 
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)
 
       if cache == nil do
         RecGPT.NVTX.range_push("forward_with_cache")
-        {logits, cache_tuple} =
-          if aux_mode == :no_aux do
-            jit_full.(batch_tensor, defn_params)
+        {aux, mask} =
+          if seq_len <= @pre_alloc_max_context and batch_size == 1 do
+            {
+              pre_aux_full |> Nx.slice_along_axis(0, seq_len, axis: 1),
+              pre_mask_full |> Nx.slice_along_axis(0, seq_len, axis: 1)
+            }
           else
             aux =
               Nx.broadcast(0.0, {batch_size, seq_len, 192})
@@ -421,8 +463,9 @@ defmodule RecGPT.Serve do
               Nx.broadcast(1.0, {batch_size, seq_len, 1})
               |> Nx.as_type(dtype)
               |> Nx.backend_transfer(inference_backend)
-            jit_full.(batch_tensor, aux, mask, defn_params)
+            {aux, mask}
           end
+        {logits, cache_tuple} = jit_full.(batch_tensor, aux, mask, defn_params)
         RecGPT.NVTX.range_pop()
         padded = pad_cache_to_fixed(cache_tuple, inference_backend)
         {logits, padded}
@@ -434,9 +477,12 @@ defmodule RecGPT.Serve do
           Nx.tensor(seq_len - 1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
 
         RecGPT.NVTX.range_push("forward_incremental")
-        {logits, new_cache} =
-          if aux_mode == :no_aux do
-            jit_incr.(last_tokens, defn_params, cache_tuple, past_len)
+        {aux_one, mask_one} =
+          if batch_size <= @pre_alloc_max_beam do
+            {
+              pre_aux_incr |> Nx.slice_along_axis(0, batch_size, axis: 0),
+              pre_mask_incr |> Nx.slice_along_axis(0, batch_size, axis: 0)
+            }
           else
             aux_one =
               Nx.broadcast(0.0, {batch_size, 1, 192})
@@ -446,8 +492,10 @@ defmodule RecGPT.Serve do
               Nx.broadcast(1.0, {batch_size, 1, 1})
               |> Nx.as_type(dtype)
               |> Nx.backend_transfer(inference_backend)
-            jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+            {aux_one, mask_one}
           end
+        {logits, new_cache} =
+          jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
         RecGPT.NVTX.range_pop()
         {logits, new_cache}
       end
@@ -474,8 +522,10 @@ defmodule RecGPT.Serve do
         if pad_count == 0 do
           {k, v}
         else
-          zeros_k = Nx.broadcast(Nx.tensor(0, type: ttype), {b, n_head, pad_count, hd})
-          zeros_v = Nx.broadcast(Nx.tensor(0, type: ttype), {b, n_head, pad_count, hd})
+          # Create zero scalar on target backend to avoid host→device transfer of padding
+          zero = Nx.tensor(0, type: ttype) |> Nx.backend_transfer(backend)
+          zeros_k = Nx.broadcast(zero, {b, n_head, pad_count, hd})
+          zeros_v = Nx.broadcast(zero, {b, n_head, pad_count, hd})
 
           {Nx.concatenate([k, zeros_k], axis: 2) |> Nx.backend_transfer(backend),
            Nx.concatenate([v, zeros_v], axis: 2) |> Nx.backend_transfer(backend)}
@@ -552,6 +602,11 @@ defmodule RecGPT.Serve do
         raise "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"
       end
 
+      opts = [
+        beam_width_override: state.beam_width_override,
+        constants: state.decode_constants
+      ]
+
       result =
         Decode.beam_search_top_k_spmd(
           state.trie_tensors,
@@ -560,7 +615,8 @@ defmodule RecGPT.Serve do
           top_k,
           state.get_logits_batch_tensor_fn,
           state.inference_backend,
-          state.trie
+          state.trie,
+          opts
         )
 
       case result do
