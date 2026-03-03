@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - **Decode:** SPMD-only; list-based decode removed.
-- **Config:** `exla_jit_cache_dir`, `inference_dtype`, `max_cache_len` in `config.exs`.
+- **Config:** `inference_dtype`, `max_cache_len` in `config.exs`. (EXLA disk cache removed.)
 - **CONTRIBUTING:** Format, Credo `--strict`, Dialyzer in code quality checklist.
 
 ### Fixed

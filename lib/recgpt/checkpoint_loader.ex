@@ -25,7 +25,7 @@ defmodule RecGPT.CheckpointLoader do
 
   @doc """
   Returns checkpoint SHA256 hex string, or nil if manifest missing.
-  Does not load tensors; used for EXLA JIT cache keying.
+  Does not load tensors.
   """
   def get_sha256(export_dir) when is_binary(export_dir) do
     manifest_path = Path.join(export_dir, "manifest.json")

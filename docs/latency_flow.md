@@ -154,7 +154,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 **Tombstones:**
 - **Double warm-up** — Two setup recommends before the timed run in `trace_predict` was tried and reverted; no improvement to the single timed run (~2.7 s).
-- **EXLA JIT disk cache** — With cache enabled, the timed run was ~2.6–3.2 s (~600–750 ms/forward). With `RECGPT_EXLA_CACHE_DIR=""` (no disk cache), the same run was **~371 ms** (~65 ms/forward). Cache path is tombstoned: avoid for now; use in-process JIT only. Shape-aware cache key and warm-up did not fix the slowdown.
+- **EXLA JIT disk cache** — With cache enabled, the timed run was ~2.6–3.2 s (~600–750 ms/forward). Without disk cache, the same run was **~371 ms** (~65 ms/forward). Caching code removed; in-process JIT only.
 
 ---
 
@@ -166,7 +166,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 4. **Cache replicate/pad** — `maybe_replicate_cache` and `pad_cache_to_fixed` run when cache is not nil; ensure they don’t add unnecessary transfers; pad once to `max_cache_len` and keep on device.
 5. **Trie gather** — Steps do `Nx.gather(next_state, row_indices)` and `gather_2d` with multiple `backend_transfer` for indices; already aligned; if profiling shows gather cost, consider batching or a single fused index op (advanced).
 6. **Beam width** — `max(4, min(top_k + 2, 20))` for expected top_k 1–20; only reduce cap if profiling shows beam as dominant and quality allows.
-7. **EXLA JIT** — Disk cache is tombstoned (see above); run with `RECGPT_EXLA_CACHE_DIR=""` for best single-run latency. In-process JIT only.
+7. **EXLA JIT** — No disk cache; in-process JIT only (cache code removed).
 8. **Response build** — Keep display_name as a map lookup by item_id; no per-item heavy work.
 
 ---

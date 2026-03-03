@@ -383,51 +383,9 @@ defmodule RecGPT.Serve do
     }
   end
 
-  defp build_jit_with_cache(ckpt_export_dir) do
-    base_dir = Application.get_env(:recgpt, :exla_jit_cache_dir) || ""
-    exla_v = Application.spec(:exla, :vsn) |> to_string()
-    nx_v = Application.spec(:nx, :vsn) |> to_string()
-    ckpt_sha = CheckpointLoader.get_sha256(ckpt_export_dir) || "none"
-    dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
-
-    dtype_str =
-      case dtype do
-        {:f, 32} -> "f32"
-        {:f, 16} -> "f16"
-        {:bf, 16} -> "bf16"
-        _ -> "f32"
-      end
-
-    max_cache = Application.get_env(:recgpt, :max_cache_len, 128)
-    beam = Application.get_env(:recgpt, :jit_cache_beam_width, 12)
-    ctx_tokens = Application.get_env(:recgpt, :jit_cache_max_context_tokens, 4)
-    prefix = "exla:#{exla_v}:nx:#{nx_v}:ckpt:#{ckpt_sha}:dtype:#{dtype_str}:pad#{max_cache}:b#{beam}c#{ctx_tokens}"
-
-    cache_key =
-      :crypto.hash(:sha256, prefix) |> Base.encode16(case: :lower) |> String.slice(0, 16)
-
-    cache_subdir = if base_dir != "", do: Path.join(base_dir, cache_key), else: ""
-
-    cache_full =
-      if cache_subdir != "", do: Path.join(cache_subdir, "forward_with_cache"), else: nil
-
-    cache_incr =
-      if cache_subdir != "", do: Path.join(cache_subdir, "forward_incremental"), else: nil
-
-    jit_full =
-      if cache_full do
-        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA, cache: cache_full)
-      else
-        Nx.Defn.jit(&InferenceDefn.forward_with_cache/4)
-      end
-
-    jit_incr =
-      if cache_incr do
-        Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA, cache: cache_incr)
-      else
-        Nx.Defn.jit(&InferenceDefn.forward_incremental/6)
-      end
-
+  defp build_jit do
+    jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+    jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
     {jit_full, jit_incr}
   end
 
@@ -437,7 +395,7 @@ defmodule RecGPT.Serve do
     defn_params = InferenceParams.build_defn_params(params, n_layers, dtype)
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
 
-    {jit_full, jit_incr} = build_jit_with_cache(ckpt_export_dir)
+    {jit_full, jit_incr} = build_jit()
 
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)
