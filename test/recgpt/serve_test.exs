@@ -111,6 +111,7 @@ defmodule RecGPT.ServeTest do
 
     test "load_state with built fixture and stub checkpoint returns state; recommend returns valid item IDs" do
       Application.ensure_all_started(:nx)
+      Application.put_env(:recgpt, :ckpt_expected_sha256, nil)
 
       base =
         Path.join(System.tmp_dir!(), "recgpt_serve_built_#{:erlang.unique_integer([:positive])}")

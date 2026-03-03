@@ -13,11 +13,13 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     * `--contexts` - Comma-separated context lists, e.g. "0,1" or "0,1|1,2,3" (default: 0 | 0,1 | 1,2,3)
     * `--top-k` - Max recommendations per context (default: 5)
     * `--stub` - Use stub state (no checkpoint); for quick smoke test only
+    * `--profile` - Run under `nsys profile` (NVIDIA Nsight Systems) for GPU profiling; writes .nsys-rep file
 
   ## Examples
       mix recgpt.ad_hoc_test
       mix recgpt.ad_hoc_test --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --catalog data/steam/items.json
       mix recgpt.ad_hoc_test --out data/steam/ad_hoc_results.json
+      mix recgpt.ad_hoc_test --profile --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export
   """
   use Mix.Task
 
@@ -32,10 +34,65 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
           out: :string,
           contexts: :string,
           top_k: :integer,
-          stub: :boolean
+          stub: :boolean,
+          profile: :boolean
         ]
       )
 
+    if opts[:profile] do
+      run_with_nsys(args, opts)
+    else
+      run_adhoc(opts, args)
+    end
+  end
+
+  defp run_with_nsys(args, _opts) do
+    unless System.find_executable("nsys") do
+      Mix.raise(
+        "nsys (NVIDIA Nsight Systems) not found. Install from https://developer.nvidia.com/nsight-systems/get-started"
+      )
+    end
+
+    args_no_profile = args |> Enum.reject(&(&1 in ["--profile", "-profile"]))
+    out_file = "recgpt_adhoc_#{System.system_time(:millisecond)}.nsys-rep"
+    Mix.shell().info("Profiling with Nsight Systems -> #{out_file}")
+
+    nsys_args = [
+      "profile",
+      "-o", out_file,
+      "-t", "cuda,nvtx",
+      "--cuda-event-trace=false",
+      "--sample=none",
+      "--backtrace=none",
+      "mix", "recgpt.ad_hoc_test" | args_no_profile
+    ]
+
+    {output, exit_code} = System.cmd("nsys", nsys_args, stderr_to_stdout: true)
+    IO.write(output)
+
+    exit_code = case exit_code do
+      n when is_integer(n) -> n
+      {:exit_status, n} -> n
+      _ -> 1
+    end
+
+    profile_created = File.regular?(out_file)
+
+    if exit_code != 0 and not profile_created do
+      Mix.shell().error("nsys profile failed (exit #{exit_code}) and no report was generated.")
+      exit({:shutdown, exit_code})
+    end
+
+    if profile_created do
+      Mix.shell().info("Profile written to #{out_file}. Open with nsys-ui or Nsight Systems GUI.")
+    end
+
+    if exit_code != 0 and profile_created do
+      Mix.shell().info("Note: Child process exited abnormally; profile may still be useful.")
+    end
+  end
+
+  defp run_adhoc(opts, _args) do
     Application.ensure_all_started(:recgpt)
     Application.ensure_all_started(:nx)
 

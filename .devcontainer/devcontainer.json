@@ -18,7 +18,7 @@
     "XLA_TARGET": "cuda12",
     "MIX_ENV": "dev",
     "ELIXIR_ERL_OPTIONS": "+sssdio 128",
-    "PATH": "/usr/local/cuda-12.9/bin:${containerEnv:PATH}",
+    "PATH": "/opt/nvidia/nsight-systems/2026.1.1.204/bin:/usr/local/cuda-12.9/bin:${containerEnv:PATH}",
     "LD_LIBRARY_PATH": "/usr/local/cuda-12.9/targets/x86_64-linux/lib:/usr/local/cuda-12.9/lib64:/usr/lib/x86_64-linux-gnu/nvshmem/12:/usr/lib/x86_64-linux-gnu:${containerEnv:LD_LIBRARY_PATH}"
   }
 }

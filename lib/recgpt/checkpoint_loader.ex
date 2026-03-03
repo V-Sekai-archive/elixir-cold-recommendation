@@ -49,7 +49,15 @@ defmodule RecGPT.CheckpointLoader do
       |> Enum.sort_by(&elem(&1, 0))
       |> Enum.reduce(<<>>, fn {_key, meta}, acc ->
         path = Path.join(export_dir, meta["file"])
-        blob = File.read!(path)
+
+        blob =
+          try do
+            File.read!(path)
+          rescue
+            e in [File.Error] ->
+              raise "Failed to load #{path}: #{Exception.message(e)}"
+          end
+
         acc <> :crypto.hash(:sha256, blob)
       end)
 

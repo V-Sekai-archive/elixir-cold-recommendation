@@ -51,7 +51,12 @@ RUN echo "/usr/lib/x86_64-linux-gnu/nvshmem/12" > /etc/ld.so.conf.d/nvshmem.conf
     && (dpkg -L cudnn9-cuda-12-9 2>/dev/null | grep -E '/libcudnn.*\.so' | xargs -I{} dirname {} 2>/dev/null | sort -u >> /etc/ld.so.conf.d/nvshmem.conf) || true \
     && ldconfig
 
-ENV PATH="/usr/local/cuda-12.9/bin:/usr/local/bin:${PATH}"
+# NVIDIA Nsight Systems CLI (GPU profiling). See https://developer.nvidia.com/nsight-systems/get-started
+RUN (wget -q "https://developer.download.nvidia.com/devtools/nsight-systems/2026_1/NsightSystems-linux-cli-public-2026.1.1.204-3717666.deb" -O /tmp/nsys.deb \
+      && dpkg -i /tmp/nsys.deb || (apt-get update -qq && apt-get install -f -y -qq && dpkg -i /tmp/nsys.deb) \
+      && rm -f /tmp/nsys.deb) || echo "Nsight Systems install skipped; install manually if needed for GPU profiling."
+
+ENV PATH="/usr/local/cuda-12.9/bin:/opt/nvidia/nsight-systems/2026.1.1.204/bin:/usr/local/bin:${PATH}"
 # CUDA + NVSHMEM + cuDNN (multiarch) so EXLA NIF finds libs even if ldconfig path differs
 ENV LD_LIBRARY_PATH="/usr/local/cuda-12.9/targets/x86_64-linux/lib:/usr/local/cuda-12.9/lib64:/usr/lib/x86_64-linux-gnu/nvshmem/12:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
 # Always build XLA from source so the binary matches this image's CUDA/cuDNN/NVSHMEM (see https://hexdocs.pm/xla/0.10.0/XLA.html)

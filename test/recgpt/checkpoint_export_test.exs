@@ -5,6 +5,12 @@ defmodule RecGPT.CheckpointExportTest do
   alias RecGPT.CheckpointExport
   alias RecGPT.CheckpointLoader
 
+  # Disable SHA256 verification so we can use stub exports; config/test.exs may not load in some setups.
+  setup do
+    Application.put_env(:recgpt, :ckpt_expected_sha256, nil)
+    :ok
+  end
+
   defp dummy_params do
     %{
       "wte" => Nx.iota({100, 8}) |> Nx.as_type({:f, 32}),

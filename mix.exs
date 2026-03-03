@@ -40,7 +40,8 @@ defmodule RecGPT.MixProject do
       {:grpc, "~> 0.11"},
       {:protobuf, "~> 0.14"},
       {:nx, "~> 0.11", override: true},
-      {:exla, "~> 0.10"},
+      {:exla, "~> 0.11"},
+      {:xla, "~> 0.10"},
       {:axon, "~> 0.7"},
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},
@@ -53,7 +54,7 @@ defmodule RecGPT.MixProject do
       {:waffle, "~> 1.1"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:stream_data, "~> 0.6", only: :test},
+      {:stream_data, "~> 1.2", only: [:dev, :test]},
       {:benchee, "~> 1.3", only: :dev}
     ]
   end

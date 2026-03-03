@@ -56,7 +56,9 @@ defmodule RecGPT.Decode do
             context_item_ids
           end
 
-        ctx = Nx.gather(item_id_to_tokens, context_item_ids) |> Nx.reshape({:auto})
+        # Nx.gather expects indices last dim <= tensor rank; for row-gather use {k, 1}
+        context_item_ids = Nx.new_axis(context_item_ids, -1)
+        ctx = Nx.gather(item_id_to_tokens, context_item_ids, axes: [0]) |> Nx.reshape({:auto})
         len = Nx.size(ctx)
         {Nx.reshape(ctx, {1, len}), len}
       end
@@ -76,8 +78,8 @@ defmodule RecGPT.Decode do
     neg_inf = Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
     scores = Nx.select(valid_mask, logits, neg_inf)
     {top_scores, top_indices} = Nx.top_k(scores, k: beam_width)
-    top_token_ids = Nx.reshape(top_indices, {:auto}) |> Nx.as_type({:s, 32})
-    new_state_ids = gather_2d(next_state, root_state, top_token_ids)
+    top_token_ids = Nx.reshape(top_indices, {:auto}) |> Nx.as_type({:s, 32}) |> Nx.backend_transfer(backend)
+    new_state_ids = gather_2d(next_state, root_state, top_token_ids, backend)
     new_state_ids = Nx.squeeze(new_state_ids, axes: [1])
     prefix_tokens = Nx.new_axis(top_token_ids, 1)
     beam_scores = Nx.as_type(top_scores, {:f, 32})
@@ -173,7 +175,8 @@ defmodule RecGPT.Decode do
     {logits, new_cache} = batch_tensor_fn.(batch, cache)
 
     # Clamp so we never pass -1 as row index (when valid pairs < beam_width we can get -1 state_ids)
-    state_ids_safe = Nx.max(state_ids, 0)
+    # Transfer indices to tensor backend so Nx.gather doesn't mix backends (BinaryBackend.to_binary on EXLA fails)
+    state_ids_safe = Nx.max(state_ids, 0) |> Nx.backend_transfer(backend)
     idx_2d = Nx.new_axis(state_ids_safe, -1)
 
     {valid_rows, transition_tensor} =
@@ -197,18 +200,20 @@ defmodule RecGPT.Decode do
 
     # Use state_ids[batch_indices], not batch_indices, as row into next_state/item_at_leaf.
     # For step 3: item_id = item_at_leaf[current_state_at_beam, token]; same.
-    state_at_top = Nx.gather(state_ids, Nx.new_axis(batch_indices, -1)) |> Nx.reshape({:auto})
-    state_at_top_safe = Nx.max(state_at_top, 0)
+    batch_indices_b = Nx.backend_transfer(batch_indices, backend)
+    state_at_top = Nx.gather(state_ids, Nx.new_axis(batch_indices_b, -1)) |> Nx.reshape({:auto})
+    state_at_top_safe = Nx.max(state_at_top, 0) |> Nx.backend_transfer(backend)
 
+    token_ids_b = Nx.backend_transfer(token_ids, backend)
     new_state_ids =
       if step == 3 do
-        gather_2d(item_at_leaf, state_at_top_safe, token_ids) |> Nx.squeeze(axes: [1])
+        gather_2d(item_at_leaf, state_at_top_safe, token_ids_b, backend) |> Nx.squeeze(axes: [1])
       else
-        gather_2d(transition_tensor, state_at_top_safe, token_ids) |> Nx.squeeze(axes: [1])
+        gather_2d(transition_tensor, state_at_top_safe, token_ids_b, backend) |> Nx.squeeze(axes: [1])
       end
 
     old_prefixes =
-      Nx.gather(prefix_tokens, Nx.new_axis(batch_indices, -1))
+      Nx.gather(prefix_tokens, Nx.new_axis(batch_indices_b, -1))
       |> Nx.reshape({beam_width, prefix_len})
 
     new_col = Nx.reshape(token_ids, {beam_width, 1})
@@ -218,8 +223,8 @@ defmodule RecGPT.Decode do
     {new_state_ids, new_prefix_tokens, top_scores, new_cache, item_ids}
   end
 
-  defp gather_2d(tensor, row_indices, col_indices) do
-    row_2d = Nx.new_axis(row_indices, -1)
+  defp gather_2d(tensor, row_indices, col_indices, backend) do
+    row_2d = Nx.new_axis(row_indices |> Nx.backend_transfer(backend), -1)
     rows = Nx.gather(tensor, row_2d)
     rows = if Nx.rank(rows) == 1, do: Nx.reshape(rows, {1, :auto}), else: rows
 
@@ -231,7 +236,7 @@ defmodule RecGPT.Decode do
     k = Nx.axis_size(col_indices, 0)
     {num_rows, vocab_size} = Nx.shape(rows)
     rows = if num_rows == 1 and k > 1, do: Nx.broadcast(rows, {k, vocab_size}), else: rows
-    indices = Nx.reshape(col_indices, {k, 1})
+    indices = Nx.reshape(col_indices |> Nx.backend_transfer(backend), {k, 1})
     Nx.take_along_axis(rows, indices, axis: 1)
   end
 end
