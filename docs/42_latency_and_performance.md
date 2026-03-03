@@ -54,12 +54,12 @@ RecGPT runs in a **combination system** with M:\reflex-logic-market and M:\bs-p.
 max_profitable_P99 = min(0.5 × T_real, ~0.8 × competitor_P99, economic_breakeven_latency)
 ```
 
-RecGPT’s share of the latency budget:
+RecGPT's share of the latency budget:
 
 - **Target P50:** **20 ms** (primary round-number target for the RecGPT component; reflex-logic-market + bs-p add &lt;0.1 ms).
 - **Target P99:** configurable (e.g. 60 ms with buffer under E2E ceiling). Formula: `RecGPT_target_P99 = max_profitable_P99 − reflex_logic_market_P99 − bs_p_P99 − buffer_ms`.
 
-**Config:** `config :recgpt, :target_p50_ms, 20` and `config :recgpt, :target_p99_ms, 60` (or env `RECGPT_TARGET_P50_MS` / `RECGPT_TARGET_P99_MS`). See [latency_flow.md](latency_flow.md) for the end-to-end flow diagram and per-stage optimization table. **Strategy given latency ceiling:** [strategy_given_latency_ceiling.md](strategy_given_latency_ceiling.md) maps RecGPT's ~200–280 ms to the constraint framework (Binary/Bundle vs Catalyst/Combinatorial) and defines when to use or bypass RecGPT.
+**Config:** `config :recgpt, :target_p50_ms, 20` and `config :recgpt, :target_p99_ms, 60` (or env `RECGPT_TARGET_P50_MS` / `RECGPT_TARGET_P99_MS`). See [65 Latency flow](65_latency_flow.md) for the end-to-end flow diagram and per-stage optimization table. **Strategy given latency ceiling:** [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) maps RecGPT's ~200–280 ms to the constraint framework (Binary/Bundle vs Catalyst/Combinatorial) and defines when to use or bypass RecGPT.
 
 **Monitoring:** With `config :recgpt, :trace_predict, true`, per-request latencies are recorded in `RecGPT.LatencyStats`. Use `RecGPT.LatencyStats.get_percentiles/0` for recent P50/P95/P99 and `RecGPT.LatencyStats.check_slo/0` to assert targets. The health server exposes **GET /slo** (e.g. `curl http://localhost:50052/slo`): 200 when within SLO, 503 with message when P50 or P99 exceed target (for CI or alerting).
 

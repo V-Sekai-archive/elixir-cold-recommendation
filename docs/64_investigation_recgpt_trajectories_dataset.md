@@ -1,12 +1,12 @@
-# Investigation: M:\recgpt-trajectories Dataset for Pretrain and Eval
+# Investigation: recgpt-trajectories Dataset for Pretrain and Eval
 
-Goal: Find a dataset in `M:\recgpt-trajectories` suitable for RecGPT pretraining and test evaluation to measure performance improvement.
+Goal: Find a dataset in `thirdparty/recgpt-trajectories` suitable for RecGPT pretraining and test evaluation to measure performance improvement.
 
 ---
 
 ## Status
 
-**M:\recgpt-trajectories** was not found in the current environment. The M: drive is not mounted (e.g. `/mnt/m/` does not exist). If you have access to this path on Windows, you can mount it or copy data into the workspace.
+**thirdparty/recgpt-trajectories** exists and contains 4 raw datasets (MovieLens 20M, KuaiRand-Pure, MerRec, Open e-commerce). A MovieLens converter is implemented: `mix recgpt.convert_movielens`.
 
 ---
 
@@ -40,7 +40,40 @@ Optional for embedding parity with released checkpoint:
 
 ---
 
-## When You Have the Data: Pretrain and Eval Flow
+## MovieLens 20M: Convert and Run
+
+1. **Convert** (writes to `data/movielens-20m/` by default)
+   ```bash
+   mix recgpt.convert_movielens
+   mix recgpt.convert_movielens --max-items 5000   # faster iteration
+   mix recgpt.convert_movielens --src thirdparty/recgpt-trajectories/movielens-20m --out data/movielens-20m
+   ```
+
+2. **Build fixture**
+   ```bash
+   mix recgpt.build_fixture --items data/movielens-20m/items.json --out data/movielens-20m/fixture.json --ckpt data/recgpt_ckpt_export --limit 5000 --no-canonical-texts
+   ```
+
+3. **Pretrain**
+   ```bash
+   mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --train data/movielens-20m/train_sequences.json --items data/movielens-20m/items.json --out data/movielens-20m/ckpt_pretrained
+   ```
+
+4. **Eval baseline** (zero-shot)
+   ```bash
+   mix recgpt.eval --data-dir data/movielens-20m --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
+   ```
+
+5. **Eval pretrained**
+   ```bash
+   mix recgpt.eval --data-dir data/movielens-20m --ckpt data/movielens-20m/ckpt_pretrained --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
+   ```
+
+6. **Compare** Hit@1, Hit@5, Hit@10, MRR. If pretrained is higher, performance improved.
+
+---
+
+## When You Have Other Data: Pretrain and Eval Flow
 
 1. **Copy or symlink** into `data/recgpt-trajectories/` (or another dir).
 
@@ -99,4 +132,4 @@ If `recgpt-trajectories` has a different layout (e.g. raw trajectories, differen
 - [05 Eval data shapes](05_eval_data_shapes.md)
 - [07 Steam splits and pretraining](07_steam_splits_and_pretraining.md)
 - [03 Pipeline steps](03_pipeline_steps.md)
-- [mix recgpt.pretrain](mix_tasks.md), [mix recgpt.eval](mix_tasks.md)
+- [53 Mix tasks](53_mix_tasks.md) — mix recgpt.pretrain, mix recgpt.eval

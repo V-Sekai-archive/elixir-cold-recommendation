@@ -1,6 +1,6 @@
 # End-to-end latency flow and optimizations
 
-RecGPT recommendation path from gRPC request through the GPU tensor graph to response. Use with [08_latency_and_performance.md](08_latency_and_performance.md) and the P99/P50 plan (target: **20 ms P50**).
+RecGPT recommendation path from gRPC request through the GPU tensor graph to response. Use with [42_latency_and_performance.md](42_latency_and_performance.md) and the P99/P50 plan (target: **20 ms P50**).
 
 ---
 
@@ -186,8 +186,8 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 ## See also
 
-- [08_latency_and_performance.md](08_latency_and_performance.md) — Industry context, what we fixed, summary table.
-- [strategy_given_latency_ceiling.md](strategy_given_latency_ceiling.md) — Which strategies RecGPT fits (Catalyst, Combinatorial); when to bypass (Binary, Bundle).
-- [nsys_tracing.md](nsys_tracing.md) — How to profile with Nsight Systems and NVTX markers.
-- [ablation_tensor_graph.md](ablation_tensor_graph.md) — What can be removed or simplified without breaking semantic id or top-k (ablation testing).
+- [42_latency_and_performance.md](42_latency_and_performance.md) — Industry context, what we fixed, summary table.
+- [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) — Which strategies RecGPT fits (Catalyst, Combinatorial); when to bypass (Binary, Bundle).
+- [66 Nsight Systems tracing](66_nsys_tracing.md) — How to profile with Nsight Systems and NVTX markers.
+- [62 Ablation tensor graph](62_ablation_tensor_graph.md) — What can be removed or simplified without breaking semantic id or top-k (ablation testing).
 - Plan: P99 latency target with buffer (RecGPT target P50 = 20 ms, P99 ≤ 60 ms).

@@ -9,7 +9,7 @@ This codebase is **one proposal**: an Elixir library for RecGPT-style sequential
 ## Before you start
 
 - **Project overview:** [../README.md](../README.md) — Quick start, pipeline summary, mix tasks, tests.
-- **Split from root README:** [quick_start](quick_start.md) · [pipeline_summary](pipeline_summary.md) · [mix_tasks](mix_tasks.md) · [modules_overview](modules_overview.md) · [dependencies](dependencies.md) · [dev_container](dev_container.md) · [tests](tests.md) · [grpc_serve](grpc_serve.md) · [versioning_and_references](versioning_and_references.md).
+- **Split from root README:** [51 Quick start](51_quick_start.md) · [52 Pipeline summary](52_pipeline_summary.md) · [53 Mix tasks](53_mix_tasks.md) · [54 Modules overview](54_modules_overview.md) · [55 Dependencies](55_dependencies.md) · [56 Dev container](56_dev_container.md) · [57 Tests](57_tests.md) · [58 gRPC serve](58_grpc_serve.md) · [59 Versioning and references](59_versioning_and_references.md).
 - **Pipeline order:** 1 → 2 → 3 → 4 (Fetch → build_fixture → pretrain → eval). Fixture and checkpoint are required for pretrain and eval. To run the full flow (pretrain → catalogue → recommend), see [03 Pipeline steps — Run the whole thing](03_pipeline_steps.md#run-the-whole-thing-pretrain--catalogue--recommend).
 - **Module reference:** [04 RecGPT library](04_recgpt_library.md) — Modules, dependencies, test tags.
 
@@ -122,7 +122,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 21  | [21_layer_application.md](21_layer_application.md)                         | Layer 6: Application.                                              | Eval, PredictionService, GRPCEndpoint.                                                                    |
 | 22  | [22_top_tier_recommendations.md](22_top_tier_recommendations.md)           | Elevate the library to production-grade quality.                   | Typespecs/Dialyzer; integration test; health; property tests; benchmarks; release.                        |
 | —   | [embedding_vs_eval.md](embedding_vs_eval.md)                               | Divide: embeddings vs eval.                                        | Generating embeddings (parity, .npy) vs testing recommendation performance (Hit@k, MRR, serve).           |
-| —   | [22_freeze_inputs_layer_isolation.md](22_freeze_inputs_layer_isolation.md) | Isolate layers with frozen inputs (unit/property tests).           | Problem/Proposed; Unit tests and property testing; Layer boundaries; Implementation; See also.            |
+| 27  | [27 Freeze inputs for layer isolation](27_freeze_inputs_layer_isolation.md) | Isolate layers with frozen inputs (unit/property tests).           | Problem/Proposed; Unit tests and property testing; Layer boundaries; Implementation; See also.            |
 | 23  | [23_quality_assurance.md](23_quality_assurance.md)                         | Run the QA checklist before merge or release.                      | Compile, format, Credo, unit tests, Dialyzer; Steam top-k; CI.                                            |
 | 24  | [24_first_step_plan.md](24_first_step_plan.md)                             | First step: Steam test vectors (baseline).                         | Why Steam first; get data, build fixture, run eval; outcome.                                              |
 | 25  | [25_mvp_guard_rails.md](25_mvp_guard_rails.md)                             | Keep rope bridge on track.                                         | Guard rails (tombstones); no multi-rank/sharding until minimal loop closed.                               |
@@ -132,6 +132,34 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 30  | [30_waffle_ecto_usage.md](30_waffle_ecto_usage.md)                         | Blob storage with Ecto and optional object store.                    | waffle_ecto + Waffle: schema, cast_attachments, local/S3 config.                                             |
 | 31  | [31_ycsb_storage_classification.md](31_ycsb_storage_classification.md)    | Classify storage by YCSB workload types and throughput.            | YCSB A–F; database/store fit; RecGPT artifact mapping.                                                        |
 | 32  | [32_spmd_decode_flow.md](32_spmd_decode_flow.md)                           | Minimize CPU–device sync in beam search; keep trie and scoring on device. | Trie tensors; SPMD beam search; single sync; lib/ modules (Trie, Decode, Serve).                           |
+| 33  | [33_movielens_5_epoch_pretrain.md](33_movielens_5_epoch_pretrain.md)       | MovieLens 20M: full 5-epoch pretrain (paper parity).                   | --epochs 5; 8–12 hours; eval after pretrain.                                                            |
+| 34  | [34 Sniper Mode Moneyball](34_sniper_mode_moneyball_strategy.md) | Scout + Gatekeeper; JSON-LD/XMP; Moneyball metrics. | [35](35_sniper_architecture.md)–[41](41_sniper_path_profitable.md): arch, schema, gamed-ness, Qwen LoRA, triple-lock, pipeline, path. |
+| 35  | [35 Sniper Architecture](35_sniper_architecture.md) | Scout + Gatekeeper; RecGPT pretraining vs Qwen LoRA. | Part of 34. |
+| 36  | [36 Sniper Schema](36_sniper_schema.md) | JSON-LD + XMP-JSON-LD (Tape, guardrails). | Part of 34. |
+| 37  | [37 Sniper Gamed-ness + Metrics](37_sniper_gamedness_metrics.md) | Butterfly under gamed-ness; Moneyball metrics. | Part of 34. |
+| 38  | [38 Sniper Qwen LoRA](38_sniper_qwen_lora.md) | GRPO reward, ART rollout, training loop. | Part of 34. |
+| 39  | [39 Sniper Triple-Lock + Execution](39_sniper_triple_lock_execution.md) | Gatekeeper criteria; Zero-Reserve flow. | Part of 34. |
+| 40  | [40 Sniper Pipeline + Continuum](40_sniper_pipeline_continuum.md) | N→N+3; Head / Mid-Tail / Long Tail. | Part of 34. |
+| 41  | [41 Sniper Path to Profitable](41_sniper_path_profitable.md) | POLYMARKET_PROFITABLE_PCT dimensions. | Part of 34. |
+| 42  | [42 Latency and performance](42_latency_and_performance.md) | Industry context, batched inference, KV-cache, SLO targets. | P50/P99 targets; latency_flow. |
+| 50  | [50 Virix Polymarket strategy review](50_virix_polymarket_strategy_review.md) | Review Ilya/Virix Labs Twitter strategy; relevance to Sniper. | Wallet scanner, CLOB, signal pipeline; mapping to N+2, Fat Head bypass, Triple-Lock. |
+| 51  | [51 Quick start](51_quick_start.md) | Getting started; run the pipeline. | Split from root README. |
+| 52  | [52 Pipeline summary](52_pipeline_summary.md) | Pipeline overview. | Split from root README. |
+| 53  | [53 Mix tasks](53_mix_tasks.md) | Commands and options. | Split from root README. |
+| 54  | [54 Modules overview](54_modules_overview.md) | Module reference. | Split from root README. |
+| 55  | [55 Dependencies](55_dependencies.md) | Nx, EXLA, Bumblebee, etc. | Split from root README. |
+| 56  | [56 Dev container](56_dev_container.md) | EXLA dev container setup. | Split from root README. |
+| 57  | [57 Tests](57_tests.md) | Running tests. | Split from root README. |
+| 58  | [58 gRPC serve](58_grpc_serve.md) | gRPC API and serve. | Split from root README. |
+| 59  | [59 Versioning and references](59_versioning_and_references.md) | Versioning and refs. | Split from root README. |
+| 60  | [60 Rope bridge market analytics](60_rope_bridge_market_analytics_plan.md) | Paper trading; survivorship; Kelly, Greeks; path to 12.7%. | Profit calc, Scout→butterfly, solver. |
+| 61  | [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) | RecGPT fits Catalyst/Combinatorial; bypass Binary/Bundle. | Latency constraint framework. |
+| 62  | [62 Ablation tensor graph](62_ablation_tensor_graph.md) | What can be removed without breaking semantic id or top-k. | Tensor graph, decode path. |
+| 63  | [63 Investigation: RecGPT old vs current](63_investigation_recgpt_old_vs_current.md) | Comparison and migration. | Investigation. |
+| 64  | [64 Investigation: recgpt-trajectories dataset](64_investigation_recgpt_trajectories_dataset.md) | Trajectories dataset for pretraining. | Investigation. |
+| 65  | [65 Latency flow](65_latency_flow.md) | E2E flow diagram, per-stage optimization. | GPU tensor graph. |
+| 66  | [66 Nsight Systems tracing](66_nsys_tracing.md) | Profile with nsys and NVTX. | nsys, NVTX. |
+| 67  | [67 Thirdparty bs-p review](67_thirdparty_bs_p_review.md) | Kelly, Greeks, shock from bs-p. | Thirdparty reference. |
 
 ---
 
@@ -152,16 +180,23 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | Classify storage by YCSB types and throughput  | [31 YCSB storage classification](31_ycsb_storage_classification.md) — workload types A–F, database fit, RecGPT artifact mapping.                    |
 | Design catalog/DB schema (ETNF)                 | [ETNF database design](etnf_database_design.md)                                                                                                   |
 | Understand layers and test strategy             | [15 Layers overview](15_layers_overview.md), [16](16_layer_artifacts.md)–[21](21_layer_application.md) layer docs.                                |
-| Isolate layers with frozen inputs               | [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md)                                                                       |
+| Isolate layers with frozen inputs               | [27 Freeze inputs for layer isolation](27_freeze_inputs_layer_isolation.md)                                                                       |
 | Make the library top tier                       | [22 Top-tier recommendations](22_top_tier_recommendations.md)                                                                                     |
 | Run the QA checklist                            | [23 Quality assurance](23_quality_assurance.md)                                                                                                   |
 | First step (Steam baseline), MVP guard rails    | [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md); one-shot: `mix recgpt.first_step` (requires checkpoint) |
 | Embedding parity and workaround                 | [26 Embedding mismatch](26_embedding_mismatch.md)                                                                                                 |
 | Parity with released model (dataset .npy + VAE) | [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md) — use `--embeddings-npy` and `--vae-ckpt` when building fixture.              |
 | **Build a staff API (catalogues, pretrain, etc.)** | [29 Staff API](29_staff_api.md) — RecGPT.StaffApi: list/upsert items, sync sequences, build_fixture, pretrain. |
-| **Strategy given latency ceiling** | [strategy_given_latency_ceiling](strategy_given_latency_ceiling.md) — Use RecGPT for Catalyst/Combinatorial; bypass for Binary/Bundle. |
-| **Rope bridge: paper trading + market analytics** | [rope_bridge_market_analytics_plan](rope_bridge_market_analytics_plan.md) — Survivorship (Kelly, Greeks, shock), profit calc, Scout→butterfly, solver, path to 12.7%. |
+| **Strategy given latency ceiling** | [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) — Use RecGPT for Catalyst/Combinatorial; bypass for Binary/Bundle. |
+| **Rope bridge: paper trading + market analytics** | [60 Rope bridge market analytics](60_rope_bridge_market_analytics_plan.md) — Survivorship (Kelly, Greeks, shock), profit calc, Scout→butterfly, solver, path to 12.7%. |
 | Understand SPMD decode (trie tensors, single sync) | [32 SPMD decode flow](32_spmd_decode_flow.md) — Trie.to_tensors, Decode.beam_search_top_k_spmd, Serve.recommend. |
+| Run 5-epoch pretrain on MovieLens (paper parity)   | [33 MovieLens 5-epoch pretrain](33_movielens_5_epoch_pretrain.md) — `--epochs 5`; 8–12 hours.                     |
+| **Sniper Mode: Scout + Gatekeeper, Moneyball** | [34](34_sniper_mode_moneyball_strategy.md) overview; [35](35_sniper_architecture.md)–[41](41_sniper_path_profitable.md) — arch, schema, gamed-ness, Qwen LoRA, triple-lock, pipeline, path. |
+| **Virix Polymarket strategy review** | [50 Virix Polymarket strategy review](50_virix_polymarket_strategy_review.md) — Ilya @ilyagordey thread; relevance to Sniper (wallet scanner, CLOB, signal 8+). |
+| Quick start, pipeline, mix tasks, tests, etc.   | [51](51_quick_start.md)–[59](59_versioning_and_references.md) — Split from root README. |
+| **Latency flow, ablation, nsys** | [65 Latency flow](65_latency_flow.md), [62 Ablation](62_ablation_tensor_graph.md), [66 Nsight Systems](66_nsys_tracing.md). |
+| **Investigations** | [63](63_investigation_recgpt_old_vs_current.md), [64](64_investigation_recgpt_trajectories_dataset.md). |
+| **Thirdparty bs-p** | [67 Thirdparty bs-p review](67_thirdparty_bs_p_review.md). |
 | Read the architecture blueprint                 | [11 Paradigm](11_recgpt_paradigm.md), [12 Dynamic state](12_dynamic_state_ets.md), [13 Infrastructure](13_infrastructure_serving.md)              |
 
 ---
@@ -172,6 +207,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 - [02 Pipeline overview](02_pipeline_overview.md) — Pipeline order and Step 1.
 - [04 RecGPT library](04_recgpt_library.md) — Module reference.
 - [15 Layers overview](15_layers_overview.md) — Layer diagram and table.
-- [22 Freeze inputs for layer isolation](22_freeze_inputs_layer_isolation.md) — Unit/property testing with frozen inputs.
+- [27 Freeze inputs for layer isolation](27_freeze_inputs_layer_isolation.md) — Unit/property testing with frozen inputs.
 - [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md), [26 Embedding mismatch](26_embedding_mismatch.md), [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md).
 - [ETNF database design](etnf_database_design.md) — Essential Tuple Normal Form for catalog/embedding schemas.
+- [60 Rope bridge](60_rope_bridge_market_analytics_plan.md), [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md), [65 Latency flow](65_latency_flow.md), [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md).

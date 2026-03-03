@@ -22,6 +22,8 @@ defmodule RecGPT.PretrainRunner do
     * `:out_dir` - Output export dir (required)
     * `:limit` - Max items to use (default: fixture num_items)
     * `:iterations` - Max training steps (default: 100)
+    * `:epochs` - Number of full passes (overrides iterations when set)
+    * `:save_every` - Save checkpoint every N steps to <out_dir>/step_XXXX/ (0 = disable)
     * `:batch_size` - Batch size (default: 8)
     * `:learning_rate` - Learning rate (default: 1.0e-4)
     * `:log` - Log every N batches (default: 50; 0 to disable)
@@ -41,8 +43,8 @@ defmodule RecGPT.PretrainRunner do
     items_path = Keyword.get(opts, :items_path)
     out_dir = Keyword.fetch!(opts, :out_dir)
 
-    iterations = Keyword.get(opts, :iterations, 100)
     batch_size = Keyword.get(opts, :batch_size, 8)
+    epochs = Keyword.get(opts, :epochs)
     learning_rate = Keyword.get(opts, :learning_rate, 1.0e-4)
     log_every = Keyword.get(opts, :log, 50)
     log_interval_sec = Keyword.get(opts, :log_interval_sec, 20)
@@ -64,22 +66,42 @@ defmodule RecGPT.PretrainRunner do
              {:ok, token_id_list, fixture_num_items} <- fixture_token_list(fixture),
              {:ok, item_embeddings, _n} <-
                load_item_embeddings(items_path, fixture_num_items, opts) do
+          epochs = epochs || 1
+          steps_per_epoch = div(length(sequences) + batch_size - 1, batch_size)
+          iterations = if Keyword.get(opts, :epochs), do: epochs * steps_per_epoch, else: Keyword.get(opts, :iterations, 100)
+
           stream =
             AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
               batch_size: batch_size,
-              epochs: 1,
+              epochs: epochs,
               shuffle: true
             )
 
-          trained =
-            AxonTrain.run(stream, params,
-              iterations: iterations,
-              log: log_every,
-              log_interval_sec: log_interval_sec,
-              learning_rate: learning_rate,
-              resource_check_interval: 5,
-              resource_check_opts: resource_check_opts
-            )
+          save_every = Keyword.get(opts, :save_every, 0)
+          save_fn =
+            if save_every > 0 do
+              fn step, params ->
+                step_dir = Path.join(out_dir, "step_#{String.pad_leading(Integer.to_string(step), 6, "0")}")
+                File.mkdir_p!(step_dir)
+                CheckpointExport.write_export(params, step_dir)
+                require Logger
+                Logger.info("Saved checkpoint at step #{step} to #{step_dir}")
+              end
+            else
+              nil
+            end
+
+          train_opts = [
+            iterations: iterations,
+            log: log_every,
+            log_interval_sec: log_interval_sec,
+            learning_rate: learning_rate,
+            resource_check_interval: 5,
+            resource_check_opts: resource_check_opts
+          ]
+          train_opts = if save_every > 0, do: Keyword.merge(train_opts, save_every: save_every, save_fn: save_fn), else: train_opts
+
+          trained = AxonTrain.run(stream, params, train_opts)
 
           File.mkdir_p!(out_dir)
           CheckpointExport.write_export(trained, out_dir)

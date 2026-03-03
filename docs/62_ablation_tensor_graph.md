@@ -5,7 +5,7 @@ Goal: identify components that can be removed or simplified to improve latency *
 2. **Item fetch top-k** — returning up to `top_k` distinct item_ids, ordered by score.
 3. **Pretraining** — we must still be able to pretrain the model (or the ablation is inference-only and leaves the trained checkpoint unchanged).
 
-Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor graph.
+Reference: [65 latency flow](65_latency_flow.md) for the full E2E and GPU tensor graph.
 
 **Pretraining compatibility:** Inference-only ablations (e.g. skip prefix_tokens transfer, beam_width override) do not change the model or checkpoint; pretraining continues to use the full graph (e.g. aux encoder in training). Ablations that remove a component from the *model* (e.g. delete aux encoder entirely) would require pretraining again without that component and a new checkpoint.
 
@@ -109,5 +109,5 @@ Reference: [latency_flow.md](latency_flow.md) for the full E2E and GPU tensor gr
 
 ## See also
 
-- [latency_flow.md](latency_flow.md) — E2E flow, GPU tensor graph, where time goes.
+- [65 Latency flow](65_latency_flow.md) — E2E flow, GPU tensor graph, where time goes.
 - [06_evaluation_and_testing.md](06_evaluation_and_testing.md) — Hit@k, MRR, null hypothesis, eval commands.

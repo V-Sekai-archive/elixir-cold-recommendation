@@ -1,7 +1,7 @@
 defmodule RecGPT.LayerFreeze do
   @moduledoc """
   Freeze inputs from a full-weights run to isolate layers without GenServers or stubbing.
-  See docs/22_freeze_inputs_layer_isolation.md.
+  See docs/27_freeze_inputs_layer_isolation.md.
   """
   alias RecGPT.Inference
   alias RecGPT.Serve

@@ -13,7 +13,9 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--items` - items.json for building embeddings (default: data/steam/items.json)
     * `--limit` - Max items to encode for training (default: fixture num_items). Prevents loading 30+ GB when items.json is large.
     * `--out` - Output export dir (required)
-    * `--iterations` - Max training steps (default: 100)
+    * `--iterations` - Max training steps (default: 100; ignored when --epochs is set)
+    * `--epochs` - Number of full passes over the training data (overrides --iterations). Paper uses 5.
+    * `--save-every` - Save checkpoint every N steps to <out>/step_XXXX/ (0 = disable). Use for checkpoint selection by eval loss.
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)
     * `--log` - Log every N batches (default: 50; 0 to disable)
@@ -33,6 +35,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           limit: :integer,
           out: :string,
           iterations: :integer,
+          epochs: :integer,
+          save_every: :integer,
           batch_size: :integer,
           learning_rate: :float,
           log: :integer,
@@ -65,8 +69,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
         s -> resolve(s)
       end
 
-    iterations = opts[:iterations] || 100
     batch_size = opts[:batch_size] || 8
+    iterations = if Keyword.has_key?(opts, :epochs) && opts[:epochs], do: nil, else: opts[:iterations] || 100
     learning_rate = opts[:learning_rate] || 1.0e-4
     log_every = opts[:log] || 50
     log_interval_sec = opts[:log_interval_sec]
@@ -92,6 +96,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       out_dir: out_dir,
       limit: opts[:limit],
       iterations: iterations,
+      epochs: opts[:epochs],
+      save_every: opts[:save_every],
       batch_size: batch_size,
       learning_rate: learning_rate,
       log: log_every,

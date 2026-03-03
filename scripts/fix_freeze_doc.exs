@@ -1,1 +1,1 @@
-path = Path.join(File.cwd!(), "docs/22_freeze_inputs_layer_isolation.md"); content = File.read!(path); content = String.replace(content, ~r/state.+?just/, "state; just"); File.write!(path, content); IO.puts("Fixed")
+path = Path.join(File.cwd!(), "docs/27_freeze_inputs_layer_isolation.md"); content = File.read!(path); content = String.replace(content, ~r/state.+?just/, "state; just"); File.write!(path, content); IO.puts("Fixed")

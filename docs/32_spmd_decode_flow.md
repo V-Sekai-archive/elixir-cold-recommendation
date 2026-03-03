@@ -1,6 +1,6 @@
 # SPMD decode flow
 
-Sub-proposal of the [documentation index](README.md). Describes the SPMD-style beam search used for next-item recommendation: trie tensors, device-side decode, and single CPU sync. See also: [20 Layer Recommendation](20_layer_recommendation.md), [08 Latency and performance](08_latency_and_performance.md).
+Sub-proposal of the [documentation index](README.md). Describes the SPMD-style beam search used for next-item recommendation: trie tensors, device-side decode, and single CPU sync. See also: [20 Layer Recommendation](20_layer_recommendation.md), [42 Latency and performance](42_latency_and_performance.md).
 
 ---
 
@@ -66,7 +66,7 @@ A list-based decode that walks the trie on the CPU and calls the model per candi
 ## See also
 
 - [20 Layer Recommendation](20_layer_recommendation.md) — Serve, Decode, Trie roles.
-- [08 Latency and performance](08_latency_and_performance.md) — Batched inference, KV-cache, backend.
+- [42 Latency and performance](42_latency_and_performance.md) — Batched inference, KV-cache, backend.
 - [04 RecGPT library](04_recgpt_library.md) — Module reference.
 - `lib/recgpt/trie.ex` — `to_tensors/2`, `collect_trie_transitions/2`.
 - `lib/recgpt/decode.ex` — `beam_search_top_k_spmd/7`, `spmd_step/13`, `gather_2d/3`.

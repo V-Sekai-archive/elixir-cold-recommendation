@@ -10,6 +10,21 @@ erl_crash.dump
 .mix/
 .fetch
 
+# Python / uv (scripts/, embedding sanity check)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local env / secrets (never commit)
+.env
+.env.local
+.env.*.local
+
 # IDE
 .idea/
 .vscode/

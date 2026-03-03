@@ -67,7 +67,8 @@ defmodule RecGPT.AxonTrain do
   - `initial_state` - Flat map of params (from CheckpointLoader). Required for training.
   - `opts` - `:iterations` (default 1), `:log` (log every N batches), `:log_interval_sec` (log at
     least every N seconds, default 20; 0 to disable), `:optimizer` (e.g. `:adam`),
-    `:learning_rate` (default 1.0e-4).
+    `:learning_rate` (default 1.0e-4), `:save_every` (save checkpoint every N steps; 0 to disable),
+    `:save_fn` (fn (step, params) -> :ok; called when step > 0 and rem(step, save_every) == 0).
 
   Returns the updated flat params.
   """
@@ -76,6 +77,8 @@ defmodule RecGPT.AxonTrain do
     log_every = Keyword.get(opts, :log, 50)
     log_interval_sec = Keyword.get(opts, :log_interval_sec, 20)
     check_interval = Keyword.get(opts, :resource_check_interval, 5)
+    save_every = Keyword.get(opts, :save_every, 0)
+    save_fn = Keyword.get(opts, :save_fn)
 
     check_opts =
       Keyword.get(opts, :resource_check_opts, [])
@@ -125,6 +128,10 @@ defmodule RecGPT.AxonTrain do
             else
               last_log_sec
             end
+
+          if save_every > 0 and save_fn && rem(i + 1, save_every) == 0 do
+            save_fn.(i + 1, new_params)
+          end
 
           if check_interval > 0 and rem(i + 1, check_interval) == 0 do
             case RecGPT.ResourceCheck.check(check_opts) do

@@ -12,7 +12,7 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 2. Generate data and eval: `mix recgpt.first_step` (or `mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture && mix recgpt.eval`)
 3. Serve: `RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/recgpt_ckpt_export mix recgpt.serve`
 
-→ Full steps and options: [docs/quick_start.md](docs/quick_start.md), [docs/02_pipeline_overview.md](docs/02_pipeline_overview.md), [docs/03_pipeline_steps.md](docs/03_pipeline_steps.md).
+→ Full steps and options: [docs/51_quick_start.md](docs/51_quick_start.md), [docs/02_pipeline_overview.md](docs/02_pipeline_overview.md), [docs/03_pipeline_steps.md](docs/03_pipeline_steps.md).
 
 ---
 
@@ -20,14 +20,14 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 
 | Topic | Doc |
 |-------|-----|
-| **Quick start** | [docs/quick_start.md](docs/quick_start.md) |
-| **Pipeline** | [docs/pipeline_summary.md](docs/pipeline_summary.md) |
-| **Mix tasks** | [docs/mix_tasks.md](docs/mix_tasks.md) |
-| **Modules** | [docs/modules_overview.md](docs/modules_overview.md) |
-| **Dependencies** | [docs/dependencies.md](docs/dependencies.md) |
-| **Dev container (EXLA)** | [docs/dev_container.md](docs/dev_container.md) |
-| **Tests** | [docs/tests.md](docs/tests.md) |
-| **gRPC API** | [docs/grpc_serve.md](docs/grpc_serve.md), [docs/01_grpc_api.md](docs/01_grpc_api.md) |
-| **Versioning & references** | [docs/versioning_and_references.md](docs/versioning_and_references.md) |
+| **Quick start** | [docs/51_quick_start.md](docs/51_quick_start.md) |
+| **Pipeline** | [docs/52_pipeline_summary.md](docs/52_pipeline_summary.md) |
+| **Mix tasks** | [docs/53_mix_tasks.md](docs/53_mix_tasks.md) |
+| **Modules** | [docs/54_modules_overview.md](docs/54_modules_overview.md) |
+| **Dependencies** | [docs/55_dependencies.md](docs/55_dependencies.md) |
+| **Dev container (EXLA)** | [docs/56_dev_container.md](docs/56_dev_container.md) |
+| **Tests** | [docs/57_tests.md](docs/57_tests.md) |
+| **gRPC API** | [docs/58_grpc_serve.md](docs/58_grpc_serve.md), [docs/01_grpc_api.md](docs/01_grpc_api.md) |
+| **Versioning & references** | [docs/59_versioning_and_references.md](docs/59_versioning_and_references.md) |
 
 **Full index:** [docs/README.md](docs/README.md) — library reference, pipeline, eval, checkpoint layout, parity, and more.

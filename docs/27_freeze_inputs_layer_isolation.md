@@ -14,7 +14,7 @@ Layers need a way to be tested or run in isolation without process boundaries (G
 
 Instead of process boundaries (GenServers) or stubbing, **isolate layers by freezing the inputs** that each layer receives when the full pipeline runs with **full weights**. Run once with a real checkpoint and fixture; capture the inputs (and optionally outputs) at each layer boundary; then test or run each layer in isolation by feeding it only those **frozen inputs**. This works well for **unit tests** (one layer under test, frozen inputs from below) and **property-based tests** (e.g. generate many context item_ids or token lists, run Model or Recommendation with the same frozen params/state). No IPC, no shared mutable state; just pure functions with fixed inputs.
 
-**Unit tests:** Freeze inputs once (from a full run or stub); call one layer’s function with those inputs and assert on outputs. No live dependency on the layer below.
+**Unit tests:** Freeze inputs once (from a full run or stub); call one layer's function with those inputs and assert on outputs. No live dependency on the layer below.
 
 **Property testing:** Use the same frozen params/state as the invariant; generate many inputs (e.g. context item_ids, token lists) with StreamData; run the layer with each and check properties (e.g. recommend returns in-catalog IDs, forward_model shape).
 

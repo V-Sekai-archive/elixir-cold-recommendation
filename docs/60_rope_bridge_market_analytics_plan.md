@@ -2,7 +2,7 @@
 
 Paper trade without going bankrupt so we advance to busy-road and multilane-highway stages. This doc covers survivorship (Kelly, Greeks, shock tests), profit calculation from Scout data, Scout-to-butterfly flow, solver options, and the path to profitability.
 
-Related: [thirdparty_bs_p_review](thirdparty_bs_p_review.md), [strategy_given_latency_ceiling](strategy_given_latency_ceiling.md), [44_integer_programming_arbitrage_reference](../thirdparty/reflex-logic-market/polymarket/docs/44_integer_programming_arbitrage_reference.md).
+Related: [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md), [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md), [44_integer_programming_arbitrage_reference](../thirdparty/reflex-logic-market/polymarket/docs/44_integer_programming_arbitrage_reference.md).
 
 ---
 
@@ -235,8 +235,8 @@ Only ~12.7% of Polymarket users are profitable. How we get there:
 
 **In-repo (docs/)**
 
-- [thirdparty_bs_p_review](thirdparty_bs_p_review.md) — bs-p tricks we can borrow
-- [strategy_given_latency_ceiling](strategy_given_latency_ceiling.md) — RecGPT latency vs constraint framework
+- [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md) — bs-p tricks we can borrow
+- [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) — RecGPT latency vs constraint framework
 
 **Thirdparty (reflex-logic-market, when present)**
 

@@ -51,7 +51,8 @@ defmodule RecGPT.Training do
     embed_mask = Enum.map(batch_ids, fn id -> if id >= 0, do: 1.0, else: 0.0 end)
     embeds_ids = Enum.map(batch_ids, fn id -> if id >= 0 and id < num_items, do: id, else: 0 end)
     n = length(embeds_ids)
-    indices = Nx.tensor(embeds_ids, type: {:s, 32}) |> Nx.new_axis(-1)
+    # Indices on BinaryBackend to avoid EXLA/Binary dispatch issues in Nx.gather
+    indices = Nx.tensor(embeds_ids, type: {:s, 32}, backend: Nx.BinaryBackend) |> Nx.new_axis(-1)
     batch_embeds = Nx.gather(item_embeddings, indices)
     batch_embeds = Nx.reshape(batch_embeds, {n * 4, 192})
     embed_mask = Enum.flat_map(embed_mask, fn m -> List.duplicate(m, 4) end)
