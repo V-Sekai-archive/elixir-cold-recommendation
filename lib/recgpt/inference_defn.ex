@@ -36,6 +36,230 @@ defmodule RecGPT.InferenceDefn do
     {logits, new_cache}
   end
 
+  @doc """
+  Fused beam search: one Defn for step 0 + steps 1–3 (four forwards in a single graph).
+  Reduces kernel launch overhead. All inputs must be on the same EXLA backend.
+
+  context_len_scalar: scalar tensor (type {:s, 32}) with the context length (same as axis 1 of context_tokens).
+  Returns {item_ids, beam_scores, prefix_tokens} for the single sync and post-decode.
+  Does not support initial_step0 (context cache); use unfused path when cache hit.
+  """
+  defn beam_search_fused(
+        context_tokens,
+        context_len_scalar,
+        past_len_offset_1,
+        past_len_offset_2,
+        past_len_offset_3,
+        batch_aux_0,
+        embed_mask_0,
+        params,
+        next_state,
+        item_at_leaf,
+        root_state,
+        neg_inf,
+        vocab_t,
+        beam_width
+      ) do
+    # Step 0: full forward, then trie/top_k
+    {logits_0, cache} = forward_with_cache(context_tokens, batch_aux_0, embed_mask_0, params)
+    # logits_0 {1, vocab_size}
+    context_len = Nx.axis_size(context_tokens, 1)
+    vocab_size = elem(Nx.shape(next_state), 1)
+
+    valid_0 = Nx.gather(next_state, Nx.reshape(root_state, {1, 1})) |> Nx.reshape({:auto})
+    valid_mask_0 = Nx.greater_equal(valid_0, 0)
+    scores_0 = Nx.select(valid_mask_0, Nx.reshape(logits_0, {:auto}), neg_inf)
+    {top_scores_0, top_indices_0} = Nx.top_k(scores_0, k: beam_width)
+    top_token_ids_0 = Nx.reshape(top_indices_0, {:auto}) |> Nx.as_type({:s, 32})
+    state_ids_0 = gather_2d_defn(next_state, root_state, top_token_ids_0)
+    prefix_tokens_0 = Nx.reshape(top_token_ids_0, {beam_width, 1})
+    beam_scores_0 = Nx.as_type(top_scores_0, {:f, 32})
+
+    cache_rep = replicate_cache_defn(cache, beam_width)
+    aux_incr = Nx.broadcast(Nx.tensor(0, type: Nx.type(batch_aux_0)), {beam_width, 1, 192})
+    mask_incr = Nx.broadcast(Nx.tensor(1, type: Nx.type(embed_mask_0)), {beam_width, 1, 1})
+
+    # Step 1
+    {state_ids_1, prefix_tokens_1, beam_scores_1, cache_1} =
+      beam_step_defn(
+        next_state,
+        item_at_leaf,
+        context_tokens,
+        context_len,
+        context_len_scalar,
+        past_len_offset_1,
+        1,
+        beam_width,
+        vocab_size,
+        state_ids_0,
+        prefix_tokens_0,
+        beam_scores_0,
+        cache_rep,
+        params,
+        aux_incr,
+        mask_incr,
+        neg_inf,
+        vocab_t
+      )
+
+    # Step 2
+    {state_ids_2, prefix_tokens_2, beam_scores_2, cache_2} =
+      beam_step_defn(
+        next_state,
+        item_at_leaf,
+        context_tokens,
+        context_len,
+        context_len_scalar,
+        past_len_offset_2,
+        2,
+        beam_width,
+        vocab_size,
+        state_ids_1,
+        prefix_tokens_1,
+        beam_scores_1,
+        cache_1,
+        params,
+        aux_incr,
+        mask_incr,
+        neg_inf,
+        vocab_t
+      )
+
+    # Step 3: returns item_ids and prefix_tokens
+    {_state_ids_3, prefix_tokens_3, beam_scores_3, _cache_3, item_ids} =
+      beam_step_defn(
+        next_state,
+        item_at_leaf,
+        context_tokens,
+        context_len,
+        context_len_scalar,
+        past_len_offset_3,
+        3,
+        beam_width,
+        vocab_size,
+        state_ids_2,
+        prefix_tokens_2,
+        beam_scores_2,
+        cache_2,
+        params,
+        aux_incr,
+        mask_incr,
+        neg_inf,
+        vocab_t
+      )
+
+    {item_ids, beam_scores_3, prefix_tokens_3}
+  end
+
+  defnp replicate_cache_defn(cache_tuple, batch_size) do
+    replicate_one = fn {k, v} ->
+      {_b, n_head, len, hd} = Nx.shape(k)
+      {Nx.broadcast(k, {batch_size, n_head, len, hd}), Nx.broadcast(v, {batch_size, n_head, len, hd})}
+    end
+    {
+      replicate_one.(elem(cache_tuple, 0)),
+      replicate_one.(elem(cache_tuple, 1)),
+      replicate_one.(elem(cache_tuple, 2)),
+      replicate_one.(elem(cache_tuple, 3)),
+      replicate_one.(elem(cache_tuple, 4)),
+      replicate_one.(elem(cache_tuple, 5)),
+      replicate_one.(elem(cache_tuple, 6)),
+      replicate_one.(elem(cache_tuple, 7)),
+      replicate_one.(elem(cache_tuple, 8)),
+      replicate_one.(elem(cache_tuple, 9)),
+      replicate_one.(elem(cache_tuple, 10)),
+      replicate_one.(elem(cache_tuple, 11))
+    }
+  end
+
+  defnp gather_2d_defn(tensor, row_indices, col_indices) do
+    # row_indices {1} or {k}, col_indices {k}; tensor {num_states, vocab_size} or 3D
+    row_2d = Nx.new_axis(Nx.reshape(row_indices, {:auto}), -1)
+    rows = Nx.gather(tensor, row_2d)
+    rows = if Nx.rank(rows) == 1, do: Nx.reshape(rows, {1, :auto}), else: rows
+    rows =
+      if Nx.rank(rows) == 3 do
+        {a, _b, c} = Nx.shape(rows)
+        Nx.reshape(rows, {a, c})
+      else
+        rows
+      end
+    k = Nx.axis_size(col_indices, 0)
+    {_num_rows, vocab_size} = Nx.shape(rows)
+    rows = if k > 1, do: Nx.broadcast(rows, {k, vocab_size}), else: rows
+    indices = Nx.reshape(col_indices, {k, 1})
+    Nx.take_along_axis(rows, indices, axis: 1)
+  end
+
+  defnp beam_step_defn(
+         next_state,
+         item_at_leaf,
+         context_tokens,
+         context_len,
+         context_len_scalar,
+         past_len_offset,
+         step,
+         beam_width,
+         vocab_size,
+         state_ids,
+         prefix_tokens,
+         beam_scores,
+         cache,
+         params,
+         aux_incr,
+         mask_incr,
+         neg_inf,
+         vocab_t
+       ) do
+    prefix_len = step
+    context_broadcast = Nx.broadcast(context_tokens, {beam_width, context_len})
+    prefix_slice = prefix_tokens |> Nx.slice_along_axis(0, prefix_len, axis: 1)
+    batch = Nx.concatenate([context_broadcast, prefix_slice], axis: 1)
+    past_len = Nx.add(context_len_scalar, Nx.as_type(past_len_offset, {:s, 32}))
+    last_tokens = Nx.slice_along_axis(batch, context_len + prefix_len - 1, 1, axis: 1)
+    {logits, new_cache} = forward_incremental(last_tokens, aux_incr, mask_incr, params, cache, past_len)
+
+    state_ids_safe = Nx.max(state_ids, 0)
+    idx_2d = Nx.new_axis(state_ids_safe, -1)
+
+    {valid_rows, transition_tensor} =
+      if step == 3 do
+        {Nx.gather(item_at_leaf, idx_2d) |> Nx.reshape({beam_width, vocab_size}), item_at_leaf}
+      else
+        {Nx.gather(next_state, idx_2d) |> Nx.reshape({beam_width, vocab_size}), next_state}
+      end
+
+    valid_mask = Nx.greater_equal(valid_rows, 0)
+    scores_per_token = Nx.select(valid_mask, logits, neg_inf)
+    beam_scores_broadcast = Nx.new_axis(beam_scores, 1)
+    scores_per_token = Nx.add(scores_per_token, beam_scores_broadcast)
+    flat = Nx.reshape(scores_per_token, {:auto})
+    {top_scores, top_flat} = Nx.top_k(flat, k: beam_width)
+    top_flat = Nx.as_type(top_flat, {:s, 32})
+    batch_indices = Nx.quotient(top_flat, vocab_t)
+    token_ids = Nx.remainder(top_flat, vocab_t)
+
+    state_at_top = Nx.gather(state_ids, Nx.new_axis(batch_indices, -1)) |> Nx.reshape({:auto})
+    state_at_top_safe = Nx.max(state_at_top, 0)
+
+    new_state_ids =
+      if step == 3 do
+        gather_2d_defn(item_at_leaf, state_at_top_safe, token_ids) |> Nx.squeeze(axes: [1])
+      else
+        gather_2d_defn(transition_tensor, state_at_top_safe, token_ids) |> Nx.squeeze(axes: [1])
+      end
+
+    old_prefixes =
+      Nx.gather(prefix_tokens, Nx.new_axis(batch_indices, -1))
+      |> Nx.reshape({beam_width, prefix_len})
+
+    new_col = Nx.reshape(token_ids, {beam_width, 1})
+    new_prefix_tokens = Nx.concatenate([old_prefixes, new_col], axis: 1)
+
+    item_ids = if step == 3, do: new_state_ids, else: new_state_ids
+    {new_state_ids, new_prefix_tokens, top_scores, new_cache, item_ids}
+  end
+
   defnp forward_hidden_with_cache(batch_token_ids, batch_aux, embed_mask, params) do
     wte = params[:wte]
     {batch, seq_len} = Nx.shape(batch_token_ids)

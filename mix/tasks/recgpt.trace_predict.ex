@@ -6,16 +6,15 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
   Aligns with Replicate COG stages: setup (one-time load + JIT compile) ~20–30s;
   predict (per-request inference) ~300–400ms on 12-layer + RTX 4090. Most time
-  is usually in inference (4 forward passes for beam search).
+  is usually in beam search (fused: 1 graph, or unfused: 4 forward passes).
 
-  Loads state (fixture + checkpoint + optional catalog), runs one recommend with
-  the given context and top_k, and reports:
+  Loads state (fixture + checkpoint + optional catalog), runs recommend with
+  the same opts as Serve (fused path when no context-cache hit), and reports:
   - context_to_tokens_us: building context token sequence from item IDs
-  - beam_search_us: total time in beam search (4 steps)
-  - inference_us: time inside model forward (get_logits_fn) — usually the bottleneck
-  - inference_calls: number of forward passes (beam_width × 4 steps)
+  - beam_search_total: total time in beam search
+  - inference: when unfused, time inside get_logits (4 calls); when fused, one graph (time in beam_search_total)
   - response_build_us: building item_ids + display_name list
-  - total_us
+  - total_us and percentiles over runs
 
   ## Options
     * `--fixture` - Path to fixture JSON (default: data/steam/fixture.json)
@@ -192,9 +191,15 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     Mix.shell().info("  context_to_tokens:  #{last.context_us} μs")
     Mix.shell().info("  beam_search_total:   #{last.beam_search_us} μs")
 
-    Mix.shell().info(
-      "  inference (forward): #{last.inference_us} μs  (#{last.inference_calls} calls)"
-    )
+    if last.inference_calls > 0 do
+      Mix.shell().info(
+        "  inference (forward): #{last.inference_us} μs  (#{last.inference_calls} calls)"
+      )
+    else
+      Mix.shell().info(
+        "  inference: fused path (1 graph, time in beam_search_total above)"
+      )
+    end
 
     Mix.shell().info("  response_build:     #{last.response_us} μs")
     Mix.shell().info("")
@@ -221,8 +226,12 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
       Mix.shell().info("  inference % of total: #{pct}%  (avg #{avg_inference_us} μs/forward)")
 
       Mix.shell().info(
-        "  → Beam search uses batched path (#{last.inference_calls} forward passes). Speed up: GPU, KV-cache."
+        "  → Unfused path (#{last.inference_calls} forward passes). Speed up: GPU, KV-cache."
       )
+    else
+      pct = Float.round(100.0 * last.beam_search_us / last.total_us, 1)
+      Mix.shell().info("  beam_search % of total: #{pct}%")
+      Mix.shell().info("  → Fused path (1 graph). Speed up: GPU, KV-cache.")
     end
 
     Mix.shell().info("")
@@ -242,6 +251,8 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
       context_us = 0
 
+      opts = RecGPT.Serve.decode_opts(state, context_ids)
+
       {beam_search_us, result} =
         :timer.tc(fn ->
           RecGPT.Decode.beam_search_top_k_spmd(
@@ -251,7 +262,8 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
             top_k,
             traced_tensor_fn,
             state.inference_backend,
-            state.trie
+            state.trie,
+            opts
           )
         end)
 

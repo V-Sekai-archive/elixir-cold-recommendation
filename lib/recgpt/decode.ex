@@ -77,23 +77,140 @@ defmodule RecGPT.Decode do
     constants = Keyword.get(opts, :constants)
     root_state = if constants, do: constants.root_state, else: Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
-    # Step 0: one candidate (state 0), forward context only
+    # Fused path: one JIT for all four forwards when no context-cache hit and fused_fn is provided.
+    # Fused runs at max beam width; slice to request beam_width before sync.
+    fused_fn = Keyword.get(opts, :fused_fn)
+    {item_ids, beam_scores, prefix_tokens} =
+      if is_function(fused_fn, 2) and !Keyword.get(opts, :initial_step0) do
+        case fused_fn.(context_tokens, beam_width) do
+          {:ok, iid, bs, pt} ->
+            # Mask/slice to request beam_width (fused returns max width)
+            k = min(beam_width, Nx.axis_size(iid, 0))
+            {
+              Nx.slice_along_axis(iid, 0, k, axis: 0),
+              Nx.slice_along_axis(bs, 0, k, axis: 0),
+              Nx.slice_along_axis(pt, 0, k, axis: 0)
+            }
+          :unavailable ->
+            run_unfused_beam(
+              batch_tensor_fn,
+              context_tokens,
+              context_len,
+              next_state,
+              item_at_leaf,
+              root_state,
+              backend,
+              constants,
+              beam_width,
+              vocab_size,
+              opts
+            )
+        end
+      else
+        run_unfused_beam(
+          batch_tensor_fn,
+          context_tokens,
+          context_len,
+          next_state,
+          item_at_leaf,
+          root_state,
+          backend,
+          constants,
+          beam_width,
+          vocab_size,
+          opts
+        )
+      end
+
+    # Single sync: transfer item_ids and scores; only transfer prefix_tokens when any item_id < 0 (trie fallback)
+    RecGPT.NVTX.range_push("decode_sync")
+    # Force host transfer so fused/EXLA tensors are materialized, then coerce to plain integers
+    item_ids_host = Nx.backend_transfer(item_ids, Nx.BinaryBackend)
+    item_ids_list =
+      item_ids_host
+      |> Nx.to_flat_list()
+      |> Enum.map(&decode_item_id_to_int/1)
+
+    scores_list = Nx.to_flat_list(beam_scores)
+
+    prefix_tokens_list =
+      if Enum.any?(item_ids_list, &(&1 < 0)) do
+        prefix_tokens
+        |> Nx.backend_transfer(Nx.BinaryBackend)
+        |> Nx.to_flat_list()
+        |> Enum.chunk_every(4)
+      else
+        # Ablation: skip device→host transfer when all item_ids resolved from item_at_leaf
+        List.duplicate([0, 0, 0, 0], length(item_ids_list))
+      end
+
+    RecGPT.NVTX.range_pop()
+
+    candidates =
+      item_ids_list
+      |> Enum.zip(scores_list)
+      |> Enum.zip(prefix_tokens_list)
+      |> Enum.map(fn {{iid, score}, tokens} ->
+        iid_int = decode_item_id_to_int(iid)
+        iid_resolved = if iid_int >= 0, do: iid_int, else: resolve_item_id(trie, tokens)
+        {iid_resolved, score}
+      end)
+      |> Enum.filter(fn {iid, _} -> iid >= 0 end)
+      |> Enum.sort_by(fn {_, s} -> s end, :desc)
+      |> Enum.uniq_by(fn {iid, _} -> iid end)
+      |> Enum.take(top_k)
+      |> Enum.map(fn {iid, _} -> iid end)
+
+    # Final coercion so response never contains Nx.Tensor (e.g. from any code path)
+    list = Enum.map(candidates, &decode_item_id_to_int/1)
+
+    case list do
+      [] -> :not_found
+      ids -> {:ok, ids}
+    end
+  end
+
+  defp decode_item_id_to_int(x) when is_integer(x), do: x
+  defp decode_item_id_to_int(%Nx.Tensor{} = t), do: t |> Nx.backend_transfer(Nx.BinaryBackend) |> Nx.to_number() |> round()
+  defp decode_item_id_to_int(x) when is_number(x), do: round(x)
+
+  defp run_unfused_beam(
+         batch_tensor_fn,
+         context_tokens,
+         context_len,
+         next_state,
+         item_at_leaf,
+         root_state,
+         backend,
+         constants,
+         beam_width,
+         vocab_size,
+         opts
+       ) do
     RecGPT.NVTX.range_push("beam_search_step_0")
-    {logits, cache} = batch_tensor_fn.(context_tokens, nil)
-    logits = Nx.reshape(logits, {:auto})
+    {logits, cache} =
+      case Keyword.get(opts, :initial_step0) do
+        {cached_logits, cached_cache} when is_struct(cached_logits, Nx.Tensor) ->
+          logits_1d = Nx.reshape(cached_logits, {:auto})
+          {logits_1d, cached_cache}
+        _ ->
+          {l, c} = batch_tensor_fn.(context_tokens, nil)
+          {Nx.reshape(l, {:auto}), c}
+      end
     valid = Nx.gather(next_state, root_state) |> Nx.reshape({:auto})
     valid_mask = Nx.greater_equal(valid, 0)
-    neg_inf = if constants, do: constants.neg_inf, else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
+    neg_inf =
+      if constants, do: constants.neg_inf, else: Nx.tensor(@neg_inf, type: Nx.type(logits)) |> Nx.backend_transfer(backend)
     scores = Nx.select(valid_mask, logits, neg_inf)
     {top_scores, top_indices} = Nx.top_k(scores, k: beam_width)
-    top_token_ids = Nx.reshape(top_indices, {:auto}) |> Nx.as_type({:s, 32}) |> Nx.backend_transfer(backend)
+    top_token_ids =
+      Nx.reshape(top_indices, {:auto}) |> Nx.as_type({:s, 32}) |> Nx.backend_transfer(backend)
     new_state_ids = gather_2d(next_state, root_state, top_token_ids, backend)
     new_state_ids = Nx.squeeze(new_state_ids, axes: [1])
     prefix_tokens = Nx.new_axis(top_token_ids, 1)
     beam_scores = Nx.as_type(top_scores, {:f, 32})
     RecGPT.NVTX.range_pop()
 
-    # Steps 1, 2, 3 (step 3 uses item_at_leaf for valid mask and returns item_ids)
     {_state_ids, prefix_tokens, beam_scores, _cache, item_ids} =
       Enum.reduce(1..3, {new_state_ids, prefix_tokens, beam_scores, cache, nil}, fn step,
                                                                                     {state_ids,
@@ -118,42 +235,7 @@ defmodule RecGPT.Decode do
         )
       end)
 
-    # Single sync: transfer item_ids and scores; only transfer prefix_tokens when any item_id < 0 (trie fallback)
-    RecGPT.NVTX.range_push("decode_sync")
-    item_ids_list = Nx.to_flat_list(item_ids)
-    scores_list = Nx.to_flat_list(beam_scores)
-
-    prefix_tokens_list =
-      if Enum.any?(item_ids_list, &(&1 < 0)) do
-        prefix_tokens
-        |> Nx.backend_transfer(Nx.BinaryBackend)
-        |> Nx.to_flat_list()
-        |> Enum.chunk_every(4)
-      else
-        # Ablation: skip device→host transfer when all item_ids resolved from item_at_leaf
-        List.duplicate([0, 0, 0, 0], length(item_ids_list))
-      end
-
-    RecGPT.NVTX.range_pop()
-
-    candidates =
-      item_ids_list
-      |> Enum.zip(scores_list)
-      |> Enum.zip(prefix_tokens_list)
-      |> Enum.map(fn {{iid, score}, tokens} ->
-        iid_resolved = if iid >= 0, do: iid, else: resolve_item_id(trie, tokens)
-        {iid_resolved, score}
-      end)
-      |> Enum.filter(fn {iid, _} -> iid >= 0 end)
-      |> Enum.sort_by(fn {_, s} -> s end, :desc)
-      |> Enum.uniq_by(fn {iid, _} -> iid end)
-      |> Enum.take(top_k)
-      |> Enum.map(fn {iid, _} -> iid end)
-
-    case candidates do
-      [] -> :not_found
-      list -> {:ok, list}
-    end
+    {item_ids, beam_scores, prefix_tokens}
   end
 
   defp resolve_item_id(nil, _tokens), do: -1

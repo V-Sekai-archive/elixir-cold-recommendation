@@ -20,6 +20,9 @@ config :recgpt, :ckpt_expected_sha256,
 # Inference dtype: {:f, 32} (default) or {:bf, 16} for BF16 (Tensor Cores).
 config :recgpt, :inference_dtype, {:f, 32}
 
+# Fused beam search: compile one JIT at this (max) beam width; always use fused path and slice results to request beam_width.
+config :recgpt, :fused_beam_width, 20
+
 # Ablation: fix beam width (e.g. 1 for greedy). RECGPT_BEAM_WIDTH_OVERRIDE=1 to test.
 config :recgpt, :beam_width_override,
   (case System.get_env("RECGPT_BEAM_WIDTH_OVERRIDE") do
@@ -40,6 +43,12 @@ config :recgpt, :target_p99_ms,
 
 # Padded KV cache length for incremental forward. Shape (batch, n_head, max_cache_len, head_dim).
 config :recgpt, :max_cache_len, 128
+
+# Context cache: warm at load with step-0 results for these contexts (list of item_id lists).
+# Enables cache hit and skips step 0 in recommend when context matches. Default [] = no warming.
+# Example: [[] , [0]] warms empty context and context [0]. Use context_cache_warm_batch_size for batching.
+config :recgpt, :context_cache_warm_list, []
+config :recgpt, :context_cache_warm_batch_size, 4
 
 # SQLite catalog/token storage (optional). Set RECGPT_SQLITE_PATH to use. Run mix ecto.migrate.
 config :recgpt, ecto_repos: [RecGPT.Repo]

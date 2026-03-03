@@ -102,11 +102,11 @@ defmodule RecGPT.PredictBatchCollector do
               e ->
                 require Logger
 
-                Logger.error(
-                  "Recommend failed context=#{inspect(context_ids)}: #{Exception.format(:error, e)}"
-                )
+                # Avoid stringifying exception value (e.g. Nx.Tensor) which can raise again
+                msg = safe_exception_message(e)
+                Logger.error("Recommend failed context=#{inspect(context_ids)}: #{msg}")
 
-                {{:error, Exception.message(e)}, nil}
+                {{:error, msg}, nil}
             end
 
           reply = build_reply(recommend_result, recommend_us, state, context_ids, max_results)
@@ -116,6 +116,9 @@ defmodule RecGPT.PredictBatchCollector do
   end
 
   defp build_reply({:ok, item_ids}, recommend_us, state, context_ids, max_results) do
+    # Coerce to plain integers (fused path can leave scalar tensors in rare cases)
+    item_ids = Enum.map(item_ids, &item_id_to_int/1)
+
     items =
       Enum.map(item_ids, fn id ->
         name =
@@ -143,6 +146,16 @@ defmodule RecGPT.PredictBatchCollector do
   end
 
   defp build_reply({:error, _} = err, _recommend_us, _state, _context_ids, _max_results), do: err
+
+  defp item_id_to_int(id) when is_integer(id), do: id
+  defp item_id_to_int(%Nx.Tensor{} = t), do: t |> Nx.to_number() |> round()
+  defp item_id_to_int(x) when is_number(x), do: round(x)
+
+  defp safe_exception_message(e) do
+    Exception.message(e)
+  rescue
+    _ -> "#{inspect(e.__struct__)} (message omitted)"
+  end
 
   defp cancel_timer(nil), do: :ok
 

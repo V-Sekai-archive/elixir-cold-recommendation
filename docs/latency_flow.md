@@ -162,6 +162,11 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 **Implemented (hot path):** Config and constants are read once at load: `beam_width_override` and decode constants (`root_state`, `neg_inf`, `vocab_t`) live in Serve state and are passed to Decode via opts, so no `Application.get_env` or repeated tensor create+transfer per request. Pre-alloc aux/mask on device for full (1×256×192) and incremental (20×1×192); closure slices when shape fits. KV cache padding uses a zero scalar on the target backend before broadcast so padding stays on device.
 
+**Four forwards and inlining:** The beam search does four inference steps: one full forward (step 0) and three incremental (steps 1–3). Each step is a **separate call** from Elixir into the JIT (four graph launches). There is no “inlining” of these four in the current code—they are already **outlined** (four distinct invocations).
+
+- **Removing inlining** — There is nothing to remove; the four forwards are already separate. Splitting further (e.g. more helper calls around each step) would only add call overhead and would **not** perform better.
+- **Increasing inlining** — **Fusing** the four forwards into a **single** `Nx.Defn` (one graph that runs step 0 → trie/top_k → step 1 → … → step 3 and returns item_ids) would **reduce kernel launch overhead** and let XLA optimize across steps. That is the “fused Defn for beam search” idea: one launch instead of four, often **~10–25%** gain. **Implemented:** `InferenceDefn.beam_search_fused/14` runs step 0 + steps 1–3 in one JIT graph. Fused is **on for all paths** when no context-cache hit: one JIT compiled at max beam width (`config :recgpt, :fused_beam_width`, default 20); Decode slices the fused result to the request’s beam_width before sync (masks out the rest). **Estimated e2e gain:** ~10–25% of beam-search GPU time → **~15–50 ms** end-to-end if four forwards are ~150–200 ms of a 300 ms recommend (e.g. 300 ms → ~250–285 ms).
+
 **Still to do / config:**
 1. **BF16** — Set `config :recgpt, :inference_dtype, {:bf, 16}`. Largest single gain (1.3–2×) on the four forward passes.
 2. **Minimize host round-trips** — Single sync only; no extra `backend_transfer` or `to_flat_list` in the loop. All index tensors for `gather_2d` already on same backend as the tensor they index.

@@ -33,6 +33,10 @@ priv/recgpt.sqlite3
 priv/recgpt.sqlite3-shm
 priv/recgpt.sqlite3-wal
 
+# Ad-hoc / temporary SQLite (e.g. mix recgpt.ad_hoc_test, one-off scripts)
+recgpt_adhoc_*.sqlite
+*.sqlite3-journal
+
 # Generated DBs (UCI Clickstream, etc.)
 data/**/*.db
 data/**/*.db-shm

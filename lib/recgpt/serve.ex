@@ -33,9 +33,11 @@ defmodule RecGPT.Serve do
     :get_logits_fn,
     :get_logits_batch_fn,
     :get_logits_batch_tensor_fn,
+    :beam_search_fused_fn,
     :inference_backend,
     :beam_width_override,
-    :decode_constants
+    :decode_constants,
+    :context_cache
   ]
 
   @type state :: %__MODULE__{
@@ -56,9 +58,11 @@ defmodule RecGPT.Serve do
           get_logits_fn: (list(non_neg_integer()) -> Nx.Tensor.t()),
           get_logits_batch_fn: ([[non_neg_integer()]], term() -> {Nx.Tensor.t(), term()}) | nil,
           get_logits_batch_tensor_fn: (Nx.Tensor.t(), term() -> {Nx.Tensor.t(), term()}) | nil,
+          beam_search_fused_fn: (Nx.Tensor.t(), pos_integer() -> {:ok, Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t()} | :unavailable) | nil,
           inference_backend: term() | nil,
           beam_width_override: non_neg_integer() | nil,
-          decode_constants: %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil
+          decode_constants: %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil,
+          context_cache: %{optional(integer()) => {Nx.Tensor.t(), term()}} | nil
         }
 
   @doc """
@@ -92,6 +96,14 @@ defmodule RecGPT.Serve do
       decode_constants = build_decode_constants(inference_backend, vocab_size)
       beam_width_override = Application.get_env(:recgpt, :beam_width_override)
 
+      beam_search_fused_fn =
+        build_beam_search_fused_fn(
+          params,
+          inference_backend,
+          trie_tensors,
+          decode_constants
+        )
+
       state = %__MODULE__{
         params: params,
         trie: trie,
@@ -104,11 +116,14 @@ defmodule RecGPT.Serve do
         get_logits_fn: get_logits_fn,
         get_logits_batch_fn: get_logits_batch_fn,
         get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
+        beam_search_fused_fn: beam_search_fused_fn,
         inference_backend: inference_backend,
         beam_width_override: beam_width_override,
-        decode_constants: decode_constants
+        decode_constants: decode_constants,
+        context_cache: %{}
       }
 
+      state = maybe_warm_context_cache(state)
       {:ok, state}
     end
   end
@@ -144,6 +159,14 @@ defmodule RecGPT.Serve do
       decode_constants = build_decode_constants(inference_backend, vocab_size)
       beam_width_override = Application.get_env(:recgpt, :beam_width_override)
 
+      beam_search_fused_fn =
+        build_beam_search_fused_fn(
+          params,
+          inference_backend,
+          trie_tensors,
+          decode_constants
+        )
+
       state = %__MODULE__{
         params: params,
         trie: trie,
@@ -156,11 +179,15 @@ defmodule RecGPT.Serve do
         get_logits_fn: get_logits_fn,
         get_logits_batch_fn: get_logits_batch_fn,
         get_logits_batch_tensor_fn: get_logits_batch_tensor_fn,
+        beam_search_fused_fn: beam_search_fused_fn,
         inference_backend: inference_backend,
         beam_width_override: beam_width_override,
-        decode_constants: decode_constants
+        decode_constants: decode_constants,
+        context_cache: %{}
       }
 
+      # Context cache warming only supported when item_id_to_tokens_tensor is a single tensor (fixture path)
+      state = maybe_warm_context_cache(state)
       {:ok, state}
     end
   end
@@ -407,6 +434,124 @@ defmodule RecGPT.Serve do
     %{root_state: root_state, neg_inf: neg_inf, vocab_t: vocab_t}
   end
 
+  defp context_cache_key(context_ids) when is_list(context_ids) do
+    :erlang.phash2(:erlang.term_to_binary(context_ids))
+  end
+
+  defp get_cached_step0(state, context_ids) do
+    if state.context_cache && state.context_cache != %{} do
+      key = context_cache_key(context_ids)
+      Map.get(state.context_cache, key)
+    else
+      nil
+    end
+  end
+
+  defp maybe_add_initial_step0(opts, state, context_ids) do
+    case get_cached_step0(state, context_ids) do
+      {logits, cache} -> Keyword.put(opts, :initial_step0, {logits, cache})
+      nil -> opts
+    end
+  end
+
+  defp maybe_add_fused_fn(opts, state) do
+    if state.beam_search_fused_fn, do: Keyword.put(opts, :fused_fn, state.beam_search_fused_fn), else: opts
+  end
+
+  @doc """
+  Build opts for Decode.beam_search_top_k_spmd (same as recommend uses).
+  Used by trace_predict so the fused path and context cache are exercised.
+  """
+  def decode_opts(state, context_ids) do
+    [beam_width_override: state.beam_width_override, constants: state.decode_constants]
+    |> maybe_add_initial_step0(state, context_ids)
+    |> maybe_add_fused_fn(state)
+  end
+
+  defp build_context_tokens_single(state, context_ids, backend) do
+    item_id_to_tokens = state.item_id_to_tokens_tensor
+    if is_list(item_id_to_tokens), do: nil
+    if context_ids == [] do
+      Nx.tensor([[0]], type: {:s, 32}) |> Nx.backend_transfer(backend)
+    else
+      context_ids_t = Nx.tensor(context_ids, type: {:s, 32}) |> Nx.backend_transfer(backend)
+      context_ids_t = Nx.new_axis(context_ids_t, -1)
+      ctx = Nx.gather(item_id_to_tokens, context_ids_t, axes: [0]) |> Nx.reshape({:auto})
+      len = Nx.size(ctx)
+      Nx.reshape(ctx, {1, len})
+    end
+  end
+
+  defp build_context_tokens_batch(state, list_of_contexts, max_len, backend) do
+    tensors =
+      Enum.map(list_of_contexts, fn context_ids ->
+        t = build_context_tokens_single(state, context_ids, backend)
+        if t do
+          {_b, len} = Nx.shape(t)
+          pad_left = max_len - len
+          if pad_left <= 0 do
+            Nx.slice_along_axis(t, 0, max_len, axis: 1)
+          else
+            pad = Nx.broadcast(Nx.tensor(0, type: {:s, 32}), {1, pad_left}) |> Nx.backend_transfer(backend)
+            Nx.concatenate([pad, t], axis: 1)
+          end
+        else
+          nil
+        end
+      end)
+
+    if Enum.any?(tensors, &is_nil/1), do: nil, else: Nx.concatenate(tensors, axis: 0)
+  end
+
+  defp slice_cache_at_index(cache_tuple, index) do
+    list = Tuple.to_list(cache_tuple)
+    sliced =
+      Enum.map(list, fn {k, v} ->
+        k1 = Nx.slice_along_axis(k, index, 1, axis: 0)
+        v1 = Nx.slice_along_axis(v, index, 1, axis: 0)
+        {k1, v1}
+      end)
+    List.to_tuple(sliced)
+  end
+
+  defp maybe_warm_context_cache(state) do
+    warm_list = Application.get_env(:recgpt, :context_cache_warm_list, [])
+    batch_size = Application.get_env(:recgpt, :context_cache_warm_batch_size, 4)
+
+    if warm_list == [] or not is_list(warm_list) or is_list(state.item_id_to_tokens_tensor) do
+      state
+    else
+      backend = state.inference_backend
+      get_fn = state.get_logits_batch_tensor_fn
+      max_len = Application.get_env(:recgpt, :max_cache_len, 128)
+
+      cache =
+        warm_list
+        |> Enum.chunk_every(batch_size)
+        |> Enum.reduce(state.context_cache, fn chunk, acc ->
+          case build_context_tokens_batch(state, chunk, max_len, backend) do
+            nil -> acc
+            batch_tensor ->
+              {logits_batch, cache_batch} = get_fn.(batch_tensor, nil)
+              # logits_batch {b, seq_len, vocab}; we need last position per batch -> {b, vocab}
+              seq_len = elem(Nx.shape(logits_batch), 1)
+              logits_last = Nx.slice_along_axis(logits_batch, seq_len - 1, 1, axis: 1)
+              logits_per = Nx.squeeze(logits_last, axes: [1])
+
+              Enum.with_index(chunk)
+              |> Enum.reduce(acc, fn {context_ids, i}, a ->
+                logits_i = logits_per |> Nx.slice_along_axis(i, 1, axis: 0) |> Nx.squeeze(axes: [0])
+                cache_i = slice_cache_at_index(cache_batch, i)
+                key = context_cache_key(context_ids)
+                Map.put(a, key, {logits_i, cache_i})
+              end)
+          end
+        end)
+
+      %{state | context_cache: cache}
+    end
+  end
+
   defp build_jit do
     jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
     jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
@@ -415,6 +560,69 @@ defmodule RecGPT.Serve do
 
   @pre_alloc_max_context 256
   @pre_alloc_max_beam 20
+
+  defp build_beam_search_fused_fn(params, inference_backend, trie_tensors, decode_constants) do
+    n_layers = Inference.n_layers_from_params(params)
+    dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
+    defn_params = InferenceParams.build_defn_params(params, n_layers, dtype)
+    defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
+
+    # Compile at max beam width; Decode slices results to request beam_width
+    fused_beam_width = Application.get_env(:recgpt, :fused_beam_width, 20)
+    jit_fused = Nx.Defn.jit(&InferenceDefn.beam_search_fused/14, compiler: EXLA)
+
+    pre_aux_full =
+      Nx.broadcast(0.0, {1, @pre_alloc_max_context, 192})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
+
+    pre_mask_full =
+      Nx.broadcast(1.0, {1, @pre_alloc_max_context, 1})
+      |> Nx.as_type(dtype)
+      |> Nx.backend_transfer(inference_backend)
+
+    past_len_0 = Nx.tensor(0, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+    past_len_1 = Nx.tensor(1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+    past_len_2 = Nx.tensor(2, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+
+    next_state = trie_tensors.next_state
+    item_at_leaf = trie_tensors.item_at_leaf
+    root_state = decode_constants.root_state
+    neg_inf = decode_constants.neg_inf
+    vocab_t = decode_constants.vocab_t
+
+    fn context_tokens, _request_beam_width ->
+      # Always run fused at compiled beam width; Decode slices to request_beam_width
+      {_batch, context_len} = Nx.shape(context_tokens)
+      context_len_scalar =
+        Nx.tensor(context_len, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
+
+      aux_0 = pre_aux_full |> Nx.slice_along_axis(0, context_len, axis: 1)
+      mask_0 = pre_mask_full |> Nx.slice_along_axis(0, context_len, axis: 1)
+
+      RecGPT.NVTX.range_push("beam_search_fused")
+      {item_ids, beam_scores, prefix_tokens} =
+        jit_fused.(
+          context_tokens,
+          context_len_scalar,
+          past_len_0,
+          past_len_1,
+          past_len_2,
+          aux_0,
+          mask_0,
+          defn_params,
+          next_state,
+          item_at_leaf,
+          root_state,
+          neg_inf,
+          vocab_t,
+          fused_beam_width
+        )
+      RecGPT.NVTX.range_pop()
+
+      {:ok, item_ids, beam_scores, prefix_tokens}
+    end
+  end
 
   defp build_get_logits_batch_tensor_fn(params, inference_backend, _ckpt_export_dir) do
     n_layers = Inference.n_layers_from_params(params)
@@ -602,10 +810,7 @@ defmodule RecGPT.Serve do
         raise "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_batch_tensor_fn must be set (both load_state and load_state_from_db provide these)"
       end
 
-      opts = [
-        beam_width_override: state.beam_width_override,
-        constants: state.decode_constants
-      ]
+      opts = decode_opts(state, item_ids)
 
       result =
         Decode.beam_search_top_k_spmd(
