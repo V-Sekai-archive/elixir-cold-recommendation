@@ -383,63 +383,72 @@ defmodule RecGPT.Serve do
     }
   end
 
-  defp build_jit do
-    jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
-    jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
-    {jit_full, jit_incr}
+  defp build_jit(skip_aux) do
+    if skip_aux do
+      jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache_no_aux/2, compiler: EXLA)
+      jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental_no_aux/4, compiler: EXLA)
+      {:no_aux, jit_full, jit_incr}
+    else
+      jit_full = Nx.Defn.jit(&InferenceDefn.forward_with_cache/4, compiler: EXLA)
+      jit_incr = Nx.Defn.jit(&InferenceDefn.forward_incremental/6, compiler: EXLA)
+      {:aux, jit_full, jit_incr}
+    end
   end
 
-  defp build_get_logits_batch_tensor_fn(params, inference_backend, ckpt_export_dir) do
+  defp build_get_logits_batch_tensor_fn(params, inference_backend, _ckpt_export_dir) do
     n_layers = Inference.n_layers_from_params(params)
     dtype = Application.get_env(:recgpt, :inference_dtype, {:f, 32})
     defn_params = InferenceParams.build_defn_params(params, n_layers, dtype)
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
 
-    {jit_full, jit_incr} = build_jit()
+    skip_aux = Application.get_env(:recgpt, :skip_aux_encoder, false)
+    {aux_mode, jit_full, jit_incr} = build_jit(skip_aux)
 
     fn batch_tensor, cache ->
       {batch_size, seq_len} = Nx.shape(batch_tensor)
 
-      aux =
-        Nx.broadcast(0.0, {batch_size, seq_len, 192})
-        |> Nx.as_type(dtype)
-        |> Nx.backend_transfer(inference_backend)
-
-      mask =
-        Nx.broadcast(1.0, {batch_size, seq_len, 1})
-        |> Nx.as_type(dtype)
-        |> Nx.backend_transfer(inference_backend)
-
       if cache == nil do
         RecGPT.NVTX.range_push("forward_with_cache")
-        {logits, cache_tuple} = jit_full.(batch_tensor, aux, mask, defn_params)
+        {logits, cache_tuple} =
+          if aux_mode == :no_aux do
+            jit_full.(batch_tensor, defn_params)
+          else
+            aux =
+              Nx.broadcast(0.0, {batch_size, seq_len, 192})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+            mask =
+              Nx.broadcast(1.0, {batch_size, seq_len, 1})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+            jit_full.(batch_tensor, aux, mask, defn_params)
+          end
         RecGPT.NVTX.range_pop()
         padded = pad_cache_to_fixed(cache_tuple, inference_backend)
         {logits, padded}
       else
         last_tokens = batch_tensor |> Nx.slice_along_axis(seq_len - 1, 1, axis: 1)
-
-        aux_one =
-          Nx.broadcast(0.0, {batch_size, 1, 192})
-          |> Nx.as_type(dtype)
-          |> Nx.backend_transfer(inference_backend)
-
-        mask_one =
-          Nx.broadcast(1.0, {batch_size, 1, 1})
-          |> Nx.as_type(dtype)
-          |> Nx.backend_transfer(inference_backend)
-
         cache_to_use = maybe_replicate_cache(cache, batch_size)
         cache_tuple = ensure_cache_tuple(cache_to_use)
-
         past_len =
           Nx.tensor(seq_len - 1, type: {:s, 32}) |> Nx.backend_transfer(inference_backend)
 
         RecGPT.NVTX.range_push("forward_incremental")
         {logits, new_cache} =
-          jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+          if aux_mode == :no_aux do
+            jit_incr.(last_tokens, defn_params, cache_tuple, past_len)
+          else
+            aux_one =
+              Nx.broadcast(0.0, {batch_size, 1, 192})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+            mask_one =
+              Nx.broadcast(1.0, {batch_size, 1, 1})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+            jit_incr.(last_tokens, aux_one, mask_one, defn_params, cache_tuple, past_len)
+          end
         RecGPT.NVTX.range_pop()
-
         {logits, new_cache}
       end
     end

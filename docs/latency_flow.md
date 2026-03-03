@@ -175,4 +175,5 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 - [08_latency_and_performance.md](08_latency_and_performance.md) — Industry context, what we fixed, summary table.
 - [nsys_tracing.md](nsys_tracing.md) — How to profile with Nsight Systems and NVTX markers.
+- [ablation_tensor_graph.md](ablation_tensor_graph.md) — What can be removed or simplified without breaking semantic id or top-k (ablation testing).
 - Plan: P99 latency target with buffer (RecGPT target P50 = 20 ms, P99 ≤ 60 ms).

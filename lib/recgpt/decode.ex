@@ -66,8 +66,12 @@ defmodule RecGPT.Decode do
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state
     item_at_leaf = trie_tensors.item_at_leaf
-    # Adaptive: beam 4..20 for expected top_k 1–20; top_k+2 with cap 20
-    beam_width = max(4, min(top_k + 2, 20))
+    # Beam: override for ablation (e.g. RECGPT_BEAM_WIDTH_OVERRIDE=1) or adaptive 4..20 for top_k 1–20
+    beam_width =
+      case Application.get_env(:recgpt, :beam_width_override) do
+        n when is_integer(n) and n >= 1 -> n
+        _ -> max(4, min(top_k + 2, 20))
+      end
     root_state = Nx.tensor([0], type: {:s, 32}) |> Nx.backend_transfer(backend)
 
     # Step 0: one candidate (state 0), forward context only
@@ -110,17 +114,22 @@ defmodule RecGPT.Decode do
         )
       end)
 
-    # Single sync: transfer item_ids, scores, and prefix_tokens (4 tokens per candidate) to host
+    # Single sync: transfer item_ids and scores; only transfer prefix_tokens when any item_id < 0 (trie fallback)
     RecGPT.NVTX.range_push("decode_sync")
     item_ids_list = Nx.to_flat_list(item_ids)
     scores_list = Nx.to_flat_list(beam_scores)
 
-    prefix_tokens =
-      prefix_tokens
-      |> Nx.backend_transfer(Nx.BinaryBackend)
-      |> Nx.to_flat_list()
+    prefix_tokens_list =
+      if Enum.any?(item_ids_list, &(&1 < 0)) do
+        prefix_tokens
+        |> Nx.backend_transfer(Nx.BinaryBackend)
+        |> Nx.to_flat_list()
+        |> Enum.chunk_every(4)
+      else
+        # Ablation: skip device→host transfer when all item_ids resolved from item_at_leaf
+        List.duplicate([0, 0, 0, 0], length(item_ids_list))
+      end
 
-    prefix_tokens_list = Enum.chunk_every(prefix_tokens, 4)
     RecGPT.NVTX.range_pop()
 
     candidates =

@@ -20,6 +20,19 @@ config :recgpt, :ckpt_expected_sha256,
 # Inference dtype: {:f, 32} (default) or {:bf, 16} for BF16 (Tensor Cores).
 config :recgpt, :inference_dtype, {:f, 32}
 
+# Ablation: skip aux encoder when aux=0, mask=1 (saves linear+LN+multiply per forward). Compare item_ids to baseline.
+# config :recgpt, :skip_aux_encoder, true
+
+# Ablation: fix beam width (e.g. 1 for greedy). RECGPT_BEAM_WIDTH_OVERRIDE=1 to test.
+config :recgpt, :beam_width_override,
+  (case System.get_env("RECGPT_BEAM_WIDTH_OVERRIDE") do
+     nil -> nil
+     s -> case Integer.parse(s) do
+            {n, _} when n >= 1 -> n
+            _ -> nil
+          end
+   end)
+
 # SLO: RecGPT latency targets (combination system; reflex-logic-market + bs-p add <0.1 ms).
 # Primary target P50 = 20 ms; P99 budget from E2E ceiling. Override via RECGPT_TARGET_P50_MS / RECGPT_TARGET_P99_MS.
 config :recgpt, :target_p50_ms,
