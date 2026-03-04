@@ -42,7 +42,6 @@ Related: [60 Rope bridge](60_rope_bridge_market_analytics_plan.md), [61 Strategy
 
 - [72 RecGPT 9% → Qwen 75% gap](72_recgpt_9pct_to_qwen_75pct_gap.md) — Scout ceiling ~9%; Qwen filter → 75% win rate on trades we make
 - [OpenPipe ART](https://github.com/OpenPipe/ART) — Qwen LoRA finetuning via GRPO
-- [33 MovieLens 5-epoch pretrain](33_movielens_5_epoch_pretrain.md) — RecGPT pretraining (`mix recgpt.pretrain`)
 - [60 Rope bridge](60_rope_bridge_market_analytics_plan.md) — Profit calc, Scout→butterfly, Kelly
 - [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) — RecGPT fits Catalyst/Combinatorial
 - [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md) — Kelly, Greeks, shock from bs-p

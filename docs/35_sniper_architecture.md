@@ -22,7 +22,7 @@ Scout feeds the Gatekeeper exactly one candidate. Gatekeeper enforces Triple-Loc
 
 | Model                  | Training                                                                                          | Output                                         | Tooling                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| **RecGPT (Scout)**     | **Pretraining** — next-token prediction on item sequences (train_sequences.json, item embeddings) | LoRA or full checkpoint; `mix recgpt.pretrain` | Elixir/Axon; [33 MovieLens 5-epoch](33_movielens_5_epoch_pretrain.md) |
+| **RecGPT (Scout)**     | **Pretraining** — next-token prediction on item sequences (train_sequences.json, item embeddings) | LoRA or full checkpoint; `mix recgpt.pretrain` | Elixir/Axon |
 | **Qwen3 (Gatekeeper)** | **LoRA finetuning** — GRPO on veto/strike scenarios                                               | LoRA adapter over base Qwen3                   | [OpenPipe ART](https://github.com/OpenPipe/ART) (Python)              |
 
 - **RecGPT pretraining:** Learns item correlations, sequences, catalog intent from historical data. No veto logic; outputs probability distribution over item_ids.

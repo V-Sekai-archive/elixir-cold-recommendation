@@ -6,7 +6,7 @@ Goal: Find a dataset in `thirdparty/recgpt-trajectories` suitable for RecGPT pre
 
 ## Status
 
-**thirdparty/recgpt-trajectories** exists and contains 4 raw datasets (MovieLens 20M, KuaiRand-Pure, MerRec, Open e-commerce). A MovieLens converter is implemented: `mix recgpt.convert_movielens`.
+**thirdparty/recgpt-trajectories** exists and contains 4 raw datasets (KuaiRand-Pure, MerRec, Open e-commerce, and others). Write a converter script to produce `items.json`, `train_sequences.json`, and `test_sequences.json` in the canonical shapes below.
 
 ---
 
@@ -37,44 +37,6 @@ Optional for embedding parity with released checkpoint:
 2. **PKL/NPY** – `item_text_dict.pkl`, `item_text_embeddings.npy` if you want embedding parity.
 3. **Sequence format** – Each sequence is a list of item_ids (0-based catalog indices). Train sequences are full sessions; test cases are `{context: [id1, id2, ...], next_item: id}`.
 4. **Catalog** – `num_items` and `items` with unique `id` (0..num_items-1) and `title`.
-
----
-
-## MovieLens 20M: Convert and Run
-
-1. **Convert** (writes to `data/movielens-20m/` by default)
-
-   ```bash
-   mix recgpt.convert_movielens
-   mix recgpt.convert_movielens --max-items 5000   # faster iteration
-   mix recgpt.convert_movielens --src thirdparty/recgpt-trajectories/movielens-20m --out data/movielens-20m
-   ```
-
-2. **Build fixture**
-
-   ```bash
-   mix recgpt.build_fixture --items data/movielens-20m/items.json --out data/movielens-20m/fixture.json --ckpt data/recgpt_ckpt_export --limit 5000 --no-canonical-texts
-   ```
-
-3. **Pretrain**
-
-   ```bash
-   mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --train data/movielens-20m/train_sequences.json --items data/movielens-20m/items.json --out data/movielens-20m/ckpt_pretrained
-   ```
-
-4. **Eval baseline** (zero-shot)
-
-   ```bash
-   mix recgpt.eval --data-dir data/movielens-20m --ckpt data/recgpt_ckpt_export --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
-   ```
-
-5. **Eval pretrained**
-
-   ```bash
-   mix recgpt.eval --data-dir data/movielens-20m --ckpt data/movielens-20m/ckpt_pretrained --fixture data/movielens-20m/fixture.json --test data/movielens-20m/test_sequences.json
-   ```
-
-6. **Compare** Hit@1, Hit@5, Hit@10, MRR. If pretrained is higher, performance improved.
 
 ---
 
