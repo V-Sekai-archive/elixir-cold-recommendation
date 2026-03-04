@@ -42,10 +42,11 @@ Maintain one **module reference** (this document) with overview tables by area, 
 
 ### Inference and serving
 
-| Module               | Purpose                                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **RecGPT.Inference** | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
-| **RecGPT.Decode**    | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
+| Module                     | Purpose                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **RecGPT.Inference**       | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
+| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. See [84](84_fuxi_linear_implementation_plan.md). |
+| **RecGPT.Decode**          | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
 | **RecGPT.Trie**      | Build trie from token_id_list for beam search.                                                                                |
 | **RecGPT.Serve**     | `load_state/3`, `recommend/3`, `item_ids_to_context_token_ids/3`.                                                             |
 

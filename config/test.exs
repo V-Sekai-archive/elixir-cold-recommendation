@@ -3,3 +3,7 @@
 import Config
 
 config :recgpt, :ckpt_expected_sha256, nil
+
+# Use Nx.BinaryBackend for tests so they run without EXLA/CUDA (e.g. WSL, CI).
+# EXLA has no precompiled XLA for Windows; run tests in WSL: wsl -e bash -c "cd /mnt/c/path/to/elixir-recgpt && mix test"
+config :nx, default_backend: Nx.BinaryBackend

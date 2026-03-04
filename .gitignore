@@ -80,6 +80,9 @@ data/
 item*_elixir.raw
 item*_sentence_transformers.npy
 
+# FuXi-Linear reference (clone for porting; do not commit)
+_fuxi_linear_ref/
+
 # Checkpoints (thirdparty/checkpoints) — binaries not committed; use mix recgpt.fetch_vae_ckpt / fetch_ckpt
 thirdparty/checkpoints/vae/*.pt
 thirdparty/checkpoints/recgpt/*.pt
