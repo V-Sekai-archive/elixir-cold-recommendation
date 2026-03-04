@@ -20,7 +20,7 @@ Related: [83 Frontier models EXLA path](83_frontier_models_exla_elixir_path.md),
 | **LinearTemporalChannel** | Timestamp-based Q/K from sinusoidal encoding; decay by time intervals. Uses `all_timestamps`. |
 | **LinearPositionalChannel** | Learned sinusoidal positional embeddings; `attn = emb @ emb.T / dim` with causal mask. |
 | **Multistage FFN** | lin0 + residual; lin1/silu*lin3 + lin2 (gated). |
-| **Chunk processing** | Optional chunk_size for long sequences; not yet ported (full O(n²) for small n). |
+| **Chunk processing** | Optional `chunk_size` opts when seq_len &gt; chunk_size; reduces peak memory. |
 
 ---
 
@@ -29,8 +29,8 @@ Related: [83 Frontier models EXLA path](83_frontier_models_exla_elixir_path.md),
 | Reference | Our port |
 |-----------|----------|
 | Jagged tensors (FBGEMM) | Padded (batch, seq_len, dim) — same as RecGPT |
-| `all_timestamps` | Position indices; add real timestamps when Tape ready |
-| Chunked forward | `chunk_size = nil` (full O(n²)); add chunk later |
+| `all_timestamps` | Position indices by default; `opts[:all_timestamps]` for real timestamps (Tape/time-series) |
+| Chunked forward | `opts[:chunk_size]` when seq_len &gt; chunk_size; reduces peak memory |
 | Multiple blocks | 4 blocks (config linear-4b) |
 
 - **Input:** `batch_token_ids` (batch, seq_len), `batch_aux` (batch, seq_len, 192), `embed_mask`
@@ -45,6 +45,14 @@ Related: [83 Frontier models EXLA path](83_frontier_models_exla_elixir_path.md),
 # Forward (same as Inference)
 logits = RecGPT.FuxiLinearInference.forward(token_ids, batch_aux, embed_mask, params)
 
+# With real timestamps (Tape/time-series)
+logits = RecGPT.FuxiLinearInference.forward(token_ids, batch_aux, embed_mask, params,
+  all_timestamps: real_ts  # (batch, seq_len, 8)
+
+# Chunked for long sequences (reduces peak memory)
+logits = RecGPT.FuxiLinearInference.forward(token_ids, batch_aux, embed_mask, params,
+  chunk_size: 64)
+
 # Init params for training from scratch
 params = RecGPT.FuxiLinearInference.init_params(n_blocks: 4, max_seq_len: 1024)
 ```
@@ -53,10 +61,8 @@ params = RecGPT.FuxiLinearInference.init_params(n_blocks: 4, max_seq_len: 1024)
 
 ## Params / Checkpoint
 
-FuXi-Linear uses different param layout than GPT-2. Options:
+FuXi-Linear uses different param layout than GPT-2.
 
-- **A:** New checkpoint format; loader maps FuXi keys.
+- **A (implemented):** `FuxiLinearInferenceParams` maps FuXi keys (`fuxi.block.*`) to defn params. `mix recgpt.export_fuxi_ckpt --out DIR` exports init params. Serve auto-detects FuXi checkpoints.
 - **B:** Train from scratch with Axon; export to our format.
 - **C:** Convert PyTorch checkpoint from fuxi-linear (script).
-
-Rope bridge: Use `init_params/1` for random init; validate forward shape. Add checkpoint once training pipeline exists.

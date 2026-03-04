@@ -63,4 +63,4 @@ Next: `mix recgpt.first_step` (requires canonical texts; see [24 First step plan
 - [.gitignore](../.gitignore) — what’s excluded from git
 - [thirdparty/checkpoints/README.md](../thirdparty/checkpoints/README.md) — checkpoint layout
 - [24 First step plan](24_first_step_plan.md) — pipeline after refetch
-- [53 Mix tasks](53_mix_tasks.md) — `refetch`, `fetch_ckpt`, `fetch_steam`, `fetch_vae_ckpt`, `export_ckpt`
+- [53 Mix tasks](53_mix_tasks.md) — `refetch`, `fetch_ckpt`, `export_ckpt`, `export_fuxi_ckpt`, `fetch_steam`, `fetch_vae_ckpt`

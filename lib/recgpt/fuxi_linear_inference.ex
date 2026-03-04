@@ -30,19 +30,67 @@ defmodule RecGPT.FuxiLinearInference do
 
   @doc """
   Forward pass. Returns logits (batch, 15_361) for last position.
+
+  Options:
+  - `:all_timestamps` — (batch, seq_len, channel_t_heads) real timestamps for LinearTemporalChannel.
+    When nil, uses position indices. Use real timestamps when Tape/time-series data available.
+  - `:chunk_size` — when set and seq_len > chunk_size, process in chunks to reduce peak memory.
+    When nil, processes full sequence (O(n²) per block).
   """
-  @spec forward(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map()) :: Nx.Tensor.t()
-  def forward(batch_token_ids, batch_aux, embed_mask, params) do
-    hidden = forward_hidden(batch_token_ids, batch_aux, embed_mask, params)
+  @spec forward(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map(), keyword()) :: Nx.Tensor.t()
+  def forward(batch_token_ids, batch_aux, embed_mask, params, opts \\ []) do
+    hidden = forward_hidden(batch_token_ids, batch_aux, embed_mask, params, opts)
     {_batch, _seq_len, _} = Nx.shape(hidden)
     last_idx = elem(Nx.shape(batch_token_ids), 1) - 1
     last_hidden = Nx.slice_along_axis(hidden, last_idx, 1, axis: 1) |> Nx.squeeze(axes: [1])
     apply_head(last_hidden, params)
   end
 
-  defp forward_hidden(batch_token_ids, batch_aux, embed_mask, params) do
+  @doc """
+  Full-sequence forward for training. Returns logits (batch, seq_len, 15_361) for every position.
+  Uses Training.loss_shifted_ce/2 with shifted labels.
+
+  Options: same as forward/5 (`:all_timestamps`, `:chunk_size`).
+  """
+  @spec forward_full_sequence(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map(), keyword()) ::
+          Nx.Tensor.t()
+  def forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params, opts \\ []) do
+    hidden = forward_hidden(batch_token_ids, batch_aux, embed_mask, params, opts)
+    apply_head(hidden, params)
+  end
+
+  @doc """
+  Full forward returning logits and empty cache. FuXi uses single-forward decode; no KV-cache.
+  Returns {logits, []} for API compatibility with Inference.forward_with_cache.
+  """
+  @spec forward_with_cache(Nx.Tensor.t(), Nx.Tensor.t(), Nx.Tensor.t(), map()) ::
+          {Nx.Tensor.t(), []}
+  def forward_with_cache(batch_token_ids, batch_aux, embed_mask, params) do
+    logits = forward(batch_token_ids, batch_aux, embed_mask, params)
+    {logits, []}
+  end
+
+  @doc """
+  Incremental forward for one new token. FuXi uses single-forward decode; for compatibility
+  runs full forward on the single token and returns {logits, []}.
+  """
+  @spec forward_incremental(
+          Nx.Tensor.t(),
+          Nx.Tensor.t(),
+          Nx.Tensor.t(),
+          map(),
+          list()
+        ) :: {Nx.Tensor.t(), []}
+  def forward_incremental(batch_token_ids, batch_aux, embed_mask, params, _past_key_values) do
+    logits = forward(batch_token_ids, batch_aux, embed_mask, params)
+    {logits, []}
+  end
+
+  defp forward_hidden(batch_token_ids, batch_aux, embed_mask, params, opts) do
     wte = get_wte(params)
     {batch, seq_len} = Nx.shape(batch_token_ids)
+    all_timestamps = Keyword.get(opts, :all_timestamps) || position_timestamps(batch, seq_len)
+    chunk_size = Keyword.get(opts, :chunk_size)
 
     # RecGPT semantic ID: token embed + aux encoder
     flat_ids = Nx.reshape(batch_token_ids, {batch * seq_len})
@@ -51,17 +99,45 @@ defmodule RecGPT.FuxiLinearInference do
     aux_768 = apply_aux_encoder(batch_aux, embed_mask, params)
     x = Nx.add(token_embeds, aux_768)
 
-    # Position indices as timestamps (no real timestamps yet)
-    all_timestamps = position_timestamps(batch, seq_len)
     invalid_attn_mask = causal_mask(seq_len)
 
-    # FuXi-Linear: N blocks
-    h = x
-    for i <- 0..(@n_blocks - 1), reduce: h do
-      acc -> fuxi_block(acc, i, seq_len, all_timestamps, invalid_attn_mask, params)
-    end
+    # FuXi-Linear: N blocks (chunked when chunk_size set and seq_len > chunk_size)
+    h =
+      if chunk_size && seq_len > chunk_size do
+        forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size)
+      else
+        for i <- 0..(@n_blocks - 1), reduce: x do
+          acc -> fuxi_block(acc, i, seq_len, all_timestamps, invalid_attn_mask, params)
+        end
+      end
 
     apply_ln_f(h, params)
+  end
+
+  defp forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size) do
+    n_chunks = div(seq_len + chunk_size - 1, chunk_size)
+
+    Enum.reduce(0..(n_chunks - 1), x, fn chunk_idx, acc ->
+      start_pos = chunk_idx * chunk_size
+      end_pos = min(start_pos + chunk_size, seq_len)
+      chunk_len = end_pos - start_pos
+
+      # Slice inputs for this chunk; block needs causal context [0..end_pos)
+      h_slice = Nx.slice(acc, [0, 0, 0], [elem(Nx.shape(acc), 0), end_pos, @n_embd])
+      ts_slice = Nx.slice(all_timestamps, [0, 0, 0], [elem(Nx.shape(all_timestamps), 0), end_pos, @channel_t_heads])
+      mask_slice = Nx.slice(invalid_attn_mask, [0, 0], [end_pos, end_pos])
+
+      chunk_out =
+        for i <- 0..(@n_blocks - 1), reduce: h_slice do
+          block_in ->
+            fuxi_block(block_in, i, end_pos, ts_slice, mask_slice, params)
+        end
+
+      # Take only the new rows [start_pos..end_pos) and write into acc
+      new_rows = Nx.slice(chunk_out, [0, start_pos, 0], [elem(Nx.shape(chunk_out), 0), chunk_len, @n_embd])
+      # Put the new rows back into full tensor
+      Nx.put_slice(acc, [0, start_pos, 0], new_rows)
+    end)
   end
 
   defp position_timestamps(batch, seq_len) do
@@ -327,7 +403,17 @@ defmodule RecGPT.FuxiLinearInference do
   defp apply_head(hidden, params) do
     w = params["pred_head.weight"] || params["pred_head_weight"]
     b = params["pred_head.bias"] || params["pred_head_bias"]
-    Nx.dot(hidden, [1], w, [0]) |> Nx.add(b)
+    shape = Nx.shape(hidden)
+    logits =
+      if tuple_size(shape) == 2 do
+        Nx.dot(hidden, [1], w, [0])
+      else
+        {batch, seq_len, _} = shape
+        flat = Nx.reshape(hidden, {batch * seq_len, @n_embd})
+        out = Nx.dot(flat, [1], w, [0])
+        Nx.reshape(out, {batch, seq_len, @vocab_size})
+      end
+    Nx.add(logits, b)
   end
 
   defp layer_norm(x, weight, bias) do

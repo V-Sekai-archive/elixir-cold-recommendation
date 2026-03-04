@@ -143,6 +143,40 @@ defmodule RecGPT.ServeTest do
       end
     end
 
+    @tag timeout: 180_000
+    test "load_state with FuXi checkpoint uses FuxiLinearInferenceDefn; recommend returns valid item IDs" do
+      Application.ensure_all_started(:nx)
+      Application.put_env(:recgpt, :ckpt_expected_sha256, nil)
+
+      base =
+        Path.join(System.tmp_dir!(), "recgpt_serve_fuxi_#{:erlang.unique_integer([:positive])}")
+
+      File.mkdir_p!(base)
+      fixture_path = Path.join(base, "fixture.json")
+      ckpt_dir = Path.join(base, "ckpt")
+
+      try do
+        num_items = 2
+        token_id_list = [[100, 200, 300, 400], [101, 201, 301, 401]]
+
+        File.write!(
+          fixture_path,
+          Jason.encode!(%{"num_items" => num_items, "token_id_list" => token_id_list})
+        )
+
+        FrozenHelpers.write_fuxi_stub_ckpt!(ckpt_dir)
+
+        assert {:ok, state} = Serve.load_state(fixture_path, ckpt_dir, nil)
+        assert state.num_items == num_items
+        assert {:ok, list} = Serve.recommend(state, [0], 5)
+        assert is_list(list)
+        assert length(list) <= 5
+        assert Enum.all?(list, fn id -> is_integer(id) and id >= 0 and id < num_items end)
+      after
+        File.rm_rf(base)
+      end
+    end
+
     @tag :integration
     test "pipeline: load_state + recommend + Eval.evaluate returns metrics" do
       Application.ensure_all_started(:nx)

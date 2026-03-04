@@ -9,9 +9,11 @@
 | **RecGPT.Training**         | `build_train_batch/4`, `encode_aux/3`, `loss_shifted_ce/2`.                                         |
 | **RecGPT.AxonTrain**        | Training loop: `stream_batches/4`, `run/3` (Polaris optimizer).                                     |
 | **RecGPT.Inference**        | Forward pass (training): token embed + aux + GPT-2 + head. `forward/4`, `forward_full_sequence/4`.  |
-| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone: Retention + LinearTemporalChannel + LinearPositionalChannel. Same interface as Inference. `forward/4`, `init_params/1`. |
+| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone: Retention + LinearTemporalChannel + LinearPositionalChannel. Same interface as Inference. `forward/5`, `forward_full_sequence/5` (opts: `all_timestamps`, `chunk_size`), `init_params/1`. |
+| **RecGPT.FuxiLinearInferenceDefn** | Defn JIT `forward_last_4_logits/4` for Serve when FuXi checkpoint. |
+| **RecGPT.FuxiLinearInferenceParams** | Build defn params from FuXi checkpoint keys. |
 | **RecGPT.InferenceParams**  | Build defn-friendly full params (atom keys). Stub checkpoints get identity layers so one code path. |
-| **RecGPT.InferenceDefn**    | Defn entry points for serve: `forward_with_cache/4`, `forward_incremental/5` (EXLA JIT).            |
+| **RecGPT.InferenceDefn**    | Defn entry points for serve: `forward_last_4_logits/4` (EXLA JIT). |
 | **RecGPT.Serve**            | Load state (fixture + checkpoint); EXLA. Implements `RecGPT.RecommendationService`.                 |
 | **RecGPT.CheckpointLoader** | Load export dir → `%{key => Nx.Tensor}`.                                                            |
 | **RecGPT.CheckpointExport** | Write params to export dir (manifest + .npy).                                                       |

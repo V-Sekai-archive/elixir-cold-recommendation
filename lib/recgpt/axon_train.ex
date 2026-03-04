@@ -12,6 +12,7 @@ defmodule RecGPT.AxonTrain do
   Stream entries: {{batch_token_ids, batch_aux_embeds, embed_mask}, batch_labels}.
   """
 
+  alias RecGPT.FuxiLinearInference
   alias RecGPT.Inference
   alias RecGPT.Training
 
@@ -35,9 +36,14 @@ defmodule RecGPT.AxonTrain do
 
   @doc """
   Forward for training: full-sequence logits. Params are the flat map from CheckpointLoader.
+  Uses FuxiLinearInference when params are FuXi checkpoint; otherwise Inference (GPT-2).
   """
   def predict(params, {batch_token_ids, batch_aux_embeds, embed_mask}) when is_map(params) do
-    Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
+    if Inference.fuxi_checkpoint?(params) do
+      FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
+    else
+      Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
+    end
   end
 
   @doc """

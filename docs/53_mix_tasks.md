@@ -5,6 +5,7 @@
 | `mix recgpt.refetch`       | Refetch all bulk data: fetch_ckpt → export_ckpt → fetch_vae_ckpt → fetch_steam. `--force` to clear first.                                                |
 | `mix recgpt.fetch_ckpt`    | Download RecGPT PyTorch checkpoint from Hugging Face (hkuds/RecGPT_model).                                                                              |
 | `mix recgpt.export_ckpt`   | Export checkpoint to `manifest.json` + `.npy` (from `--from-pt`).                                                                                       |
+| `mix recgpt.export_fuxi_ckpt` | Export FuXi-Linear init params for serve/pretrain. `--out` required; `--n-blocks`, `--max-seq-len`.                                                  |
 | `mix recgpt.fetch_steam`   | Fetch Steam test split from HuggingFace (hkuds/RecGPT_dataset); write items + train/test/cold sequences.                                                |
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`.                                                        |
 | `mix recgpt.pretrain`      | Pretrain on `train_sequences.json` with fixture + checkpoint; write updated params to `--out`. `--epochs 5`, `--save-every N` for periodic checkpoints. |

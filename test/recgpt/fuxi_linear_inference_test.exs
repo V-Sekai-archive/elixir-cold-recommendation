@@ -54,18 +54,45 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       assert Nx.shape(logits) == {1, 15_361}
     end
 
-    test "different inputs produce different logits" do
+    test "different token ids produce different hidden (model is input-dependent)" do
+      # Verify token embedding affects output; init params may have symmetries
       params = FuxiLinearInference.init_full_params()
       batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
       embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
 
-      ids_a = Nx.tensor([[1, 2, 3, 4]], type: {:s, 32})
-      ids_b = Nx.tensor([[5, 6, 7, 8]], type: {:s, 32})
+      ids_a = Nx.tensor([[0, 0, 0, 0]], type: {:s, 32})
+      ids_b = Nx.tensor([[1, 1, 1, 1]], type: {:s, 32})
 
       logits_a = FuxiLinearInference.forward(ids_a, batch_aux, embed_mask, params)
       logits_b = FuxiLinearInference.forward(ids_b, batch_aux, embed_mask, params)
 
-      refute Nx.all_close(logits_a, logits_b) |> Nx.to_number() == 1
+      # wte row 0 vs row 1 differ with iota init
+      assert Nx.all_close(logits_a, logits_b) |> Nx.to_number() == 0
+    end
+
+    test "all_timestamps opts: accepts real timestamps (batch, seq_len, channel_t_heads)" do
+      params = FuxiLinearInference.init_full_params()
+      batch_token_ids = Nx.tensor([[1, 2, 3, 4]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
+
+      # Real timestamps shape (1, 4, 8) - different from position indices 0,1,2,3
+      real_ts = Nx.iota({1, 4, 8}, type: {:f, 32}) |> Nx.multiply(100.0)
+
+      logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params, all_timestamps: real_ts)
+      assert Nx.shape(logits) == {1, 15_361}
+    end
+
+    test "chunk_size opts: chunked returns valid logits when seq_len > chunk_size" do
+      params = FuxiLinearInference.init_full_params()
+      seq_len = 64
+      batch_token_ids = Nx.iota({1, seq_len}) |> Nx.remainder(100) |> Nx.as_type({:s, 32})
+      batch_aux = Nx.iota({1, seq_len, 192}, type: {:f, 32}) |> Nx.divide(1000)
+      embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
+
+      logits_chunked = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params, chunk_size: 16)
+      assert Nx.shape(logits_chunked) == {1, 15_361}
+      refute Nx.any(Nx.not_equal(logits_chunked, logits_chunked)) |> Nx.to_number() == 1
     end
 
     test "embed_mask zeros out padding positions (aux contribution)" do

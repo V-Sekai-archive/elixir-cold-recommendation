@@ -38,7 +38,7 @@ Related: [82 Zero-shot semantic id reuse](82_zeroshot_semantic_id_reuse.md), [79
 
 **What it does:** Temporal Retention + Linear Positional Channel. Linear O(L) complexity. PyTorch code: [USTC-StarTeam/fuxi-linear](https://github.com/USTC-StarTeam/fuxi-linear).
 
-**Status: Implemented** in `RecGPT.FuxiLinearInference` — full model (Retention + LinearTemporalChannel + LinearPositionalChannel) using RecGPT semantic ID structure. See [84 FuXi-Linear implementation](84_fuxi_linear_implementation_plan.md).
+**Status: Fully wired** in `RecGPT.FuxiLinearInference` — full model (Retention + LinearTemporalChannel + LinearPositionalChannel) using RecGPT semantic ID structure. See [84 FuXi-Linear implementation](84_fuxi_linear_implementation_plan.md), [85 FuXi-Linear status](85_fuxi_linear_status.md).
 
 **EXLA path:**
 - Linear attention = no softmax over full QK^T. Often: `attn = Q @ (K^T @ V)` with causal masking via cumulative sums.
@@ -46,9 +46,7 @@ Related: [82 Zero-shot semantic id reuse](82_zeroshot_semantic_id_reuse.md), [79
 - Cumulative state: `while` over sequence positions, or `Nx.window_*` tricks.
 - **Feasibility: High.** No custom CUDA. Port the math to `defn`.
 
-**Remaining:**
-1. Defn/JIT entry (e.g. `FuxiLinearInferenceDefn`) for Serve/Decode.
-2. Checkpoint loader adapter for FuXi params.
+**Implemented:** `FuxiLinearInferenceDefn` (JIT `forward_last_4_logits/4`), `FuxiLinearInferenceParams` (checkpoint adapter), Serve integration, AxonTrain, `mix recgpt.export_fuxi_ckpt`.
 
 ---
 

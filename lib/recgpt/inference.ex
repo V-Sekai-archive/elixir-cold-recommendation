@@ -217,6 +217,18 @@ defmodule RecGPT.Inference do
     if is_nil(prefix), do: 0, else: count_gpt2_layers(params, prefix)
   end
 
+  @doc """
+  Returns true when params are a FuXi-Linear checkpoint (fuxi.block.0.* keys).
+  Used by Serve to choose FuxiLinearInferenceDefn over InferenceDefn.
+  """
+  @spec fuxi_checkpoint?(map()) :: boolean()
+  def fuxi_checkpoint?(params) when is_map(params) do
+    Enum.any?(Map.keys(params), fn
+      k when is_binary(k) -> String.starts_with?(k, "fuxi.block.")
+      _ -> false
+    end)
+  end
+
   defp gpt2_n_layers(params) do
     prefix = gpt2_prefix(params)
     if is_nil(prefix), do: 0, else: count_gpt2_layers(params, prefix)
