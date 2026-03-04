@@ -76,8 +76,8 @@ defmodule RecGPT.AxonTrain do
     iterations = Keyword.get(opts, :iterations, 1)
     log_every = Keyword.get(opts, :log, 50)
     log_interval_sec = Keyword.get(opts, :log_interval_sec, 20)
-    check_interval = Keyword.get(opts, :resource_check_interval, 5)
-    save_every = Keyword.get(opts, :save_every, 0)
+    check_interval = opts[:resource_check_interval] |> Kernel.||(5)
+    save_every = opts[:save_every] |> Kernel.||(0)
     save_fn = Keyword.get(opts, :save_fn)
 
     check_opts =
@@ -129,11 +129,11 @@ defmodule RecGPT.AxonTrain do
               last_log_sec
             end
 
-          if (save_every > 0 and save_fn) && rem(i + 1, save_every) == 0 do
+          if is_integer(save_every) and save_every > 0 and save_fn && rem(i + 1, save_every) == 0 do
             save_fn.(i + 1, new_params)
           end
 
-          if check_interval > 0 and rem(i + 1, check_interval) == 0 do
+          if is_integer(check_interval) and check_interval > 0 and rem(i + 1, check_interval) == 0 do
             case RecGPT.ResourceCheck.check(check_opts) do
               :ok ->
                 {:cont, {new_params, new_opt_state, i + 1, last_log_sec}}

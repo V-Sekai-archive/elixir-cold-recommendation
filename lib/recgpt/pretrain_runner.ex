@@ -81,7 +81,7 @@ defmodule RecGPT.PretrainRunner do
               shuffle: true
             )
 
-          save_every = Keyword.get(opts, :save_every, 0)
+          save_every = opts[:save_every] |> Kernel.||(0)
 
           save_fn =
             if save_every > 0 do
