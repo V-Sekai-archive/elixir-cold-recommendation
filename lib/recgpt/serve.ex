@@ -65,9 +65,9 @@ defmodule RecGPT.Serve do
   @spec load_state(String.t(), String.t(), String.t() | nil) ::
           {:ok, state()} | {:error, String.t()}
   def load_state(fixture_path, ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_torchx(),
+    with :ok <- ensure_exla(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
-         {params, inference_backend} <- maybe_transfer_params_to_torchx(params),
+         {params, inference_backend} <- maybe_transfer_params_to_exla(params),
          {:ok, token_id_list, num_items} <- load_fixture(fixture_path),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       trie = Trie.build(token_id_list)
@@ -109,9 +109,9 @@ defmodule RecGPT.Serve do
   """
   @spec load_state_from_db(String.t(), String.t() | nil) :: {:ok, state()} | {:error, String.t()}
   def load_state_from_db(ckpt_export_dir, catalog_path \\ nil) do
-    with :ok <- ensure_torchx(),
+    with :ok <- ensure_exla(),
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
-         {params, inference_backend} <- maybe_transfer_params_to_torchx(params),
+         {params, inference_backend} <- maybe_transfer_params_to_exla(params),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
          {:ok, item_text} <- load_catalog(catalog_path, num_items) do
       trie_tensors = Trie.to_tensors(trie, @vocab_size)
@@ -177,19 +177,19 @@ defmodule RecGPT.Serve do
     {:ok, trie, token_id_map, num_items}
   end
 
-  defp ensure_torchx do
-    if Code.ensure_loaded?(Torchx) do
-      case Application.ensure_all_started(:torchx) do
+  defp ensure_exla do
+    if Code.ensure_loaded?(EXLA) do
+      case Application.ensure_all_started(:exla) do
         {:ok, _} ->
           :ok
 
         {:error, {app, reason}} ->
           {:error,
-           "Torchx required for inference. torchx app failed to start: #{inspect(app)} - #{inspect(reason)}"}
+           "EXLA required for inference. exla app failed to start: #{inspect(app)} - #{inspect(reason)}"}
       end
     else
       {:error,
-       "Torchx required for inference. Add {:torchx, \"~> 0.11.0\"} to deps and ensure it compiles."}
+       "EXLA required for inference. Add {:exla, \"~> 0.10\"} to deps and ensure it compiles."}
     end
   end
 
@@ -203,11 +203,12 @@ defmodule RecGPT.Serve do
     end
   end
 
-  # Load on BinaryBackend; transfer params to Torchx for inference.
-  defp maybe_transfer_params_to_torchx(params) do
-    backend = Nx.default_backend()
-    params_torchx = Map.new(params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
-    {params_torchx, backend}
+  # Load on BinaryBackend; transfer params to EXLA (client from config, e.g. :cuda or :host) for inference.
+  defp maybe_transfer_params_to_exla(params) do
+    client = Application.get_env(:exla, :default_client, :host)
+    backend = {EXLA.Backend, client: client}
+    params_exla = Map.new(params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
+    {params_exla, backend}
   end
 
   defp load_fixture(path) do
@@ -296,7 +297,7 @@ defmodule RecGPT.Serve do
   end
 
   defp build_jit_single do
-    Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: Nx.Defn.Evaluator)
+    Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: EXLA)
   end
 
   defp build_get_logits_4_fn(params, inference_backend) do

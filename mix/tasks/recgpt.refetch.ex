@@ -31,9 +31,9 @@ defmodule Mix.Tasks.Recgpt.Refetch do
       )
 
     cwd = File.cwd!()
-    ckpt_dir = opts[:ckpt_dir] || Path.join(cwd, "thirdparty", "checkpoints", "recgpt")
-    steam_dir = opts[:steam_dir] || Path.join(cwd, "data", "steam")
-    vae_dir = Path.join(cwd, "thirdparty", "checkpoints", "vae")
+    ckpt_dir = opts[:ckpt_dir] || Path.join([cwd, "thirdparty", "checkpoints", "recgpt"])
+    steam_dir = opts[:steam_dir] || Path.join([cwd, "data", "steam"])
+    vae_dir = Path.join([cwd, "thirdparty", "checkpoints", "vae"])
 
     if opts[:force] do
       Mix.shell().info("--force: removing existing bulk data...")

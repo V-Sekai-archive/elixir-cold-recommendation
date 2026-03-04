@@ -1,6 +1,6 @@
 # Dependencies
 
-- **Nx**, **Torchx**, **Axon** — Tensors, Torchx backend (LibTorch), and training. Inference and serve use Torchx.
+- **Nx**, **EXLA**, **Axon** — Tensors, EXLA backend (XLA/CUDA), and training. Inference and serve use EXLA. See [79 Why EXLA over Torchx](79_exla_over_torchx.md).
 - **Bumblebee** (GitHub `main`) — MPNet text embeddings.
 - **Jason**, **Npy** — JSON and `.npy` checkpoint files.
 - **grpc** — gRPC server for `mix recgpt.serve`.
