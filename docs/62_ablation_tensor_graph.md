@@ -8,7 +8,7 @@ Goal: identify components that can be removed or simplified to improve latency *
 
 Reference: [65 latency flow](65_latency_flow.md) for the full E2E and GPU tensor graph.
 
-**Pretraining compatibility:** Inference-only ablations (e.g. skip prefix_tokens transfer, beam_width override) do not change the model or checkpoint; pretraining continues to use the full graph (e.g. aux encoder in training). Ablations that remove a component from the _model_ (e.g. delete aux encoder entirely) would require pretraining again without that component and a new checkpoint.
+**Pretraining compatibility:** Inference-only ablations (e.g. skip prefix*tokens transfer, beam_width override) do not change the model or checkpoint; pretraining continues to use the full graph (e.g. aux encoder in training). Ablations that remove a component from the \_model* (e.g. delete aux encoder entirely) would require pretraining again without that component and a new checkpoint.
 
 **Methodology:** Remove or change one component at a time and re-measure so the impact is not confounded. Report both latency (e.g. mean and P50/P99 from `mix recgpt.trace_predict --runs N`) and quality (Hit@k, MRR from `mix recgpt.eval`) when comparing baseline vs ablated config. Re-test with different context lengths and top_k where relevant (e.g. beam ablation affects steps 1–3 more for larger beam).
 

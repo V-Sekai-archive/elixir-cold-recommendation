@@ -166,6 +166,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 74  | [74 Strategy + inference-scaling review](74_strategy_inference_scaling_review.md)                | Our position vs leading firms; inference-scaling? No.                                         | Mid-Tail; avoid speed race.                                                                                                           |
 | 75  | [75 Implication graph: YCSB, build, smart money](75_implication_graph_ycsb_smart_money.md)       | YCSB requirements; how to build implication graph; frontier traders / smart money.            | Catalog, sequence extraction, whale taxonomy.                                                                                         |
 | 76  | [76 Generalized pairing sources](76_generalized_pairing_sources.md)                              | arXiv gold standard; dhruv575 CSV; build-your-own pairing pipeline. Historical = no zeroshot. | Combinatorial pairs, implied pairs, backtest.                                                                                         |
+| 77  | [77 Rope bridge analogy (ZGuide)](77_rope_bridge_analogy_zguide.md)                              | Rope bridge vs busy road vs multilane highway; origin in ZeroMQ ZGuide Ch. 7.                 | MOPED, bootstrap metaphor; where we use it (eval, 60, 25, 24).                                                                        |
 
 ---
 
@@ -195,6 +196,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | **Build a staff API (catalogues, pretrain, etc.)** | [29 Staff API](29_staff_api.md) — RecGPT.StaffApi: list/upsert items, sync sequences, build_fixture, pretrain.                                                                              |
 | **Strategy given latency ceiling**                 | [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md) — Use RecGPT for Catalyst/Combinatorial; bypass for Binary/Bundle.                                                |
 | **Rope bridge: paper trading + market analytics**  | [60 Rope bridge market analytics](60_rope_bridge_market_analytics_plan.md) — Survivorship (Kelly, Greeks, shock), profit calc, Scout→butterfly, solver, path to 12.7%.                      |
+| **Rope bridge analogy (ZGuide)**                   | [77 Rope bridge analogy](77_rope_bridge_analogy_zguide.md) — Rope bridge vs busy road vs multilane highway; origin in [ZGuide Ch. 7](https://zguide.zeromq.org/docs/chapter7/).             |
 | Understand SPMD decode (trie tensors, single sync) | [32 SPMD decode flow](32_spmd_decode_flow.md) — Trie.to_tensors, Decode.beam_search_top_k_spmd, Serve.recommend.                                                                            |
 | **Sniper Mode: Scout + Gatekeeper, Moneyball**     | [34](34_sniper_mode_moneyball_strategy.md) overview; [35](35_sniper_architecture.md)–[41](41_sniper_path_profitable.md) — arch, schema, gamed-ness, Qwen LoRA, triple-lock, pipeline, path. |
 | **Virix Polymarket strategy review**               | [50 Virix Polymarket strategy review](50_virix_polymarket_strategy_review.md) — Ilya @ilyagordey thread; relevance to Sniper (wallet scanner, CLOB, signal 8+).                             |
@@ -222,4 +224,4 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 - [27 Freeze inputs for layer isolation](27_freeze_inputs_layer_isolation.md) — Unit/property testing with frozen inputs.
 - [24 First step plan](24_first_step_plan.md), [25 MVP guard rails](25_mvp_guard_rails.md), [26 Embedding mismatch](26_embedding_mismatch.md), [28 Thirdparty vs Elixir parity](28_thirdparty_vs_elixir_parity.md).
 - [ETNF database design](etnf_database_design.md) — Essential Tuple Normal Form for catalog/embedding schemas.
-- [60 Rope bridge](60_rope_bridge_market_analytics_plan.md), [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md), [65 Latency flow](65_latency_flow.md), [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md).
+- [60 Rope bridge](60_rope_bridge_market_analytics_plan.md), [61 Strategy given latency ceiling](61_strategy_given_latency_ceiling.md), [65 Latency flow](65_latency_flow.md), [67 Thirdparty bs-p](67_thirdparty_bs_p_review.md), [77 Rope bridge analogy (ZGuide)](77_rope_bridge_analogy_zguide.md).

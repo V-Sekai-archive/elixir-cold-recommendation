@@ -20,10 +20,10 @@ Scout feeds the Gatekeeper exactly one candidate. Gatekeeper enforces Triple-Loc
 
 ## Training Distinction
 
-| Model                  | Training                                                                                          | Output                                         | Tooling                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| **RecGPT (Scout)**     | **Pretraining** — next-token prediction on item sequences (train_sequences.json, item embeddings) | LoRA or full checkpoint; `mix recgpt.pretrain` | Elixir/Axon |
-| **Qwen3 (Gatekeeper)** | **LoRA finetuning** — GRPO on veto/strike scenarios                                               | LoRA adapter over base Qwen3                   | [OpenPipe ART](https://github.com/OpenPipe/ART) (Python)              |
+| Model                  | Training                                                                                          | Output                                         | Tooling                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------- |
+| **RecGPT (Scout)**     | **Pretraining** — next-token prediction on item sequences (train_sequences.json, item embeddings) | LoRA or full checkpoint; `mix recgpt.pretrain` | Elixir/Axon                                              |
+| **Qwen3 (Gatekeeper)** | **LoRA finetuning** — GRPO on veto/strike scenarios                                               | LoRA adapter over base Qwen3                   | [OpenPipe ART](https://github.com/OpenPipe/ART) (Python) |
 
 - **RecGPT pretraining:** Learns item correlations, sequences, catalog intent from historical data. No veto logic; outputs probability distribution over item_ids.
 - **Qwen LoRA finetuning:** Learns PICK_ID vs PICK_0 from reward-shaped rollouts. Base model (e.g. Qwen3-7B-Instruct) + LoRA weights; ART trains LoRA only.
