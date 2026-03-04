@@ -211,9 +211,9 @@ defmodule RecGPT.InferenceTest do
   end
 
   @tag :integration
-  test "EXLA Defn forward_last_4_logits matches Inference.forward last position for stub params" do
-    unless Code.ensure_loaded?(EXLA) do
-      raise "EXLA not loaded; run with EXLA in deps to enable this test"
+  test "Defn forward_last_4_logits matches Inference.forward last position for stub params" do
+    unless Code.ensure_loaded?(Torchx) do
+      raise "Torchx not loaded; run with Torchx in deps to enable this test"
     end
 
     params = dummy_params()

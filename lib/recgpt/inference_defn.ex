@@ -1,6 +1,6 @@
 defmodule RecGPT.InferenceDefn do
   @moduledoc """
-  Defn entry points for EXLA JIT: forward_last_4_logits/4.
+  Defn entry points for inference: forward_last_4_logits/4 (Evaluator on Torchx backend).
 
   Params must be from RecGPT.InferenceParams.build_defn_params/2 (atom keys, full structure).
   Used for single-forward decode (Python RecGPT style): one full forward, returns logits for last 4 positions.

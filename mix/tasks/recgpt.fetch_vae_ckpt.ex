@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Recgpt.FetchVaeCkpt do
 
   ## Options
     * `--out` - Output path (default: thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt)
+    * `--force` - Re-download even if file exists
 
   ## Examples
       mix recgpt.fetch_vae_ckpt
@@ -21,7 +22,7 @@ defmodule Mix.Tasks.Recgpt.FetchVaeCkpt do
   @impl true
   def run(args) do
     {opts, _, _} =
-      OptionParser.parse(args, switches: [out: :string])
+      OptionParser.parse(args, switches: [out: :string, force: :boolean])
 
     out_path =
       opts[:out] ||
@@ -32,7 +33,7 @@ defmodule Mix.Tasks.Recgpt.FetchVaeCkpt do
     Application.ensure_all_started(:req)
     File.mkdir_p!(Path.dirname(out_path))
 
-    if File.regular?(out_path) do
+    if File.regular?(out_path) and not opts[:force] do
       Mix.shell().info("File already exists: #{out_path}")
       Mix.shell().info("Delete it first to re-download.")
     else

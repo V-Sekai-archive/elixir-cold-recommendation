@@ -2,12 +2,13 @@ defmodule RecGPT.Steam.Fetch do
   @moduledoc """
   Download Steam test split from HuggingFace (hkuds/RecGPT_dataset) and write
   recgpt JSON artifacts: items.json, train_sequences.json, test_sequences.json,
-  cold_test_sequences.json, cold_train_sequences.json.
+  cold_test_sequences.json, cold_train_sequences.json, item_text_embeddings.npy.
 
   Uses Unpickler to parse Python pickle files (no Python required).
   """
 
   @base_url "https://huggingface.co/datasets/hkuds/RecGPT_dataset/resolve/main/test/steam"
+  @embeddings_npy "item_text_embeddings.npy"
   @max_context 64
 
   @doc """
@@ -20,6 +21,7 @@ defmodule RecGPT.Steam.Fetch do
     Application.ensure_all_started(:req)
 
     with :ok <- ensure_item_text_dict(dir),
+         :ok <- ensure_item_text_embeddings(dir),
          {:ok, item_ids, old_to_new, title_map} <- build_item_map(dir),
          :ok <- write_items_json(dir, item_ids, title_map) do
       write_sequence_jsons(dir, old_to_new)
@@ -29,6 +31,25 @@ defmodule RecGPT.Steam.Fetch do
   defp ensure_item_text_dict(dir) do
     path = Path.join(dir, "item_text_dict.pkl")
     if File.regular?(path), do: :ok, else: download_pkl(@base_url, "item_text_dict.pkl", path)
+  end
+
+  defp ensure_item_text_embeddings(dir) do
+    path = Path.join(dir, @embeddings_npy)
+    if File.regular?(path) do
+      :ok
+    else
+      url = "#{@base_url}/#{@embeddings_npy}"
+      Mix.shell().info("Downloading #{@embeddings_npy} (~92 MB)...")
+      case Req.get(url) do
+        {:ok, %{status: 200, body: body}} ->
+          File.write!(path, body)
+          :ok
+        {:ok, %{status: code}} ->
+          {:error, "HTTP #{code} for #{url}"}
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
   end
 
   defp download_pkl(base_url, filename, path) do

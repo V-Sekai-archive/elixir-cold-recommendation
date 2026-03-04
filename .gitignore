@@ -52,22 +52,12 @@ priv/recgpt.sqlite3-wal
 recgpt_adhoc_*.sqlite
 *.sqlite3-journal
 
-# Generated DBs (UCI Clickstream, etc.)
+# Generated DBs
 data/**/*.db
 data/**/*.db-shm
 data/**/*.db-wal
 
-# UCI Clickstream (downloaded + extracted + generated)
-data/clickstream/*.zip
-data/clickstream/*.csv
-data/clickstream/e-shop*
-data/clickstream/items.json
-data/clickstream/train_sequences.json
-data/clickstream/test_sequences.json
-data/clickstream/cold_test_sequences.json
-data/clickstream/cold_train_sequences.json
-data/clickstream/fixture.json
-data/clickstream/clickstream+data+for+online+shopping/
+# Pipeline artifacts (refetch via mix recgpt.refetch)
 data/recgpt_layer_3_weight.pt
 
 # FoundationDB (Windows install / build from source)
@@ -77,8 +67,7 @@ foundationdb-*.msi
 foundationdb7-*/
 data/recgpt_ckpt_export/*
 
-# EXLA JIT disk cache (compiled XLA binaries)
-tmp/exla_cache/
+# Torchx (no disk cache by default)
 
 # Nsight Systems GPU profiles (mix recgpt.ad_hoc_test --profile)
 *.nsys-rep

@@ -41,7 +41,7 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
     defn_params = InferenceParams.build_defn_params(params_bin, n_layers, {:f, 32})
     defn_params = Map.new(defn_params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
 
-    jit_single = Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: EXLA)
+    jit_single = Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: Nx.Defn.Evaluator)
 
     get_logits_4_fn = fn context_tokens ->
       context_tokens = Nx.backend_transfer(context_tokens, backend)

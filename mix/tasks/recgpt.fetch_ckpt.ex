@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
 
   ## Options
     * `--out` - Output path for the .pt file (default: thirdparty/checkpoints/recgpt/recgpt_layer_3_weight.pt)
+    * `--force` - Re-download even if file exists
 
   ## Examples
       mix recgpt.fetch_ckpt
@@ -23,7 +24,7 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
   @impl true
   def run(args) do
     {opts, _, _} =
-      OptionParser.parse(args, switches: [out: :string])
+      OptionParser.parse(args, switches: [out: :string, force: :boolean])
 
     out_path =
       opts[:out] ||
@@ -32,7 +33,7 @@ defmodule Mix.Tasks.Recgpt.FetchCkpt do
     Application.ensure_all_started(:req)
     File.mkdir_p!(Path.dirname(out_path))
 
-    if File.regular?(out_path) do
+    if File.regular?(out_path) and not opts[:force] do
       Mix.shell().info("File already exists: #{out_path}")
       Mix.shell().info("Delete it first to re-download.")
     else

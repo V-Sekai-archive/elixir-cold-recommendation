@@ -1,11 +1,10 @@
-# RecGPT: EXLA backend for Nx (CUDA in devcontainer). All Nx/Defn run on EXLA.
-# For low latency: default_client :cuda. With :host (CPU), Predict ~1–2s; with :cuda ~300–400ms after setup (COG, 12-layer).
-# Devcontainer: .devcontainer/ has Dockerfile + devcontainer.json (EXLA/CUDA 12.9).
+# RecGPT: Torchx backend for Nx (LibTorch). All Nx/Defn run on Torchx.
+# For low latency: device :cuda when available. With :cpu, Predict ~1–2s; with :cuda ~300–400ms after setup.
+# Torchx uses Nx.Defn.Evaluator (eager execution on backend) since Torchx has no JIT compiler.
 import Config
 
-config :nx, default_backend: EXLA.Backend
-config :nx, :default_defn_options, compiler: EXLA
-config :exla, :default_client, :cuda
+config :nx, default_backend: Torchx.Backend
+config :nx, :default_defn_options, compiler: Nx.Defn.Evaluator
 
 # Request batching for Predict: collect up to predict_batch_size requests or wait predict_batch_timeout_ms.
 # Default 1 and 0 = one request at a time (no batching).

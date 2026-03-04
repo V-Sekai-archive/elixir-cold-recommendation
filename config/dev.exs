@@ -1,4 +1,4 @@
-# Dev: EXLA uses config :exla, :default_client (:cuda or :host). GPU is used when client is :cuda.
+# Dev: Torchx uses device :cuda when available. Set config :nx, default_backend to override.
 import Config
 
 # BF16 (Tensor Cores) for faster inference.
