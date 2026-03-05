@@ -7,6 +7,7 @@ defmodule RecGPT.PretrainRunner do
   `RecGPT.StaffApi.pretrain/1`.
   """
   alias RecGPT.AxonTrain
+  alias RecGPT.Catalog.Scan
   alias RecGPT.CheckpointExport
   alias RecGPT.CheckpointLoader
   alias RecGPT.Embedding
@@ -59,30 +60,30 @@ defmodule RecGPT.PretrainRunner do
          :ok <- ensure_dir!(ckpt_dir, "ckpt_dir"),
          {:ok, params} <- load_checkpoint(ckpt_dir),
          {:ok, fixture} <- load_fixture(fixture_path),
-         {:ok, sequences, timestamps} <- load_train_sequences(train_path) do
-      if sequences == [] do
+         {:ok, train_data} <- load_train_data(train_path) do
+      empty? = train_data_empty?(train_data)
+      if empty? do
         File.mkdir_p!(out_dir)
         CheckpointExport.write_export(params, out_dir)
         :ok
       else
         with :ok <- require_items_source!(items_path),
              {:ok, token_id_list, fixture_num_items} <- fixture_token_list(fixture),
+             {:ok, token_id_list} <- maybe_token_list_from_db(token_id_list, fixture_num_items),
              {:ok, item_embeddings, _n} <-
                load_item_embeddings(items_path, fixture_num_items, opts) do
           epochs = epochs || 1
-          steps_per_epoch = div(length(sequences) + batch_size - 1, batch_size)
-
+          steps_per_epoch = steps_per_epoch_from_train_data(train_data, batch_size)
           iterations =
             if Keyword.get(opts, :epochs),
               do: epochs * steps_per_epoch,
               else: Keyword.get(opts, :iterations, 100)
 
           stream =
-            AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
+            build_train_stream(train_data, token_id_list, item_embeddings,
               batch_size: batch_size,
               epochs: epochs,
-              shuffle: true,
-              timestamps: timestamps
+              shuffle: true
             )
 
           save_every = opts[:save_every] |> Kernel.||(0)
@@ -193,6 +194,44 @@ defmodule RecGPT.PretrainRunner do
   rescue
     e -> {:error, e}
   end
+
+  defp load_train_data(:db), do: {:ok, {:db, Scan.load_train_seq_ids()}}
+  defp load_train_data("db"), do: {:ok, {:db, Scan.load_train_seq_ids()}}
+
+  defp load_train_data(path) when is_binary(path) do
+    case load_train_sequences(path) do
+      {:ok, sequences, timestamps} -> {:ok, {:file, sequences, timestamps}}
+      err -> err
+    end
+  end
+
+  defp train_data_empty?({:db, seq_ids}), do: seq_ids == []
+  defp train_data_empty?({:file, sequences, _}), do: sequences == []
+
+  defp steps_per_epoch_from_train_data({:db, seq_ids}, batch_size),
+    do: div(length(seq_ids) + batch_size - 1, batch_size)
+  defp steps_per_epoch_from_train_data({:file, sequences, _}, batch_size),
+    do: div(length(sequences) + batch_size - 1, batch_size)
+
+  defp build_train_stream({:db, seq_ids}, token_id_list, item_embeddings, opts) do
+    AxonTrain.stream_batches_from_db(seq_ids, token_id_list, item_embeddings, opts)
+  end
+
+  defp build_train_stream({:file, sequences, timestamps}, token_id_list, item_embeddings, opts) do
+    AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
+      Keyword.put(opts, :timestamps, timestamps)
+    )
+  end
+
+  defp maybe_token_list_from_db(token_id_list, _num_items) when is_list(token_id_list) and token_id_list != [] do
+    {:ok, token_id_list}
+  end
+
+  defp maybe_token_list_from_db(_token_id_list, num_items) when num_items > 0 do
+    {:ok, Scan.load_token_id_list_from_db(num_items)}
+  end
+
+  defp maybe_token_list_from_db(token_id_list, _), do: {:ok, token_id_list || []}
 
   defp load_train_sequences(:db), do: load_train_sequences_from_db()
   defp load_train_sequences("db"), do: load_train_sequences_from_db()

@@ -1,7 +1,7 @@
 # Tests
 
 ```bash
-mix test --no-start
+mix test
 ```
 
 - Excluded by default: `integration`, `eval`.

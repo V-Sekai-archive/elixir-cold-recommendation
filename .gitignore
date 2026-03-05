@@ -48,6 +48,11 @@ priv/recgpt.sqlite3
 priv/recgpt.sqlite3-shm
 priv/recgpt.sqlite3-wal
 
+# Figgie training data and checkpoints
+priv/figgie_fixture.json
+priv/figgie_checkpoint/
+priv/fuxi_checkpoint/
+
 # Ad-hoc / temporary SQLite (e.g. mix recgpt.ad_hoc_test, one-off scripts)
 recgpt_adhoc_*.sqlite
 *.sqlite3-journal

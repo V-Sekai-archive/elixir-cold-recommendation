@@ -57,5 +57,12 @@ config :waffle,
   storage: Waffle.Storage.Local,
   asset_host: System.get_env("WAFFLE_ASSET_HOST") || "http://localhost:4000"
 
+# Figgie trading configuration
+config :recgpt, :figgie,
+  simulation_games: 1000,
+  arbitrage_threshold: 0.05,  # Minimum profit margin for arbitrage
+  max_position_size: 10,       # Max cards to hold per suit
+  trading_timeout_ms: 240_000  # 4 minutes trading phase
+
 # Load env-specific config (config/dev.exs, config/test.exs, etc.)
 import_config "#{config_env()}.exs"

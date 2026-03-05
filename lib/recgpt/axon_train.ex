@@ -84,7 +84,7 @@ defmodule RecGPT.AxonTrain do
   - `opts` - `:iterations` (default 1), `:log` (log every N batches), `:log_interval_sec` (log at
     least every N seconds, default 20; 0 to disable), `:optimizer` (e.g. `:adam`),
     `:learning_rate` (default 1.0e-4), `:save_every` (save checkpoint every N steps; 0 to disable),
-    `:save_fn` (fn (step, params) -> :ok; called when step > 0 and rem(step, save_every) == 0),
+    `:save_fn` (fn (step, params) -> :ok; called at step 0 and every save_every steps),
     `:eval_test_every` (eval test loss every N steps; 0 to disable),
     `:eval_test_fn` (fn (params) -> {:ok, loss} | {:error, _}; required when eval_test_every > 0),
     `:mtp_loss_weight` (default 0): when > 0, add MTP loss over last 4 positions (next item).
@@ -111,6 +111,22 @@ defmodule RecGPT.AxonTrain do
     batches = stream |> Enum.take(iterations)
     opt_state = init_opt.(initial_state)
     start_sec = System.monotonic_time(:second)
+
+    # Eval and save at step 0 (before any training) when requested
+    if eval_test_every > 0 and eval_test_fn do
+      case eval_test_fn.(initial_state) do
+        {:ok, test_loss} when is_number(test_loss) and test_loss == test_loss ->
+          require Logger
+          Logger.info("Step 0 (initial) test_loss=#{safe_round(test_loss, 4)}")
+
+        _ ->
+          :ok
+      end
+    end
+
+    if save_every > 0 and save_fn do
+      save_fn.(0, initial_state)
+    end
 
     step_jit =
       Nx.Defn.jit(fn params, opt_state, input, labels ->
@@ -254,6 +270,51 @@ defmodule RecGPT.AxonTrain do
       |> Stream.map(fn batch_indices ->
         {batch_seq, batch_labels, batch_aux_embeds, embed_mask, all_timestamps} =
           Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices, timestamps)
+
+        inputs =
+          if all_timestamps do
+            {batch_seq, batch_aux_embeds, embed_mask, all_timestamps}
+          else
+            {batch_seq, batch_aux_embeds, embed_mask}
+          end
+
+        {inputs, batch_labels}
+      end)
+    end)
+  end
+
+  @doc """
+  Stream of batches for training from DB: constant memory over the full dataset and multiple epochs.
+
+  Loads only seq_ids up front (small); for each batch loads that batch's sequence rows from the DB.
+  Use when `train_path` is `:db` to train for 5 (or any) epochs without loading all sequences into RAM.
+
+  - `seq_ids` - list of train sequence IDs (e.g. from `RecGPT.Catalog.Scan.load_train_seq_ids/1`).
+  - `token_id_list` - list of 4-token lists per item (from fixture or DB).
+  - `item_embeddings` - tensor (num_items, 768).
+  - `opts` - `batch_size` (default 8), `:epochs` (default 1), `:shuffle` (default true), `:repo`.
+
+  Yields the same format as `stream_batches/4`.
+  """
+  def stream_batches_from_db(seq_ids, token_id_list, item_embeddings, opts \\ []) do
+    batch_size = Keyword.get(opts, :batch_size, 8)
+    epochs = Keyword.get(opts, :epochs, 1)
+    shuffle = Keyword.get(opts, :shuffle, true)
+    scan_opts = Keyword.take(opts, [:repo])
+
+    Stream.flat_map(1..epochs, fn _epoch ->
+      chunk_ids =
+        (if shuffle, do: Enum.shuffle(seq_ids), else: seq_ids)
+        |> Enum.chunk_every(batch_size)
+
+      Stream.map(chunk_ids, fn batch_seq_ids ->
+        {sequences, timestamps} =
+          RecGPT.Catalog.Scan.load_sequences_by_seq_ids(batch_seq_ids, scan_opts)
+
+        batch_indices = 0..(length(sequences) - 1)//1 |> Enum.to_list()
+
+        {batch_seq, batch_labels, batch_aux_embeds, embed_mask, all_timestamps} =
+          Training.build_train_batch(sequences, token_id_list, item_embeddings, batch_indices, timestamps)
 
         inputs =
           if all_timestamps do

@@ -17,7 +17,7 @@ defmodule RecGPT.Trajectories.Convert do
   Converts a dataset to RecGPT canonical format.
 
   Options:
-    * `:format` - `:movielens` (default), `:kuairand`
+    * `:format` - `:movielens` (default), `:ml1m` (MovieLens 1M .dat with title+genres), `:kuairand`
     * `:train_limit` - Max train sequences (default: 10_000). Use 0 for no cap.
     * `:test_limit` - Max test cases (default: 2_000). Use 0 for no cap.
     * `:seed` - Random seed for reproducible subset (default: 42)
@@ -47,6 +47,7 @@ defmodule RecGPT.Trajectories.Convert do
 
     case format do
       :movielens -> convert_movielens(from_dir, out_dir, convert_opts)
+      :ml1m -> convert_ml1m(from_dir, out_dir, convert_opts)
       :kuairand -> convert_kuairand(from_dir, out_dir, convert_opts)
       other -> {:error, "unsupported format: #{inspect(other)}"}
     end
@@ -164,6 +165,62 @@ defmodule RecGPT.Trajectories.Convert do
     end
   end
 
+  # MovieLens 1M: .dat files (:: separator). ratings.dat UserID::MovieID::Rating::Timestamp;
+  # movies.dat MovieID::Title::Genres. Joins title + genres so item descriptions have categories.
+  defp convert_ml1m(from_dir, out_dir, opts) do
+    train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
+    test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
+    seed = Keyword.get(opts, :seed, 42)
+    sync_to_db = Keyword.get(opts, :sync_to_db, false)
+
+    ratings_path =
+      find_file(from_dir, ["ml-1m/ratings.dat", "ratings.dat"])
+
+    movies_path =
+      find_file(from_dir, ["ml-1m/movies.dat", "movies.dat"])
+
+    unless ratings_path do
+      {:error, "ratings.dat not found in #{from_dir} (expected ml-1m/ratings.dat or ratings.dat)"}
+    end
+
+    unless movies_path do
+      {:error, "movies.dat not found in #{from_dir} (expected ml-1m/movies.dat or movies.dat)"}
+    end
+
+    with {:ok, ratings} <- parse_ml1m_ratings(ratings_path),
+         {:ok, item_descriptions} <- parse_ml1m_movies(movies_path),
+         {:ok, item_ids, old_to_new} <- build_item_map(ratings, item_descriptions),
+         {:ok, sequences} <- build_sequences(ratings, old_to_new),
+         {:ok, train_seqs, test_cases} <- split_train_test(sequences, seed),
+         train_seqs <- maybe_take(train_seqs, train_limit),
+         test_cases <- maybe_take(test_cases, test_limit),
+         cold_set <- cold_items(train_seqs, @cold_k),
+         cold_test <- Enum.filter(test_cases, fn tc -> tc["next_item"] in cold_set end),
+         cold_train <- cold_train_sequences(train_seqs, cold_set) do
+      num_items = map_size(old_to_new)
+
+      items =
+        Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
+          # Title + genres from README so categories are filled
+          title = Map.get(item_descriptions, old_id, "")
+          %{"id" => i, "title" => title}
+        end)
+
+      emit_output(
+        out_dir,
+        items,
+        train_seqs,
+        test_cases,
+        cold_test,
+        cold_train,
+        num_items,
+        sync_to_db
+      )
+
+      :ok
+    end
+  end
+
   defp emit_output(out_dir, items, train_seqs, test_cases, cold_test, cold_train, num_items, true) do
     if System.get_env("RECGPT_SQLITE_PATH") in [nil, ""] do
       raise "sync_to_db requires RECGPT_SQLITE_PATH to be set"
@@ -257,6 +314,7 @@ defmodule RecGPT.Trajectories.Convert do
     e -> {:error, e}
   end
 
+  # movies.csv: movieId, title, genres (pipe-separated). Join title + genres so categories are filled.
   defp parse_movielens_movies(path) do
     content = File.read!(path)
     rows = parse_csv(content)
@@ -271,7 +329,10 @@ defmodule RecGPT.Trajectories.Convert do
       Enum.reduce(data, %{}, fn row, acc ->
         movieId = parse_int(col.(row, "movieid"))
         title = col.(row, "title") || ""
-        if movieId, do: Map.put(acc, movieId, title), else: acc
+        genres = col.(row, "genres") || ""
+        genres_clean = String.replace(genres, "|", ", ")
+        desc = if genres_clean == "", do: title, else: "#{title} | #{genres_clean}"
+        if movieId, do: Map.put(acc, movieId, desc), else: acc
       end)
 
     {:ok, titles}
@@ -355,18 +416,90 @@ defmodule RecGPT.Trajectories.Convert do
     sequences =
       by_user
       |> Enum.map(fn {_user, rows} ->
-        rows
-        |> Enum.sort_by(fn {_, _, t} -> t end)
-        |> Enum.map(fn {_, video_id, _} -> Map.get(old_to_new, video_id) end)
-        |> Enum.reject(&is_nil/1)
+        sorted = Enum.sort_by(rows, fn {_, _, t} -> t end)
+        ids = Enum.map(sorted, fn {_, video_id, _} -> Map.get(old_to_new, video_id) end) |> Enum.reject(&is_nil/1)
+        time_ms = Enum.map(sorted, fn {_, _, t} -> t || 0 end)
+        %{"sequence" => ids, "timestamps" => time_ms}
       end)
-      |> Enum.filter(fn seq -> length(seq) >= 2 end)
+      |> Enum.filter(fn m -> length(m["sequence"]) >= 2 end)
 
     {:ok, sequences}
   end
 
   defp parse_csv(content) do
     NimbleCSV.RFC4180.parse_string(content, skip_headers: false)
+  end
+
+  # MovieLens 1M .dat: lines with "::" separator, no header
+  defp parse_dat_line(line) do
+    line
+    |> String.trim()
+    |> String.split("::", parts: :infinity)
+    |> Enum.map(&String.trim/1)
+  end
+
+  # ratings.dat: UserID::MovieID::Rating::Timestamp (seconds since epoch)
+  defp parse_ml1m_ratings(path) do
+    lines =
+      path
+      |> File.read!()
+      |> String.split(~r/\r?\n/, trim: true)
+
+    parsed =
+      Enum.reduce(lines, [], fn line, acc ->
+        parts = parse_dat_line(line)
+        if length(parts) >= 4 do
+          [user_id, movie_id, _rating, ts] = Enum.take(parts, 4)
+          user = parse_int(user_id)
+          movie = parse_int(movie_id)
+          timestamp = parse_int(ts)
+          if user && movie && timestamp, do: [{user, movie, timestamp} | acc], else: acc
+        else
+          acc
+        end
+      end)
+      |> Enum.reverse()
+
+    {:ok, parsed}
+  rescue
+    e -> {:error, e}
+  end
+
+  # movies.dat: MovieID::Title::Genres (pipe-separated). Joins so item title has categories.
+  # README: Title from IMDB, Genres pipe-separated (Action, Comedy, etc.)
+  defp parse_ml1m_movies(path) do
+    content = File.read!(path)
+    content = ensure_utf8(content)
+
+    lines = String.split(content, ~r/\r?\n/, trim: true)
+
+    map =
+      Enum.reduce(lines, %{}, fn line, acc ->
+        parts = parse_dat_line(line)
+        if length(parts) >= 3 do
+          [movie_id, title, genres] = Enum.take(parts, 3)
+          id = parse_int(movie_id)
+          title = title || ""
+          genres = (genres || "") |> String.replace("|", ", ")
+          desc = if genres == "", do: title, else: "#{title} | #{genres}"
+          if id, do: Map.put(acc, id, desc), else: acc
+        else
+          acc
+        end
+      end)
+
+    {:ok, map}
+  rescue
+    e -> {:error, e}
+  end
+
+  defp ensure_utf8(binary) when is_binary(binary) do
+    if String.valid?(binary) do
+      binary
+    else
+      result = :unicode.characters_to_binary(:binary.bin_to_list(binary), :latin1, :utf8)
+      if is_tuple(result), do: elem(result, 0), else: result
+    end
   end
 
   defp parse_int(nil), do: nil
@@ -395,15 +528,20 @@ defmodule RecGPT.Trajectories.Convert do
     sequences =
       by_user
       |> Enum.map(fn {_user, rows} ->
-        rows
-        |> Enum.sort_by(fn {_, _, t} -> t end)
-        |> Enum.map(fn {_, movie_id, _} -> Map.get(old_to_new, movie_id) end)
-        |> Enum.reject(&is_nil/1)
+        sorted = Enum.sort_by(rows, fn {_, _, t} -> t end)
+        ids = Enum.map(sorted, fn {_, movie_id, _} -> Map.get(old_to_new, movie_id) end) |> Enum.reject(&is_nil/1)
+        # FuXi Linear: per-position timestamps in ms (Training.build_train_batch does relative-from-start + 4x expand)
+        time_ms = Enum.map(sorted, fn {_, _, t} -> (t || 0) * 1000 end)
+        %{"sequence" => ids, "timestamps" => time_ms}
       end)
-      |> Enum.filter(fn seq -> length(seq) >= 2 end)
+      |> Enum.filter(fn m -> length(m["sequence"]) >= 2 end)
 
     {:ok, sequences}
   end
+
+  defp seq_from(s) when is_list(s), do: s
+  defp seq_from(%{"sequence" => s}) when is_list(s), do: s
+  defp seq_from(_), do: []
 
   defp split_train_test(sequences, seed) do
     :rand.seed(:exs1024, {seed, 0, 0})
@@ -416,7 +554,7 @@ defmodule RecGPT.Trajectories.Convert do
 
     test_cases =
       Enum.map(test_raw, fn seq ->
-        seq_to_test_case(seq)
+        seq_to_test_case(seq_from(seq))
       end)
 
     {:ok, train, test_cases}
@@ -434,7 +572,7 @@ defmodule RecGPT.Trajectories.Convert do
   defp cold_items(train_seqs, k) do
     counts =
       Enum.reduce(train_seqs, %{}, fn seq, acc ->
-        Enum.reduce(Enum.uniq(seq), acc, fn item_id, a ->
+        Enum.reduce(Enum.uniq(seq_from(seq)), acc, fn item_id, a ->
           Map.update(a, item_id, 1, &(&1 + 1))
         end)
       end)
@@ -447,7 +585,7 @@ defmodule RecGPT.Trajectories.Convert do
 
   defp cold_train_sequences(train_seqs, cold_set) do
     Enum.filter(train_seqs, fn seq ->
-      Enum.any?(seq, &MapSet.member?(cold_set, &1))
+      Enum.any?(seq_from(seq), &MapSet.member?(cold_set, &1))
     end)
   end
 

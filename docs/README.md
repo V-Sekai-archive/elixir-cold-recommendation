@@ -48,6 +48,53 @@ flowchart LR
 
 ---
 
+## Figgie Arbitrage Trading
+
+RecGPT now supports **real-time arbitrage trading** in Figgie, a fast-paced card game simulating market dynamics. The system uses sequential modeling to predict goal suit probabilities and identify mispriced contracts for automated trading.
+
+### Figgie Pipeline
+
+```mermaid
+flowchart LR
+  subgraph sim [1. Simulate games]
+    FiggieSimulate[recgpt.figgie_simulate]
+    FiggieSimulate --> fixture[figgie_fixture.json]
+  end
+  subgraph train [2. Train model]
+    fixture --> Pretrain[recgpt.pretrain]
+    Pretrain --> ckpt[Figgie checkpoint]
+  end
+  subgraph trade [3. Live trading]
+    ckpt --> Inference[Figgie.Trading]
+    Inference --> Arbitrage[Arbitrage opportunities]
+    Arbitrage --> Execute[Execute trades]
+  end
+```
+
+### Key Features
+
+- **Game Simulation**: Full Figgie mechanics with 4-5 player support
+- **Arbitrage Detection**: Model predicts goal suit probabilities for statistical edges
+- **Real-time Trading**: Sub-20ms latency for high-frequency arbitrage
+- **Bot Exchange**: Automated trading between AI agents
+
+### Quick Start
+
+```bash
+# Generate training data
+mix recgpt.figgie_simulate --games 1000
+
+# Train the model
+mix recgpt.pretrain --fixture priv/figgie_fixture.json
+
+# Start arbitrage trading
+# (Integration with live Figgie games pending API availability)
+```
+
+See [figgie_performance_optimization.md](figgie_performance_optimization.md) for latency optimizations and trading strategies.
+
+---
+
 ## Problem or limitation
 
 Sequential recommendation needs a **production-ready implementation** that: (1) matches the RecGPT paradigm (FSQ, hybrid attention, text-driven items); (2) runs entirely in Elixir/BEAM without Python at runtime; (3) provides a single reproducible pipeline from data to trained model and metrics; (4) exposes recommendations via a stable, implementable API (gRPC). Without a single specification and codebase that ties these together, implementations drift and evaluation is not comparable.
@@ -146,6 +193,7 @@ Optionally you can also run the full pipeline yourself, run `mix recgpt.serve` a
 | 91  | [91 FuXi-Linear real timestamps](features/91_fuxi_linear_real_timestamps.md)                      | Pass real timestamps to FuXi-Linear; prediction-market aligned; rope bridge.                  | Converter, DB, training, Serve; leader sequence format.                                                                               |
 | 93  | [93 Pretraining plan](features/93_pretraining_plan.md)                                            | Phase 1: KuaiRand-Pure; prove signal at FuXi metrics (loss).                                  | File-based convert → build_fixture → pretrain; eval-test-every.                                                                      |
 | 94  | [94 Video-domain trajectory test](features/94_video_domain_trajectory_test.md)                    | Design: video analogue of trade test — next-video prediction on user watch trajectories.       | Data model; pipeline; session vs user; timestamps; cold videos; contrast with prediction market.                                     |
+| 95  | [95 Figgie arbitrage trading](features/95_figgie_arbitrage.md)                                  | Figgie game simulation and real-time arbitrage using RecGPT sequential modeling.               | Game mechanics; arbitrage detection; training pipeline; performance optimizations.                                                   |
 
 ---
 

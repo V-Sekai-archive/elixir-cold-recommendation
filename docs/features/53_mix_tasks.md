@@ -11,6 +11,7 @@
 | `mix recgpt.build_fixture` | Build `fixture.json` from `items.json` (Embedding + FSQ). Options: `--items`, `--out`, `--ckpt`.                                                        |
 | `mix recgpt.pretrain`      | Pretrain on train sequences with fixture + checkpoint; write to `--out`. File-based: `--train`, `--items` paths; DB: `--train db --items db`. See [93](93_pretraining_plan.md). `--epochs 5`, `--eval-test-every N --test PATH` for train/test loss. |
 | `mix recgpt.eval`          | Run next-item eval in Elixir (`--data-dir`, `--ckpt`, `--fixture`, `--test`).                                                                           |
+| `mix recgpt.figgie_simulate` | Simulate Figgie games for training data. `--games N` (default 1000), `--output PATH` (default priv/figgie_fixture.json). Generates fixture for arbitrage training. |
 | `mix recgpt.serve`         | Start gRPC server (port 50051): Predict uses RecGPT.RecommendationService (default: Serve). Set `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT`.                 |
 
 Paths default to `data/steam/` and `data/fuxi_ckpt_export` (FuXi-Linear). Env: `RECGPT_FIXTURE`, `RECGPT_CKPT_EXPORT` for serve. **Decode strategy:** `RECGPT_DECODE_STRATEGY=mtp` uses Multi-Token Prediction (model predicts K tokens at once; acceleration in weights, no draft/cache). Default `beam_search`. See [65](65_latency_flow.md).

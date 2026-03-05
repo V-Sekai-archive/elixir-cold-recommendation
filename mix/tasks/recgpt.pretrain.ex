@@ -15,8 +15,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--out` - Output export dir (required)
     * `--iterations` - Max training steps (default: 100; ignored when --epochs is set)
     * `--epochs` - Number of full passes over the training data (overrides --iterations). Paper uses 5.
-    * `--save-every` - Save checkpoint every N steps to <out>/step_XXXX/ (0 = disable). Use for checkpoint selection by eval loss.
-    * `--eval-test-every` - Compute test loss every N steps; prints train_loss, test_loss, best_test. Requires --test.
+    * `--save-every` - Save checkpoint every N steps to <out>/step_XXXX/ (0 = disable). Step 0 (initial) is saved once before training when > 0. Use for checkpoint selection by eval loss.
+    * `--eval-test-every` - Compute test loss every N steps; prints train_loss, test_loss, best_test. Step 0 (initial) is always evaluated once before training. Requires --test.
     * `--test` - Path to test_sequences.json (for --eval-test-every).
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)

@@ -5,6 +5,10 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
   Required for eval and serve after Fetch. Pipeline: Fetch → build_fixture → pretrain → eval.
 
+  **Checkpoints:** FSQ (semantic IDs) comes from the VAE checkpoint. Run `mix recgpt.fetch_vae_ckpt`
+  once to download it; then use `--vae-ckpt` or set RECGPT_VAE_CKPT. The embedder (sentence-transformers)
+  downloads automatically on first use.
+
   When RECGPT_SQLITE_PATH is set, also flushes items, embeddings, tokens, and train/test
   sequences to SQLite (ETNF tables). Run `mix ecto.migrate` once before using SQLite.
 
@@ -12,10 +16,11 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--items` - Path to items.json (default: data/steam/items.json). Use `db` to load from SQLite.
     * `--out` - Output fixture path (default: data/steam/fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export).
-    * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). FSQ from VAE is required for correct token_id_list. Env: RECGPT_VAE_CKPT. If unset, tries thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt and data/vae_len4_fsq88865_ep90.pt.
+    * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). FSQ from VAE is required for correct token_id_list. Run `mix recgpt.fetch_vae_ckpt` first. Env: RECGPT_VAE_CKPT. If unset, tries thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt and data/vae_len4_fsq88865_ep90.pt.
     * `--canonical-texts` - Use item texts from canonical_item_texts table (default: on). Run mix recgpt.dump_canonical_texts first. Use `--no-canonical-texts` to use items.json text instead.
+    * `--canonical-texts-from` - Use enriched item texts from a JSON file (e.g. from mix recgpt.kuairand_canonical_texts). File must have "by_item_id": [str0, str1, ...]. Overrides --canonical-texts / --no-canonical-texts.
     * `--embeddings-npy` - Use this item_text_embeddings.npy from the dataset instead of encoding with Bumblebee (ensures token_id_list matches the released checkpoint)
-    * `--limit` - Max items to process. With --items db: default is all items (no limit). With file: default 100 (avoid NIF OOM).
+    * `--limit` - Max items to process. Default: all items (no limit). Use --limit N to cap.
     * `--ramp` - Slowly increase limit from --ramp-start until all items or failure
     * `--ramp-start` - First limit when using --ramp (default: 100)
     * `--ramp-step` - Linear step size (default: 100). Ignored if --ramp-mult is set.
@@ -23,8 +28,6 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     * `--ramp-max` - Stop ramp at this limit (default: all items in items.json)
   """
   use Mix.Task
-
-  @default_limit 100
 
   @impl true
   def run(args) do
@@ -37,6 +40,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
           vae_ckpt: :string,
           canonical_texts: :boolean,
           no_canonical_texts: :boolean,
+          canonical_texts_from: :string,
           embeddings_npy: :string,
           limit: :integer,
           ramp: :boolean,
@@ -73,7 +77,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         resolve("data/fuxi_ckpt_export")
 
-    start_limit = opts[:ramp_start] || @default_limit
+    start_limit = opts[:ramp_start] || 100
     step = opts[:ramp_step] || 100
     mult = opts[:ramp_mult]
 
@@ -195,11 +199,8 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
         resolve("data/fuxi_ckpt_export")
 
-    # With --items db, use all items by default. With file, default 100 to avoid OOM.
-    limit =
-      if Keyword.has_key?(opts, :limit),
-        do: opts[:limit],
-        else: if(items_path in [:db, "db"], do: nil, else: @default_limit)
+    # Default: all items (no limit). Use --limit N to cap.
+    limit = Keyword.get(opts, :limit)
 
     unless items_path in [:db, "db"] or File.regular?(items_path) do
       Mix.raise(
@@ -213,13 +214,16 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       )
     end
 
+    canonical_texts_from = opts[:canonical_texts_from] && Path.expand(opts[:canonical_texts_from], File.cwd!())
     canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
     Application.ensure_all_started(:nx)
-    if canonical_texts?, do: Application.ensure_all_started(:recgpt)
+    if canonical_texts? or canonical_texts_from, do: Application.ensure_all_started(:recgpt)
     unless opts[:embeddings_npy], do: Application.ensure_all_started(:bumblebee)
 
     npy_note = if opts[:embeddings_npy], do: " (using dataset embeddings)", else: ""
-    canonical_note = if canonical_texts?, do: " (canonical texts from DB)", else: ""
+    canonical_note =
+      if canonical_texts_from, do: " (canonical texts from file)",
+      else: (if canonical_texts?, do: " (canonical texts from DB)", else: "")
 
     Mix.shell().info(
       "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: " (all items)"}#{npy_note}#{canonical_note}..."
@@ -228,7 +232,10 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     build_opts = [limit: limit]
 
     build_opts =
-      if canonical_texts?, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
+      if canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts_from, canonical_texts_from), else: build_opts
+
+    build_opts =
+      if canonical_texts? and not canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
 
     build_opts =
       case opts[:embeddings_npy] do

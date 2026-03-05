@@ -8,6 +8,7 @@ defmodule RecGPT.FixtureBuild do
   flushes items, embeddings, and tokens to SQLite per batch.
   """
 
+  alias RecGPT.Catalog.Scan
   alias RecGPT.Catalog.Sync
   alias RecGPT.Embedding
   alias RecGPT.FSQ
@@ -33,19 +34,33 @@ defmodule RecGPT.FixtureBuild do
           String.t() => non_neg_integer() | [[non_neg_integer()]]
         }
   def build(items_path, ckpt_dir, opts \\ []) do
-    item_text_dict =
-      cond do
-        opts[:canonical_texts] -> load_canonical_texts(opts[:limit])
-        items_path in [:db, "db"] -> load_item_text_dict_from_db(opts[:limit])
-        true -> load_item_text_dict(items_path, opts[:limit])
-      end
-
     sqlite? = opts[:sqlite] || System.get_env("RECGPT_SQLITE_PATH") != nil
 
-    if sqlite? do
-      build_with_sqlite(item_text_dict, ckpt_dir, items_path, opts)
+    if sqlite? and items_path in [:db, "db"] do
+      build_with_sqlite_stream_db(ckpt_dir, opts)
     else
-      build_in_memory(item_text_dict, ckpt_dir, items_path, opts)
+      item_text_dict =
+        cond do
+          path = opts[:canonical_texts_from] and is_binary(items_path) and items_path != "db" ->
+            load_canonical_texts_from_file(path, items_path, opts[:limit])
+          opts[:canonical_texts] -> load_canonical_texts(opts[:limit])
+          items_path in [:db, "db"] -> load_item_text_dict_from_db(opts[:limit])
+          true -> load_item_text_dict(items_path, opts[:limit])
+        end
+
+      # When canonical_texts was requested but DB returned empty (e.g. video domain), use items file
+      item_text_dict =
+        if map_size(item_text_dict) == 0 and is_binary(items_path) and items_path != "" and File.regular?(items_path) do
+          load_item_text_dict(items_path, opts[:limit])
+        else
+          item_text_dict
+        end
+
+      if sqlite? do
+        build_with_sqlite(item_text_dict, ckpt_dir, items_path, opts)
+      else
+        build_in_memory(item_text_dict, ckpt_dir, items_path, opts)
+      end
     end
   end
 
@@ -57,25 +72,74 @@ defmodule RecGPT.FixtureBuild do
     %{"num_items" => num_items, "token_id_list" => token_id_list}
   end
 
+  # Build fixture by scanning the entire catalogue from DB in batches. Constant memory.
+  defp build_with_sqlite_stream_db(ckpt_dir, opts) do
+    Application.ensure_all_started(:recgpt)
+    import Ecto.Query
+    alias RecGPT.Catalog.ItemEmbeddingText
+    fsq_params = load_fsq_params(ckpt_dir, opts)
+    Sync.clear_catalog_tables()
+
+    stream =
+      Scan.stream_items_chunked(batch_size: @sqlite_batch_size)
+
+    num_items =
+      stream
+      |> Enum.reduce(0, fn batch_items, acc ->
+        ids = Enum.map(batch_items, & &1.item_id)
+        embed_texts =
+          from(e in ItemEmbeddingText, where: e.item_id in ^ids)
+          |> Repo.all()
+          |> Map.new(&{&1.item_id, &1.embedding_text})
+
+        batch_dict =
+          batch_items
+          |> Map.new(fn item ->
+            text = Map.get(embed_texts, item.item_id) || item.title
+            {item.item_id, Embedding.recgpt_item_text(%{title: text})}
+          end)
+
+        embeddings = Embedding.encode_item_text_dict(batch_dict)
+        batch_tokens = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
+
+        entries_items = Enum.map(batch_items, fn i -> %{item_id: i.item_id, title: i.title} end)
+        entries_embeddings =
+          ids
+          |> Enum.with_index()
+          |> Enum.map(fn {id, i} ->
+            bin = Nx.slice(embeddings, [i, 0], [1, 768]) |> Nx.to_binary()
+            %{item_id: id, embedding: bin}
+          end)
+        entries_tokens =
+          Enum.zip(ids, batch_tokens)
+          |> Enum.map(fn {id, [t0, t1, t2, t3]} ->
+            %{item_id: id, t0: t0, t1: t1, t2: t2, t3: t3}
+          end)
+
+        Sync.insert_items(entries_items)
+        Sync.insert_item_embeddings(entries_embeddings)
+        Sync.insert_item_tokens(entries_tokens)
+
+        acc + length(batch_items)
+      end)
+
+    %{"num_items" => num_items, "token_id_list" => []}
+  end
+
   defp build_with_sqlite(item_text_dict, ckpt_dir, items_path, opts) do
     Application.ensure_all_started(:recgpt)
     fsq_params = load_fsq_params(ckpt_dir, opts)
     ids = item_text_dict |> Map.keys() |> Enum.sort()
     num_items = length(ids)
-    # When using dataset .npy, load once and slice per batch; otherwise encode per batch.
     preloaded =
-      if items_path in [:db, "db"] do
-        nil
-      else
-        if npy_path = resolve_embeddings_npy(items_path, opts),
-          do: load_embeddings_npy(npy_path, num_items),
-          else: nil
-      end
+      if npy_path = resolve_embeddings_npy(items_path, opts),
+        do: load_embeddings_npy(npy_path, num_items),
+        else: nil
 
-    {token_id_list, _cleared} =
+    _ =
       ids
       |> Enum.chunk_every(@sqlite_batch_size)
-      |> Enum.reduce({[], false}, fn batch_ids, {acc, cleared} ->
+      |> Enum.reduce(false, fn batch_ids, cleared ->
         embeddings =
           if preloaded do
             indices = Nx.tensor(Enum.map(batch_ids, & &1), type: {:s, 64})
@@ -86,12 +150,10 @@ defmodule RecGPT.FixtureBuild do
           end
 
         batch_tokens = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
-
         unless cleared, do: Sync.clear_catalog_tables()
 
         entries_items =
           Enum.map(batch_ids, fn id -> %{item_id: id, title: Map.fetch!(item_text_dict, id)} end)
-
         entries_embeddings =
           batch_ids
           |> Enum.with_index()
@@ -99,7 +161,6 @@ defmodule RecGPT.FixtureBuild do
             bin = Nx.slice(embeddings, [i, 0], [1, 768]) |> Nx.to_binary()
             %{item_id: id, embedding: bin}
           end)
-
         entries_tokens =
           Enum.zip(batch_ids, batch_tokens)
           |> Enum.map(fn {id, [t0, t1, t2, t3]} ->
@@ -109,26 +170,23 @@ defmodule RecGPT.FixtureBuild do
         Sync.insert_items(entries_items)
         Sync.insert_item_embeddings(entries_embeddings)
         Sync.insert_item_tokens(entries_tokens)
-
-        {acc ++ batch_tokens, true}
+        true
       end)
 
-    # Sequences: skip JSON sync when loading items from DB (data already in DB from Convert)
     unless items_path in [:db, "db"] do
       base = Path.dirname(items_path)
-
       Sync.sync_sequences_from_json(
         Path.join(base, "train_sequences.json"),
         Path.join(base, "cold_train_sequences.json")
       )
-
       Sync.sync_test_from_json(
         Path.join(base, "test_sequences.json"),
         Path.join(base, "cold_test_sequences.json")
       )
     end
 
-    %{"num_items" => num_items, "token_id_list" => token_id_list}
+    # Do not return token_id_list: constant memory; serve loads from DB via load_fixture_from_db.
+    %{"num_items" => num_items, "token_id_list" => []}
   end
 
   @doc "Writes fixture map to path (JSON)."
@@ -175,6 +233,24 @@ defmodule RecGPT.FixtureBuild do
     list
     |> Enum.with_index(0)
     |> Map.new(fn {text, idx} -> {idx, text} end)
+  end
+
+  # Load enriched canonical texts from JSON (e.g. from mix recgpt.kuairand_canonical_texts).
+  # File must have "by_item_id": [str0, str1, ...] in same order as items.json.
+  defp load_canonical_texts_from_file(canonical_path, items_path, limit) when is_binary(items_path) do
+    raw = File.read!(items_path) |> Jason.decode!()
+    items = raw["items"] || []
+    num_items = raw["num_items"] || length(items)
+    num_items = if limit, do: min(num_items, limit), else: num_items
+
+    canonical = File.read!(canonical_path) |> Jason.decode!()
+    texts = canonical["by_item_id"] || []
+
+    Enum.map(0..(num_items - 1), fn i ->
+      text = Enum.at(texts, i) || (items |> Enum.at(i) |> then(fn it -> it && (it["title"] || it[:title]) end) || "")
+      {i, Embedding.recgpt_item_text(%{title: text})}
+    end)
+    |> Map.new()
   end
 
   defp load_item_text_dict_from_db(limit) do

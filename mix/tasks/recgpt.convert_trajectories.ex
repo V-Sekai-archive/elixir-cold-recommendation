@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
   ## Options
     * `--from` - Input directory (e.g. path to KuaiRand-Pure or movielens-20m). Required.
     * `--out` - Output directory (default: data/training_signal_test)
-    * `--format` - kuairand (default), movielens
+    * `--format` - kuairand (default), movielens, ml1m
     * `--train-limit` - Max train sequences (default: 10000). Use 0 for no cap.
     * `--test-limit` - Max test cases (default: 2000). Use 0 for no cap.
     * `--seed` - Random seed for reproducible split (default: 42)
@@ -23,6 +23,11 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
   ## MovieLens-20M
   Expects ratings.csv (userId, movieId, rating, timestamp) and movies.csv (movieId, title, genres)
   in the input directory. Download from https://grouplens.org/datasets/movielens/20m/
+
+  ## MovieLens 1M (ml1m) – title + genres in item descriptions
+  Expects .dat files: ratings.dat (UserID::MovieID::Rating::Timestamp), movies.dat (MovieID::Title::Genres).
+  Item titles are joined with pipe-separated genres so categories are filled. See https://files.grouplens.org/datasets/movielens/ml-1m-README.txt
+  Example: --from /path/to/ml-1m --format ml1m
 
   ## KuaiRand-Pure (default)
   Expects log_standard_*.csv, log_random_*.csv (user_id, video_id, time_ms) and optionally
@@ -81,9 +86,9 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
       :ok ->
         next =
           if sync_to_db do
-            "Done. Next: mix recgpt.build_fixture --items db --out #{out_dir}/fixture.json"
+            "Done. Next: mix recgpt.fetch_vae_ckpt  then  mix recgpt.build_fixture --items db --out #{Path.join(out_dir, "fixture.json")} --ckpt data/fuxi_ckpt_export --vae-ckpt thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt"
           else
-            "Done. Next: mix recgpt.build_fixture --items #{out_dir}/items.json --out #{out_dir}/fixture.json"
+            "Done. Next: mix recgpt.fetch_vae_ckpt  then  mix recgpt.build_fixture --items #{Path.join(out_dir, "items.json")} --out #{Path.join(out_dir, "fixture.json")} --ckpt data/fuxi_ckpt_export --vae-ckpt thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt --no-canonical-texts"
           end
 
         Mix.shell().info(next)
@@ -95,8 +100,9 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
 
   defp parse_format(nil), do: :kuairand
   defp parse_format("movielens"), do: :movielens
+  defp parse_format("ml1m"), do: :ml1m
   defp parse_format("kuairand"), do: :kuairand
 
   defp parse_format(other),
-    do: Mix.raise("Unknown format: #{inspect(other)}. Use movielens or kuairand.")
+    do: Mix.raise("Unknown format: #{inspect(other)}. Use movielens, ml1m, or kuairand.")
 end

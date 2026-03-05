@@ -47,6 +47,7 @@ defmodule RecGPT.MixProject do
       {:axon, "~> 0.7"},
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},
+      {:jcs, "~> 0.2"},
       {:npy, "~> 0.1.2"},
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
