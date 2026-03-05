@@ -40,7 +40,7 @@ defmodule RecGPT.TestLoss do
             next = c["next_item"]
             ctx ++ [next]
           end)
-          |> Enum.filter(fn seq -> length(seq) >= 1 end)
+          |> Enum.filter(&(&1 != []))
 
         if sequences == [] do
           {:error, :no_valid_sequences}

@@ -17,19 +17,15 @@ defmodule RecGPT.SafeInspect do
   end
 
   def safe_inspect(list, opts) when is_list(list) do
-    "[#{list |> Enum.map(&safe_inspect(&1, opts)) |> Enum.join(", ")}]"
+    "[#{Enum.map_join(list, ", ", &safe_inspect(&1, opts))}]"
   end
 
   def safe_inspect(tuple, opts) when is_tuple(tuple) do
-    "{#{tuple |> Tuple.to_list() |> Enum.map(&safe_inspect(&1, opts)) |> Enum.join(", ")}}"
+    "{#{Enum.map_join(Tuple.to_list(tuple), ", ", &safe_inspect(&1, opts))}}"
   end
 
   def safe_inspect(map, opts) when is_map(map) and not is_struct(map) do
-    pairs =
-      map
-      |> Enum.map(fn {k, v} -> "#{safe_inspect(k, opts)} => #{safe_inspect(v, opts)}" end)
-      |> Enum.join(", ")
-
+    pairs = Enum.map_join(map, ", ", fn {k, v} -> "#{safe_inspect(k, opts)} => #{safe_inspect(v, opts)}" end)
     "%{#{pairs}}"
   end
 

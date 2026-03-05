@@ -41,7 +41,7 @@ defmodule RecGPT.FixtureBuild do
     else
       item_text_dict =
         cond do
-          path = opts[:canonical_texts_from] and is_binary(items_path) and items_path != "db" ->
+          path = opts[:canonical_texts_from] && is_binary(items_path) && items_path != "db" ->
             load_canonical_texts_from_file(path, items_path, opts[:limit])
           opts[:canonical_texts] -> load_canonical_texts(opts[:limit])
           items_path in [:db, "db"] -> load_item_text_dict_from_db(opts[:limit])

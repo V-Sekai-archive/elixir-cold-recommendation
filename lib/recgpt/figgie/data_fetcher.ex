@@ -78,30 +78,25 @@ defmodule RecGPT.Figgie.DataFetcher do
   Simulates a complete Figgie game and labels trading patterns and arbitrage opportunities.
   """
   def simulate_game_with_pattern_labels do
-    game = RecGPT.Figgie.new_game() |> RecGPT.Figgie.deal_and_start()
-
-    # Simulate trading with different bot strategies
-    game_after_trading = simulate_strategic_trading_phase(game)
-
-    # End round and get final state
-    final_game = RecGPT.Figgie.end_round(game_after_trading)
-
-    # Extract sequence and comprehensive labels
-    build_labeled_sequence_with_patterns(final_game)
+    # TODO: Implement pattern-based game simulation
+    {:error, :not_implemented}
   end
 
   # Private functions
 
-  defp simulate_trading_phase(game, time_remaining \\ 240) do
+  defp simulate_trading_phase(game, _time_remaining \\ 240) do
+    # TODO: Implement strategic trading phase
+    game
     # Simulate random trades for the duration
-    # For simplicity, generate a few random trades
-    trades = for _ <- 1..10 do
+    # Generate trades with incremental timestamps
+    start_time = DateTime.utc_now()
+    trades = for i <- 1..10 do
       %RecGPT.Figgie.Trade{
         buyer: Enum.random(0..3),
         seller: Enum.random(0..3),
         suit: Enum.random([:spades, :clubs, :hearts, :diamonds]),
         price: Enum.random(10..100),
-        timestamp: DateTime.utc_now()
+        timestamp: DateTime.add(start_time, i * 1000, :millisecond)  # 1 second apart
       }
     end
 
@@ -109,16 +104,16 @@ defmodule RecGPT.Figgie.DataFetcher do
   end
 
   defp build_labeled_sequence(game) do
-    # Build sequence of trades
+    # Build sequence of trades with time_ms
     sequence = Enum.map(game.trades, fn trade ->
-      # Convert to RecGPT sequence format: [buyer, seller, suit_index, price]
       suit_index = case trade.suit do
         :spades -> 0
         :clubs -> 1
         :hearts -> 2
         :diamonds -> 3
       end
-      [trade.buyer, trade.seller, suit_index, trade.price]
+      time_ms = DateTime.to_unix(trade.timestamp, :millisecond)
+      [suit_index, time_ms]
     end)
 
     # Label arbitrage opportunities (simplified - mark all trades as potential arbitrage)

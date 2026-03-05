@@ -116,7 +116,7 @@ Choosing **session-based video** gives a natural close (session end) with existi
 
 ## Implementation status
 
-- **Implemented:** Convert (KuaiRand), build_fixture, pretrain, eval; train/test/cold splits; `--eval-test-every` for test loss. See [93](93_pretraining_plan.md).
+- **Implemented:** Convert (KuaiRand), build_fixture, pretrain, eval; train/test/cold splits; `--eval-test-every` for test loss. See [43](43_pretraining_plan.md).
 - **Optional / future:** KuaiRand converter emitting `timestamps` for FuXi; session-level aggregation; explicit cold-item reporting in eval CLI.
 
 ---

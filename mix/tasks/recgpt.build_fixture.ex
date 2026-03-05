@@ -235,7 +235,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       if canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts_from, canonical_texts_from), else: build_opts
 
     build_opts =
-      if canonical_texts? and not canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
+      if canonical_texts? and !canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
 
     build_opts =
       case opts[:embeddings_npy] do

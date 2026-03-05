@@ -35,7 +35,9 @@ defmodule RecGPT.Serve do
     :get_logits_4_fn,
     :inference_backend,
     :beam_width_override,
-    :decode_constants
+    :decode_constants,
+    :embedding_cache,
+    :token_cache
   ]
 
   @type state :: %__MODULE__{
@@ -57,7 +59,9 @@ defmodule RecGPT.Serve do
           inference_backend: term() | nil,
           beam_width_override: non_neg_integer() | nil,
           decode_constants:
-            %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil
+            %{root_state: Nx.Tensor.t(), neg_inf: Nx.Tensor.t(), vocab_t: Nx.Tensor.t()} | nil,
+          embedding_cache: :ets.table() | nil,
+          token_cache: :ets.table() | nil
         }
 
   @doc """
@@ -115,7 +119,8 @@ defmodule RecGPT.Serve do
          {:ok, params} <- load_checkpoint(ckpt_export_dir),
          {params, inference_backend} <- maybe_transfer_params_to_exla(params),
          {:ok, trie, token_id_map, num_items} <- load_fixture_from_db(),
-         {:ok, item_text} <- load_catalog(catalog_path, num_items) do
+         {:ok, item_text} <- load_catalog(catalog_path, num_items),
+         {:ok, {embedding_cache, token_cache}} <- load_embedding_caches(inference_backend) do
       trie_tensors = Trie.to_tensors(trie, @vocab_size)
       trie_tensors = transfer_trie_tensors(trie_tensors, inference_backend)
 
@@ -143,7 +148,9 @@ defmodule RecGPT.Serve do
         get_logits_4_fn: get_logits_4_fn,
         inference_backend: inference_backend,
         beam_width_override: beam_width_override,
-        decode_constants: decode_constants
+        decode_constants: decode_constants,
+        embedding_cache: embedding_cache,
+        token_cache: token_cache
       }
 
       {:ok, state}
@@ -177,6 +184,20 @@ defmodule RecGPT.Serve do
       end)
 
     {:ok, trie, token_id_map, num_items}
+  end
+
+  defp load_embedding_caches(inference_backend) do
+    alias RecGPT.EmbeddingCache
+    
+    case EmbeddingCache.load_from_db(inference_backend) do
+      {:ok, tables} ->
+        {:ok, tables}
+      
+      {:error, reason} ->
+        # Warn but don't fail: embedding cache is optional
+        IO.warn("Failed to load embedding cache: #{reason}")
+        {:ok, nil, nil}
+    end
   end
 
   defp ensure_exla do

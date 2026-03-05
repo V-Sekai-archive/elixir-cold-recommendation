@@ -375,7 +375,7 @@ defmodule RecGPT.FuxiLinearInference do
         Nx.slice(emb, [0, 0], [seq_len, @channel_p_dim])
       else
         half = div(@channel_p_dim, 2)
-        theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
+        theta = Nx.pow(10_000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
         pos = Nx.iota({seq_len}, type: {:f, 32}) |> Nx.new_axis(-1)
 
         Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))],
@@ -534,7 +534,7 @@ defmodule RecGPT.FuxiLinearInference do
     Enum.reduce(0..(n_blocks - 1), %{}, fn i, params ->
       base = "fuxi.block.#{i}."
       half = div(@channel_p_dim, 2)
-      theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
+      theta = Nx.pow(10_000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
       pos = Nx.iota({min(max_seq_len, 2048)}, type: {:f, 32}) |> Nx.new_axis(-1)
 
       emb =

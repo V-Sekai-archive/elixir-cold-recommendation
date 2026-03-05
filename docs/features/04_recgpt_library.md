@@ -45,7 +45,7 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | Module                     | Purpose                                                                                                                       |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.Inference**       | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
-| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. Opts: `all_timestamps`, `chunk_size`. See [85](85_fuxi_linear_status.md). |
+| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. Opts: `all_timestamps`, `chunk_size`. See [40](40_fuxi_linear_status.md). |
 | **RecGPT.FuxiLinearInferenceDefn** | Defn JIT `forward_last_4_logits/4` for Serve when FuXi checkpoint. |
 | **RecGPT.FuxiLinearInferenceParams** | Build defn params from FuXi checkpoint keys. |
 | **RecGPT.Decode**          | `beam_search_top_k_spmd/8` (beam) and `lookahead_top_k/5` (MTP) → `{:ok, item_ids}` or `:not_found`. Strategy via `RECGPT_DECODE_STRATEGY`. |

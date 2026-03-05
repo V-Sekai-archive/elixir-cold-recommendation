@@ -145,7 +145,7 @@ defmodule RecGPT.FuxiLinearInferenceParams do
 
   defp build_sinusoidal_emb(max_len) do
     half = div(@channel_p_dim, 2)
-    theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
+    theta = Nx.pow(10_000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
     pos = Nx.iota({min(max_len, 2048)}, type: {:f, 32}) |> Nx.new_axis(-1)
     Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))], axis: 1)
   end

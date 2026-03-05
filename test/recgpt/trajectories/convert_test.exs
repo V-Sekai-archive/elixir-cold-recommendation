@@ -48,12 +48,12 @@ defmodule RecGPT.Trajectories.ConvertTest do
       train = File.read!(Path.join(@out_dir, "train_sequences.json")) |> Jason.decode!()
       assert train["num_items"] == 4
       assert is_list(train["sequences"])
-      assert length(train["sequences"]) >= 1
+      assert train["sequences"] != []
 
       test_data = File.read!(Path.join(@out_dir, "test_sequences.json")) |> Jason.decode!()
       assert test_data["num_items"] == 4
       assert is_list(test_data["test_cases"])
-      assert length(test_data["test_cases"]) >= 1
+      assert test_data["test_cases"] != []
 
       tc = hd(test_data["test_cases"])
       assert Map.has_key?(tc, "context")
@@ -123,7 +123,7 @@ defmodule RecGPT.Trajectories.ConvertTest do
       train = File.read!(Path.join(@kuairand_out, "train_sequences.json")) |> Jason.decode!()
       assert train["num_items"] == 3
       assert is_list(train["sequences"])
-      assert length(train["sequences"]) >= 1
+      assert train["sequences"] != []
 
       test_data = File.read!(Path.join(@kuairand_out, "test_sequences.json")) |> Jason.decode!()
       assert test_data["num_items"] == 3

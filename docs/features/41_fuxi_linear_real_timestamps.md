@@ -72,7 +72,7 @@ FuXi-Linear uses **real interaction timestamps** in the Temporal Retention Chann
 
 ## Prediction Market Rationale
 
-Scout must be trained on leader/prediction-market data; off-domain RecGPT has zero signal for Polymarket outcomes ([80](80_prediction_market_trading_system.md)). For prediction markets, real timestamps matter **more** than for general recommendation:
+Scout must be trained on leader/prediction-market data; off-domain RecGPT has zero signal for Polymarket outcomes. For prediction markets, real timestamps matter **more** than for general recommendation:
 
 | Signal | Why timestamps matter |
 |--------|------------------------|

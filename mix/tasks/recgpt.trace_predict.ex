@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
   - total_us and percentiles over runs
 
   ## Options
-    * `--fixture` - Path to fixture JSON (default: data/steam/fixture.json)
+    * `--fixture` - Path to fixture JSON (default: priv/figgie_fixture.json)
     * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--catalog` - Optional path to items JSON
     * `--context` - Comma-separated context item IDs (default: 0)
@@ -173,7 +173,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     fixture_path =
       opts[:fixture] ||
         RecGPT.Catalog.Artifact.resolve_path("fixture") ||
-        Path.expand(Path.join(File.cwd!(), "data/steam/fixture.json"), File.cwd!())
+        Path.expand(Path.join(File.cwd!(), "priv/figgie_fixture.json"), File.cwd!())
 
     ckpt_dir =
       opts[:ckpt] ||

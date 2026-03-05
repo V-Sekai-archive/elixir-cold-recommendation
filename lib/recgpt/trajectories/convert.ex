@@ -297,10 +297,10 @@ defmodule RecGPT.Trajectories.Convert do
 
     parsed =
       Enum.map(data, fn row ->
-        userId = parse_int(col.(row, "userid"))
-        movieId = parse_int(col.(row, "movieid"))
+        user_id = parse_int(col.(row, "userid"))
+        movie_id = parse_int(col.(row, "movieid"))
         timestamp = parse_int(col.(row, "timestamp"))
-        {userId, movieId, timestamp}
+        {user_id, movie_id, timestamp}
       end)
       |> Enum.filter(fn
         {nil, _, _} -> false
@@ -327,12 +327,12 @@ defmodule RecGPT.Trajectories.Convert do
 
     titles =
       Enum.reduce(data, %{}, fn row, acc ->
-        movieId = parse_int(col.(row, "movieid"))
+        movie_id = parse_int(col.(row, "movieid"))
         title = col.(row, "title") || ""
         genres = col.(row, "genres") || ""
         genres_clean = String.replace(genres, "|", ", ")
         desc = if genres_clean == "", do: title, else: "#{title} | #{genres_clean}"
-        if movieId, do: Map.put(acc, movieId, desc), else: acc
+        if movie_id, do: Map.put(acc, movie_id, desc), else: acc
       end)
 
     {:ok, titles}
