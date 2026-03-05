@@ -22,12 +22,12 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     * `--convert-from` - Raw dataset path; runs convert_trajectories first
     * `--train-limit` - Max train sequences (0 = no cap, default: 0)
     * `--test-limit` - Max test cases (0 = no cap, default: 0)
-    * `--ckpt` - Base checkpoint (default: data/fuxi_ckpt_export). Add --gpt2 for GPT-2.
+    * `--ckpt` - Base checkpoint (default: data/fuxi_ckpt_export)
     * `--iterations` - Pretrain steps (default: 500 for single; 1200 for 10min regime)
     * `--epochs` - Pretrain epochs (overrides iterations when set)
     * `--regime` - single (default), 10min, 5epochs, or compare
     * `--fixture-limit` - Max items in fixture (default: 5000)
-    * `--fuxi` - Use FuXi-Linear init (default). Saves to ckpt_fuxi_*. Use --gpt2 for GPT-2.
+    * `--fuxi` - Use FuXi-Linear init (default). Saves to ckpt_fuxi_*.
     * `--skip-convert` - Skip convert step (data already converted)
     * `--skip-build` - Skip build_fixture (fixture.json exists)
     * `--skip-pretrain` - Skip pretrain (ckpt exists; eval-only)
@@ -49,7 +49,6 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
           regime: :string,
           fixture_limit: :integer,
           fuxi: :boolean,
-          gpt2: :boolean,
           skip_convert: :boolean,
           skip_build: :boolean,
           skip_pretrain: :boolean
@@ -66,16 +65,13 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     test_limit = opts[:test_limit] || 0
     fixture_limit = opts[:fixture_limit] || 5000
     regime = opts[:regime] || "single"
-    fuxi? = !(opts[:gpt2] || false) and opts[:fuxi] != false
+    fuxi? = opts[:fuxi] != false
     skip_convert = opts[:skip_convert] || false
     skip_build = opts[:skip_build] || false
     skip_pretrain = opts[:skip_pretrain] || false
 
-    gpt2? = opts[:gpt2] || false
-    default_ckpt = if gpt2?, do: "data/recgpt_ckpt_export", else: "data/fuxi_ckpt_export"
-
     ckpt_dir =
-      (opts[:ckpt] || Path.join(File.cwd!(), default_ckpt))
+      (opts[:ckpt] || Path.join(File.cwd!(), "data/fuxi_ckpt_export"))
       |> Path.expand(File.cwd!())
 
     ckpt_dir =
@@ -305,8 +301,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
 
     unless File.dir?(ckpt_dir) and File.regular?(manifest) do
       Mix.raise(
-        "Checkpoint required at #{ckpt_dir}. Run: mix recgpt.fetch_ckpt && mix recgpt.export_ckpt ... " <>
-          "Use --gpt2 to use GPT-2 (mix recgpt.fetch_ckpt + export_ckpt)."
+        "Checkpoint required at #{ckpt_dir}. Run: mix recgpt.refetch or mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}."
       )
     end
   end

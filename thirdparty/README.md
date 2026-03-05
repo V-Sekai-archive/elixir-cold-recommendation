@@ -24,6 +24,5 @@ Convert uses Polymarket Gamma API for stable canonical JSON-LD item embedding te
 Checkpoint binaries live under **checkpoints/** and are not committed (see [checkpoints/README.md](checkpoints/README.md)):
 
 - **vae/** — VAE `.pt`; default for `mix recgpt.fetch_vae_ckpt`.
-- **recgpt/** — RecGPT `.pt` and Elixir export (manifest + .npy); default for `mix recgpt.fetch_ckpt` and `mix recgpt.export_ckpt --out`.
 
-Use `thirdparty/checkpoints/recgpt` as `--ckpt` for eval/serve when using this layout.
+Use `data/fuxi_ckpt_export` (from `mix recgpt.refetch`) as `--ckpt` for eval/serve.

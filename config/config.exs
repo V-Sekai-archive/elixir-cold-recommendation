@@ -15,11 +15,10 @@ config :recgpt, :predict_batch_timeout_ms, 0
 # Max time (ms) for a single Predict recommend; avoids indefinite hang on first-request JIT. Default 120s.
 config :recgpt, :predict_timeout_ms, 120_000
 
-# Checkpoint integrity: SHA256 must match. Compute with: mix recgpt.ckpt_sha256 --ckpt data/recgpt_ckpt_export
-# Or set RECGPT_CKPT_SHA256 env var. Overridden to nil in config/test.exs for stub exports.
+# Checkpoint integrity: SHA256 must match when set. Default nil (FuXi has no fixed SHA; pretrained varies).
 config :recgpt,
        :ckpt_expected_sha256,
-       "b93219448d9800cf1c1b86ab265dfa5ccc6b29aef11c0795b1d376fb7971c82b"
+       System.get_env("RECGPT_CKPT_SHA256") || nil
 
 # Inference dtype: {:f, 32} or {:bf, 16} for BF16 (Tensor Cores).
 

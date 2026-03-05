@@ -8,7 +8,7 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 
 ## Quick start
 
-1. Get checkpoint and data: `mix recgpt.refetch` (FuXi-Linear init + VAE + Steam). Use `--gpt2` for GPT-2.
+1. Get checkpoint and data: `mix recgpt.refetch` (FuXi-Linear init + VAE + Steam).
 2. Eval: `mix recgpt.first_step` (or `mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture && mix recgpt.eval`)
 3. Serve: `RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/fuxi_ckpt_export mix recgpt.serve`
 

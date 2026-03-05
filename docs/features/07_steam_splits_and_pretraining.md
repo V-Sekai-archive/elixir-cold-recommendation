@@ -62,7 +62,7 @@ After `RecGPT.Steam.Fetch.run/1` (or `mix recgpt.fetch_steam data/steam`):
 
 **Order:** Fetch → build_fixture → pretrain → eval (with both `--test` and `--cold-test`).
 
-For full commands, options, and file layout, see [02 Pipeline reference](02_pipeline_reference.md).
+For full commands, options, and file layout, see [02 Pipeline overview](02_pipeline_overview.md) and [03 Pipeline steps](03_pipeline_steps.md).
 
 ---
 
@@ -78,7 +78,7 @@ For full commands, options, and file layout, see [02 Pipeline reference](02_pipe
 ## References
 
 - [hkuds/RecGPT_dataset — test/steam](https://huggingface.co/datasets/hkuds/RecGPT_dataset/tree/main/test/steam) — `train.pkl`, `test.pkl`, `cold_train.pkl`, `cold_test.pkl`, `item_text_dict.pkl`, `item_text_embeddings.npy`.
-- **Local clone:** If you have the dataset cloned locally, use a test split dir as the steam dir: `mix recgpt.fetch_steam path/to/RecGPT_dataset/test/steam` then `--steam-dir path/to/RecGPT_dataset/test/steam` (or `test/baby`, `test/games`, etc.) for build_fixture, compare_embeddings, and related tasks. See [26_embedding_mismatch.md](26_embedding_mismatch.md#see-also-local-recgpt_dataset-clone).
+- **Local clone:** If you have the dataset cloned locally, use a test split dir as the steam dir: `mix recgpt.fetch_steam path/to/RecGPT_dataset/test/steam` then `--steam-dir path/to/RecGPT_dataset/test/steam` (or `test/baby`, `test/games`, etc.) for build_fixture, compare_embeddings, and related tasks.
 - RecGPT training: `RecGPT.Training.build_train_batch/4`, `RecGPT.AxonTrain`, `mix recgpt.pretrain`.
 
 ---
@@ -86,5 +86,5 @@ For full commands, options, and file layout, see [02 Pipeline reference](02_pipe
 ## See also
 
 - [05 Evaluation and testing](05_evaluation_and_testing.md) — Zero-shot vs trained, null hypothesis.
-- [04 Eval data shapes](04_eval_data_shapes.md) — JSON shapes for these artifacts.
-- [02 Pipeline reference](02_pipeline_reference.md) — End-to-end commands and layout.
+- [05 Eval data shapes](05_eval_data_shapes.md) — JSON shapes for these artifacts.
+- [02 Pipeline overview](02_pipeline_overview.md), [03 Pipeline steps](03_pipeline_steps.md) — End-to-end commands and layout.

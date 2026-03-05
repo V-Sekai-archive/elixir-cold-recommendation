@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
 
   ## Options
     * `--fixture` - Path to fixture JSON (default: data/steam/fixture.json)
-    * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--catalog` - Optional path to items JSON for display_name in output
     * `--out` - Optional path to write results JSON (default: print only)
     * `--contexts` - Comma-separated context lists, e.g. "0,1" or "0,1|1,2,3" (default: 0 | 0,1 | 1,2,3)
@@ -17,9 +17,9 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
 
   ## Examples
       mix recgpt.ad_hoc_test
-      mix recgpt.ad_hoc_test --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --catalog data/steam/items.json
+      mix recgpt.ad_hoc_test --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export --catalog data/steam/items.json
       mix recgpt.ad_hoc_test --out data/steam/ad_hoc_results.json
-      mix recgpt.ad_hoc_test --profile --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export
+      mix recgpt.ad_hoc_test --profile --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export
   """
   use Mix.Task
 
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        Path.join(File.cwd!(), "data/recgpt_ckpt_export")
+        Path.join(File.cwd!(), "data/fuxi_ckpt_export")
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
@@ -136,8 +136,7 @@ defmodule Mix.Tasks.Recgpt.AdHocTest do
         unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
           Mix.raise("""
           Checkpoint not found: #{ckpt_dir}
-          Run: mix recgpt.fetch_ckpt
-               mix recgpt.export_ckpt --from-pt <path_to>.pt --out #{ckpt_dir}
+          Run: mix recgpt.refetch (or mix recgpt.export_fuxi_ckpt --out #{ckpt_dir})
           Or use --stub for a quick smoke test.
           """)
         end

@@ -55,7 +55,7 @@ The API is designed so it can be used in an **SPMD** (Single Program Multiple Da
 - **Determinism:** For a given (rank, paths, inputs), the result is deterministic. Metrics (e.g. eval) can be reduced across ranks (sum hits, sum MRR numerator/denominator) when moving to multi-rank eval.
 - **No process-global state in the contract:** The library may use process-local state (e.g. Repo, serve*state); the \_API contract* does not assume a single global instance. Each rank can run the same binary with rank-specific config or paths.
 
-See [25 MVP guard rails](25_mvp_guard_rails.md): we do not implement multi-rank execution yet; the API is compatible so that when guard rails are lifted, the same proto and behaviour can be used.
+We do not implement multi-rank execution yet; the API is compatible so that when guard rails are lifted, the same proto and behaviour can be used.
 
 ---
 
@@ -119,4 +119,4 @@ Pretraining logic lives in **RecGPT.PretrainRunner**. The Mix task `mix recgpt.p
 - [staff.proto](../priv/proto/recgpt/v1/staff.proto) — Staff gRPC contract.
 - [03 Pipeline steps](03_pipeline_steps.md) — Build fixture, pretrain, eval, serve.
 - [04 RecGPT library](04_recgpt_library.md) — Module reference (Sync, FixtureBuild, Serve).
-- [24 First step plan](24_first_step_plan.md) — Steam baseline and catalogue recommendation.
+- [51 Quick start](51_quick_start.md) — Steam baseline and catalogue recommendation.

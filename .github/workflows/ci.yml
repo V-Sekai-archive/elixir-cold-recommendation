@@ -1,7 +1,7 @@
 # CI: runs the QA checklist from docs/features/23_quality_assurance.md (steps 1–6).
 # Steps 1–5: compile, format, Credo, unit tests, Dialyzer.
-# Step 6: pipeline (fetch_steam, build_fixture); pretrain commented out for CI; use base ckpt for eval. Pretrain block below kept for local testing.
-# Uses Steam test data (hkuds/RecGPT_dataset) and frozen RecGPT weights (hkuds/RecGPT_model).
+# Step 6: pipeline (export_fuxi_ckpt, fetch_steam, build_fixture); pretrain commented out for CI; use FuXi init for eval.
+# Uses Steam test data (hkuds/RecGPT_dataset) and FuXi-Linear init.
 name: CI
 
 on:
@@ -65,23 +65,15 @@ jobs:
         id: restore_ckpt
         uses: actions/cache@v4
         with:
-          path: |
-            data/recgpt_ckpt_export
-            data/recgpt_layer_3_weight.pt
-          key: ${{ runner.os }}-recgpt-ckpt-v1
+          path: data/fuxi_ckpt_export
+          key: ${{ runner.os }}-fuxi-ckpt-v1
           restore-keys: |
-            ${{ runner.os }}-recgpt-ckpt-
+            ${{ runner.os }}-fuxi-ckpt-
 
-      - name: Download RecGPT checkpoint
+      - name: Export FuXi-Linear checkpoint
         run: |
-          if [ ! -f data/recgpt_layer_3_weight.pt ]; then
-            mix recgpt.fetch_ckpt
-          fi
-
-      - name: Export checkpoint to Elixir format
-        run: |
-          if [ ! -f data/recgpt_ckpt_export/manifest.json ]; then
-            mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
+          if [ ! -f data/fuxi_ckpt_export/manifest.json ]; then
+            mix recgpt.export_fuxi_ckpt --out data/fuxi_ckpt_export
           fi
 
       - name: Restore Steam data cache
@@ -100,13 +92,13 @@ jobs:
           fi
 
       - name: Build fixture
-        run: mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export
+        run: mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/fuxi_ckpt_export
 
       - name: Zero-shot eval
         run: |
           mix recgpt.eval \
             --fixture data/steam/fixture.json \
-            --ckpt data/recgpt_ckpt_export \
+            --ckpt data/fuxi_ckpt_export \
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
@@ -114,7 +106,7 @@ jobs:
       # - name: Pretrain (short run for CI)
       #   run: |
       #     mix recgpt.pretrain \
-      #       --ckpt data/recgpt_ckpt_export \
+      #       --ckpt data/fuxi_ckpt_export \
       #       --fixture data/steam/fixture.json \
       #       --train data/steam/train_sequences.json \
       #       --items data/steam/items.json \
@@ -127,15 +119,15 @@ jobs:
         run: |
           mix recgpt.eval \
             --fixture data/steam/fixture.json \
-            --ckpt data/recgpt_ckpt_export \
+            --ckpt data/fuxi_ckpt_export \
             --test data/steam/test_sequences.json \
             --cold-test data/steam/cold_test_sequences.json
 
       - name: Steam top-k (reject null; pretrained >= zero-shot)
         env:
           RECGPT_FIXTURE: data/steam/fixture.json
-          RECGPT_CKPT_ZEROSHOT: data/recgpt_ckpt_export
-          RECGPT_CKPT_EXPORT: data/recgpt_ckpt_export
+          RECGPT_CKPT_ZEROSHOT: data/fuxi_ckpt_export
+          RECGPT_CKPT_EXPORT: data/fuxi_ckpt_export
           RECGPT_TEST_SEQUENCES: data/steam/test_sequences.json
         run: mix test test/recgpt/eval_test.exs --include eval --include integration --no-start
 
@@ -143,10 +135,8 @@ jobs:
         uses: actions/cache/save@v4
         if: steps.restore_ckpt.outputs.cache-hit != 'true'
         with:
-          path: |
-            data/recgpt_ckpt_export
-            data/recgpt_layer_3_weight.pt
-          key: ${{ runner.os }}-recgpt-ckpt-v1
+          path: data/fuxi_ckpt_export
+          key: ${{ runner.os }}-fuxi-ckpt-v1
 
       - name: Save Steam cache
         uses: actions/cache/save@v4

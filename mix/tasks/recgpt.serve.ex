@@ -10,7 +10,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
     * `--grpc-port` - gRPC port (default: 50051)
     * `--health-port` - HTTP health port for readiness (default: 50052); 0 to disable
     * `--fixture` - Path to fixture JSON (default: data/serve_e2e_fixture.json)
-    * `--ckpt` - Path to checkpoint export dir (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Path to checkpoint export dir (default: data/fuxi_ckpt_export).
     * `--catalog` - Optional path to catalog JSON (item_id -> text)
 
   ## Environment
@@ -63,7 +63,7 @@ defmodule Mix.Tasks.Recgpt.Serve do
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_EXPORT") ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        resolve_path(Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"]))
+        resolve_path(Path.join([File.cwd!(), "data", "fuxi_ckpt_export"]))
 
     catalog_path =
       opts[:catalog] || RecGPT.Catalog.Artifact.resolve_path("items")

@@ -18,12 +18,11 @@ Document steps 2-4, optional serve, checkpoint setup, and file layout. Overview 
 
 Run these in order to go from nothing to a running server that returns recommendations:
 
-1. **Data:** `mix recgpt.fetch_steam data/steam`
-2. **Checkpoint:** `mix recgpt.fetch_ckpt` then `mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`
-3. **Fixture (catalogue):** `mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export`
-4. **Pretrain:** `mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50`
-5. **Serve:** `mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain --catalog data/steam/items.json`
-6. **Recommend:** Call the gRPC Predict endpoint (e.g. with grpcurl per [01 gRPC API](01_grpc_api.md#quick-test)) with a context of item IDs (catalogue indices 0..num_items-1); the server returns top-k next-item recommendations. With `--catalog`, response `items` include human-readable `display_name` (e.g. game title).
+1. **Data + checkpoint:** `mix recgpt.refetch` (export_fuxi_ckpt, fetch_vae_ckpt, fetch_steam)
+2. **Fixture (catalogue):** `mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/fuxi_ckpt_export`
+3. **Pretrain:** `mix recgpt.pretrain --ckpt data/fuxi_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50`
+4. **Serve:** `mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/ckpt_after_pretrain --catalog data/steam/items.json`
+5. **Recommend:** Call the gRPC Predict endpoint (e.g. with grpcurl per [01 gRPC API](01_grpc_api.md#quick-test)) with a context of item IDs (catalogue indices 0..num_items-1); the server returns top-k next-item recommendations. With `--catalog`, response `items` include human-readable `display_name` (e.g. game title).
 
 The catalogue is the fixture (items + token_id_list) plus the model; after pretrain, the server uses the trained checkpoint and the same fixture to answer Predict requests. Pass `--catalog data/steam/items.json` so recommendations return catalogue item titles in the response.
 
@@ -36,7 +35,7 @@ The catalogue is the fixture (items + token_id_list) plus the model; after pretr
 **Command:**
 
 ```bash
-mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/recgpt_ckpt_export
+mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.json --ckpt data/fuxi_ckpt_export
 ```
 
 **Output:** `fixture.json` with `num_items` and `token_id_list`. Same format as expected by Serve and the eval task.
@@ -50,7 +49,7 @@ mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.
 **Command:**
 
 ```bash
-mix recgpt.pretrain --ckpt data/recgpt_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50
+mix recgpt.pretrain --ckpt data/fuxi_ckpt_export --fixture data/steam/fixture.json --train data/steam/train_sequences.json --items data/steam/items.json --out data/ckpt_after_pretrain --iterations 100 --batch-size 8 --log 50
 ```
 
 **Output:** New export dir (e.g., `data/ckpt_after_pretrain`) with `manifest.json` and `.npy` files. Use this dir as `--ckpt` for eval and serve.
@@ -92,11 +91,10 @@ Use `--catalog data/steam/items.json` so the Predict response includes catalogue
 If you do not have an export dir yet:
 
 ```bash
-mix recgpt.fetch_ckpt
-mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export
+mix recgpt.refetch
 ```
 
-Use `data/recgpt_ckpt_export` as `--ckpt` for build_fixture and pretrain.
+Use `data/fuxi_ckpt_export` as `--ckpt` for build_fixture and pretrain.
 
 ---
 
@@ -104,10 +102,9 @@ Use `data/recgpt_ckpt_export` as `--ckpt` for build_fixture and pretrain.
 
 ```
 data/
-├── recgpt_ckpt_export/          # From fetch_ckpt + export_ckpt
+├── fuxi_ckpt_export/            # From export_fuxi_ckpt (via refetch)
 │   ├── manifest.json
 │   â””── *.npy
-├── recgpt_layer_3_weight.pt     # Optional; from fetch_ckpt
 ├── steam/
 │   ├── items.json
 │   ├── train_sequences.json

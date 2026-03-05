@@ -7,12 +7,12 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
   3. Run eval in **Elixir** (RecGPT.Serve + RecGPT.Eval) and print metrics.
 
   **Prerequisites:** Checkpoint export (manifest + .npy), VAE checkpoint, canonical_item_texts in SQLite.
-  Run `mix recgpt.refetch` for FuXi (default) or `mix recgpt.refetch --gpt2` for GPT-2.
+  Run `mix recgpt.refetch` first.
 
   ## Options
 
     * `--steam-dir` - Directory for Steam data and fixture (default: data/steam)
-    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export). Use --ckpt for GPT-2.
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--vae-ckpt` - Path to VAE checkpoint .pt (optional; env RECGPT_VAE_CKPT)
     * `--skip-fetch` - Use existing steam dir; do not run fetch_steam
     * `--skip-build` - Use existing fixture; do not run build_fixture
@@ -77,9 +77,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
     unless File.dir?(ckpt_dir) and File.regular?(manifest) do
       Mix.raise("""
       Checkpoint required at #{ckpt_dir}.
-      Run: mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}
-      Or for GPT-2: mix recgpt.fetch_ckpt
-           mix recgpt.export_ckpt --from-pt <pt> --out <dir>
+      Run: mix recgpt.refetch (or mix recgpt.export_fuxi_ckpt --out #{ckpt_dir})
       """)
     end
   end

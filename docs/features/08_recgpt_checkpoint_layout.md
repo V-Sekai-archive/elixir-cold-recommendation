@@ -29,7 +29,9 @@ Define a **checkpoint layout**: components (GPT-2, FSQ embedding, aux encoder, h
 
 ## Obtaining a checkpoint
 
-**Download:** `mix recgpt.fetch_ckpt` downloads the model to `data/recgpt_layer_3_weight.pt` (or `--out <path>`).
+**FuXi-Linear (default):** `mix recgpt.export_fuxi_ckpt --out data/fuxi_ckpt_export` exports init params. Use `mix recgpt.refetch` for the full pipeline.
+
+**Custom .pt:** `mix recgpt.export_ckpt --from-pt <path> --out <dir>` converts a PyTorch checkpoint to manifest + .npy.
 
 ---
 

@@ -100,7 +100,7 @@ API: gRPC only. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recomme
 | Jason, Npy                | JSON; checkpoint `.npy` load/save.                      |
 | (none for serve)          | `mix recgpt.serve` runs gRPC only; no HTTP REST server. |
 | grpc, protobuf            | gRPC server and Protocol Buffers (PredictionService).   |
-| Req                       | HTTP (fetch_ckpt, fetch_steam).                         |
+| Req                       | HTTP (fetch_steam).                                     |
 | Unpickler, Unzip          | PyTorch `.pt` loading.                                  |
 
 See [mix.exs](../mix.exs).

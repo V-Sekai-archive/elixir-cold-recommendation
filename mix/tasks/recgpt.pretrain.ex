@@ -7,15 +7,17 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
   Pipeline: Fetch → build_fixture → pretrain → eval (with --test and --cold-test).
 
   ## Options
-    * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export).
     * `--fixture` - Fixture JSON path (default: data/steam/fixture.json)
-    * `--train` - train_sequences.json path (default: data/steam/train_sequences.json)
-    * `--items` - items.json for building embeddings (default: data/steam/items.json)
+    * `--train` - train_sequences.json path (default: data/steam/train_sequences.json). Use `db` to load from SQLite (RECGPT_SQLITE_PATH).
+    * `--items` - items.json for building embeddings (default: data/steam/items.json). Use `db` to load from SQLite.
     * `--limit` - Max items to encode for training (default: fixture num_items). Prevents loading 30+ GB when items.json is large.
     * `--out` - Output export dir (required)
     * `--iterations` - Max training steps (default: 100; ignored when --epochs is set)
     * `--epochs` - Number of full passes over the training data (overrides --iterations). Paper uses 5.
     * `--save-every` - Save checkpoint every N steps to <out>/step_XXXX/ (0 = disable). Use for checkpoint selection by eval loss.
+    * `--eval-test-every` - Compute test loss every N steps; prints train_loss, test_loss, best_test. Requires --test.
+    * `--test` - Path to test_sequences.json (for --eval-test-every).
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)
     * `--log` - Log every N batches (default: 50; 0 to disable)
@@ -32,11 +34,13 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           fixture: :string,
           train: :string,
           items: :string,
+          test: :string,
           limit: :integer,
           out: :string,
           iterations: :integer,
           epochs: :integer,
           save_every: :integer,
+          eval_test_every: :integer,
           batch_size: :integer,
           learning_rate: :float,
           log: :integer,
@@ -48,19 +52,36 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
 
     ckpt_dir =
       opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        resolve("data/recgpt_ckpt_export")
+        resolve("data/fuxi_ckpt_export")
 
     fixture_path =
       opts[:fixture] || RecGPT.Catalog.Artifact.resolve_path("fixture") ||
         resolve("data/steam/fixture.json")
 
     train_path =
-      opts[:train] || RecGPT.Catalog.Artifact.resolve_path("train_sequences") ||
-        resolve("data/steam/train_sequences.json")
+      case opts[:train] do
+        "db" ->
+          :db
+
+        nil ->
+          RecGPT.Catalog.Artifact.resolve_path("train_sequences") ||
+            resolve("data/steam/train_sequences.json")
+
+        "" ->
+          RecGPT.Catalog.Artifact.resolve_path("train_sequences") ||
+            resolve("data/steam/train_sequences.json")
+
+        s ->
+          resolve(s)
+      end
 
     items_path =
-      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") ||
-        resolve("data/steam/items.json")
+      case opts[:items] do
+        "db" -> :db
+        nil -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+        "" -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+        s -> resolve(s)
+      end
 
     out_dir =
       case opts[:out] do
@@ -78,6 +99,12 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     log_every = opts[:log] || 50
     log_interval_sec = opts[:log_interval_sec]
     log_interval_sec = if is_integer(log_interval_sec), do: log_interval_sec, else: 20
+    eval_test_every = opts[:eval_test_every] || 0
+    test_path = opts[:test]
+
+    if eval_test_every > 0 and (is_nil(test_path) or test_path == "") do
+      Mix.raise("--eval-test-every requires --test PATH (test_sequences.json)")
+    end
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
       Mix.raise("checkpoint not found: #{ckpt_dir}")
@@ -87,8 +114,18 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       Mix.raise("fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")
     end
 
-    unless File.regular?(train_path) do
-      Mix.raise("train sequences not found: #{train_path}. Run mix recgpt.fetch_steam first.")
+    unless train_path == :db or File.regular?(train_path) do
+      Mix.raise(
+        "train sequences not found: #{train_path}. Run mix recgpt.fetch_steam or use --train db after convert --sync-to-db."
+      )
+    end
+
+    if eval_test_every > 0 do
+      test_path_exp = Path.expand(test_path, File.cwd!())
+
+      unless File.regular?(test_path_exp) do
+        Mix.raise("test file not found: #{test_path_exp}. Required for --eval-test-every.")
+      end
     end
 
     runner_opts = [
@@ -96,11 +133,13 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       fixture_path: fixture_path,
       train_path: train_path,
       items_path: items_path,
+      test_path: test_path,
       out_dir: out_dir,
       limit: opts[:limit],
       iterations: iterations,
       epochs: opts[:epochs],
       save_every: opts[:save_every],
+      eval_test_every: eval_test_every,
       batch_size: batch_size,
       learning_rate: learning_rate,
       log: log_every,

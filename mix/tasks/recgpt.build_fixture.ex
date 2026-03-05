@@ -9,13 +9,13 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   sequences to SQLite (ETNF tables). Run `mix ecto.migrate` once before using SQLite.
 
   ## Options
-    * `--items` - Path to items.json (default: data/steam/items.json)
+    * `--items` - Path to items.json (default: data/steam/items.json). Use `db` to load from SQLite.
     * `--out` - Output fixture path (default: data/steam/fixture.json)
-    * `--ckpt` - Checkpoint export dir (default: thirdparty/checkpoints/recgpt)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export).
     * `--vae-ckpt` - Path to VAE .pt (e.g. vae_len4_fsq88865_ep90.pt). FSQ from VAE is required for correct token_id_list. Env: RECGPT_VAE_CKPT. If unset, tries thirdparty/checkpoints/vae/vae_len4_fsq88865_ep90.pt and data/vae_len4_fsq88865_ep90.pt.
     * `--canonical-texts` - Use item texts from canonical_item_texts table (default: on). Run mix recgpt.dump_canonical_texts first. Use `--no-canonical-texts` to use items.json text instead.
     * `--embeddings-npy` - Use this item_text_embeddings.npy from the dataset instead of encoding with Bumblebee (ensures token_id_list matches the released checkpoint)
-    * `--limit` - Max items to process (default: 100; do not exceed per run to avoid NIF issues)
+    * `--limit` - Max items to process. With --items db: default is all items (no limit). With file: default 100 (avoid NIF OOM).
     * `--ramp` - Slowly increase limit from --ramp-start until all items or failure
     * `--ramp-start` - First limit when using --ramp (default: 100)
     * `--ramp-step` - Linear step size (default: 100). Ignored if --ramp-mult is set.
@@ -55,6 +55,10 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
   end
 
   defp run_ramp(opts) do
+    if opts[:items] == "db" do
+      Mix.raise("--ramp is not supported with --items db. Use --items db without --ramp.")
+    end
+
     Application.ensure_all_started(:recgpt)
 
     items_path =
@@ -67,7 +71,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
     ckpt_dir =
       opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        resolve("thirdparty/checkpoints/recgpt")
+        resolve("data/fuxi_ckpt_export")
 
     start_limit = opts[:ramp_start] || @default_limit
     step = opts[:ramp_step] || 100
@@ -176,8 +180,12 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     Application.ensure_all_started(:recgpt)
 
     items_path =
-      opts[:items] || RecGPT.Catalog.Artifact.resolve_path("items") ||
-        resolve("data/steam/items.json")
+      case opts[:items] do
+        "db" -> :db
+        nil -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+        "" -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
+        s -> resolve(s)
+      end
 
     out_path =
       opts[:out] || RecGPT.Catalog.Artifact.resolve_path("fixture") ||
@@ -185,19 +193,23 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
 
     ckpt_dir =
       opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        resolve("thirdparty/checkpoints/recgpt")
+        resolve("data/fuxi_ckpt_export")
 
-    limit = opts[:limit] || @default_limit
+    # With --items db, use all items by default. With file, default 100 to avoid OOM.
+    limit =
+      if Keyword.has_key?(opts, :limit),
+        do: opts[:limit],
+        else: if(items_path in [:db, "db"], do: nil, else: @default_limit)
 
-    unless File.regular?(items_path) do
+    unless items_path in [:db, "db"] or File.regular?(items_path) do
       Mix.raise(
-        "items file not found: #{items_path}. Run Fetch first (e.g. mix recgpt.fetch_steam data/steam)."
+        "items file not found: #{items_path}. Run Fetch first or use --items db after convert --sync-to-db."
       )
     end
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
       Mix.raise(
-        "checkpoint not found: #{ckpt_dir}. Export a checkpoint first (mix recgpt.export_ckpt)."
+        "checkpoint not found: #{ckpt_dir}. Run mix recgpt.refetch or mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}."
       )
     end
 
@@ -210,7 +222,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     canonical_note = if canonical_texts?, do: " (canonical texts from DB)", else: ""
 
     Mix.shell().info(
-      "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: ""}#{npy_note}#{canonical_note}..."
+      "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: " (all items)"}#{npy_note}#{canonical_note}..."
     )
 
     build_opts = [limit: limit]

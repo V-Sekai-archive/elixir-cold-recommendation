@@ -7,8 +7,8 @@ defmodule Mix.Tasks.Recgpt.Eval do
   ## Options
     * `--data-dir` - Dataset dir; fixture and test paths default under this. Default: data/steam
     * `--fixture` - Path to fixture JSON. Default: <data-dir>/fixture.json
-    * `--ckpt` - Checkpoint export dir. Default: data/recgpt_ckpt_export
-    * `--test` - Path to test_sequences.json (or cold_test_sequences.json with --cold). Default: <data-dir>/test_sequences.json
+    * `--ckpt` - Checkpoint export dir. Default: data/fuxi_ckpt_export.
+    * `--test` - Path to test_sequences.json (or cold_test_sequences.json with --cold). Default: <data-dir>/test_sequences.json. Use `db` to stream from SQLite.
     * `--cold` - Use cold test split (default: false); sets default test to cold_test_sequences.json
     * `--top-k` - Top-k for MRR (default: 10)
     * `--progress` - Print progress every N seconds (default: 0 = off). When set, shows rate (cases/s), ETA, Hit@1, and MRR.
@@ -55,11 +55,11 @@ defmodule Mix.Tasks.Recgpt.Eval do
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+        Path.join([File.cwd!(), "data", "fuxi_ckpt_export"])
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
-    test_path =
+    test_source =
       opts[:test] ||
         RecGPT.Catalog.Artifact.resolve_path(
           if(opts[:cold], do: "cold_test_sequences", else: "test_sequences")
@@ -69,7 +69,8 @@ defmodule Mix.Tasks.Recgpt.Eval do
           else: Path.join(data_dir, "test_sequences.json")
         )
 
-    test_path = Path.expand(test_path, File.cwd!())
+    test_source =
+      if is_binary(test_source), do: Path.expand(test_source, File.cwd!()), else: test_source
 
     top_k = opts[:top_k] || 10
     progress_sec = opts[:progress] || 0
@@ -80,43 +81,58 @@ defmodule Mix.Tasks.Recgpt.Eval do
     end
 
     unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
-      Mix.raise("Checkpoint not found: #{ckpt_dir}. Run mix recgpt.export_ckpt first.")
+      Mix.raise(
+        "Checkpoint not found: #{ckpt_dir}. Run mix recgpt.refetch or mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}."
+      )
     end
 
     Mix.shell().info("Loading state (fixture=#{fixture_path}, ckpt=#{ckpt_dir})...")
 
     case RecGPT.Serve.load_state(fixture_path, ckpt_dir, nil) do
       {:ok, state} ->
-        case RecGPT.Eval.load_test_cases(test_path) do
-          {:ok, cases} ->
-            cases = RecGPT.Eval.filter_to_catalog(cases, state.num_items)
-            n = length(cases)
+        {cases, n} =
+          if test_source in ["db", :db] do
+            stream =
+              if opts[:cold],
+                do: RecGPT.Eval.stream_cold_test_cases_from_db(state.num_items),
+                else: RecGPT.Eval.stream_test_cases_from_db(state.num_items)
 
-            if n == 0 do
-              Mix.shell().info(
-                "No test cases in catalog range. Check fixture limit and test file."
-              )
+            n =
+              if opts[:cold],
+                do: RecGPT.Eval.count_cold_test_cases_from_db(),
+                else: RecGPT.Eval.count_test_cases_from_db()
 
-              return_ok()
+            {stream, n}
+          else
+            case RecGPT.Eval.load_test_cases(test_source) do
+              {:ok, loaded} ->
+                cases = RecGPT.Eval.filter_to_catalog(loaded, state.num_items)
+                {cases, length(cases)}
+
+              {:error, reason} ->
+                Mix.raise("Failed to load test cases: #{inspect(reason)}")
             end
+          end
 
-            Mix.shell().info("Evaluating #{n} test cases (test=#{test_path})...")
+        if n == 0 do
+          Mix.shell().info("No test cases in catalog range. Check fixture limit and test source.")
 
-            eval_opts = [top_k: min(top_k, 20), total: n, batch_size: max(batch_size, 1)]
-
-            eval_opts =
-              if progress_sec > 0,
-                do: Keyword.put(eval_opts, :progress_interval_sec, progress_sec),
-                else: eval_opts
-
-            metrics = RecGPT.Eval.evaluate(state, cases, eval_opts)
-
-            print_metrics(metrics)
-            return_ok()
-
-          {:error, reason} ->
-            Mix.raise("Failed to load test cases: #{inspect(reason)}")
+          return_ok()
         end
+
+        Mix.shell().info("Evaluating #{n} test cases (test=#{test_source})...")
+
+        eval_opts = [top_k: min(top_k, 20), total: n, batch_size: max(batch_size, 1)]
+
+        eval_opts =
+          if progress_sec > 0,
+            do: Keyword.put(eval_opts, :progress_interval_sec, progress_sec),
+            else: eval_opts
+
+        metrics = RecGPT.Eval.evaluate(state, cases, eval_opts)
+
+        print_metrics(metrics)
+        return_ok()
 
       {:error, reason} ->
         Mix.raise("Failed to load state: #{inspect(reason)}")
