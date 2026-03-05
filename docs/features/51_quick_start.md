@@ -19,4 +19,4 @@
    RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/fuxi_ckpt_export mix recgpt.serve
    ```
 
-See [52 Pipeline summary](52_pipeline_summary.md), [02 Pipeline overview](02_pipeline_overview.md), and [03 Pipeline steps](03_pipeline_steps.md) for the full sequence and options.
+See [02 Pipeline overview](02_pipeline_overview.md) and [03 Pipeline steps](03_pipeline_steps.md) for the full sequence and options.

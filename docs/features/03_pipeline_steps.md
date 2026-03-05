@@ -40,6 +40,8 @@ mix recgpt.build_fixture --items data/steam/items.json --out data/steam/fixture.
 
 **Output:** `fixture.json` with `num_items` and `token_id_list`. Same format as expected by Serve and the eval task.
 
+**Canonical item texts:** By default, `build_fixture` reads item text from the `canonical_item_texts` SQLite table (byte-exact match with the official script). Populate once: `mix ecto.migrate` then `uv run python scripts/dump_canonical_to_sqlite.py --pkl data/steam/item_text_dict.pkl --verify`. Use the same `RECGPT_SQLITE_PATH` as Elixir.
+
 ---
 
 ## Step 3: Pretrain

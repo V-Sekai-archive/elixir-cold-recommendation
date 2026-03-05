@@ -21,7 +21,7 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 | Topic | Doc |
 |-------|-----|
 | **Quick start** | [docs/features/51_quick_start.md](docs/features/51_quick_start.md) |
-| **Pipeline** | [docs/52_pipeline_summary.md](docs/52_pipeline_summary.md) |
+| **Pipeline** | [docs/features/02_pipeline_overview.md](docs/features/02_pipeline_overview.md), [docs/features/03_pipeline_steps.md](docs/features/03_pipeline_steps.md) |
 | **Mix tasks** | [docs/features/53_mix_tasks.md](docs/features/53_mix_tasks.md) |
 | **Modules** | [docs/features/54_modules_overview.md](docs/features/54_modules_overview.md) |
 | **Dependencies** | [docs/features/55_dependencies.md](docs/features/55_dependencies.md) |
