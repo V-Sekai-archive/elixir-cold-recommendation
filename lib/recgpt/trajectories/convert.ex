@@ -5,7 +5,7 @@ defmodule RecGPT.Trajectories.Convert do
   Produces: items.json, train_sequences.json, test_sequences.json,
   cold_test_sequences.json, cold_train_sequences.json.
 
-  See docs/05_eval_data_shapes.md and docs/86_training_signal_test_dataset_plan.md.
+  See docs/features/05_eval_data_shapes.md and docs/proposals/86_training_signal_test_dataset_plan.md.
   """
 
   @max_context 64
@@ -17,10 +17,12 @@ defmodule RecGPT.Trajectories.Convert do
   Converts a dataset to RecGPT canonical format.
 
   Options:
-    * `:format` - `:movielens` (default), `:kuairand` (future)
+    * `:format` - `:movielens` (default), `:kuairand`
     * `:train_limit` - Max train sequences (default: 10_000). Use 0 for no cap.
     * `:test_limit` - Max test cases (default: 2_000). Use 0 for no cap.
     * `:seed` - Random seed for reproducible subset (default: 42)
+    * `:sync_to_db` - When true, sync items and sequences to SQLite (ETNF tables).
+      Requires RECGPT_SQLITE_PATH. Skips writing sequence JSON files. Always writes items.json.
 
   Returns `:ok` or `{:error, reason}`.
   """
@@ -30,20 +32,114 @@ defmodule RecGPT.Trajectories.Convert do
     train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
+    sync_to_db = Keyword.get(opts, :sync_to_db, false)
 
     from_dir = Path.expand(from_dir, File.cwd!())
     out_dir = Path.expand(out_dir, File.cwd!())
     File.mkdir_p!(out_dir)
 
+    convert_opts = [
+      train_limit: train_limit,
+      test_limit: test_limit,
+      seed: seed,
+      sync_to_db: sync_to_db
+    ]
+
     case format do
-      :movielens -> convert_movielens(from_dir, out_dir, train_limit, test_limit, seed)
+      :movielens -> convert_movielens(from_dir, out_dir, convert_opts)
+      :kuairand -> convert_kuairand(from_dir, out_dir, convert_opts)
+      :jon_becker -> convert_jon_becker(from_dir, out_dir, opts)
       other -> {:error, "unsupported format: #{inspect(other)}"}
     end
   end
 
-  defp convert_movielens(from_dir, out_dir, train_limit, test_limit, seed) do
-    ratings_path = find_file(from_dir, ["ratings.csv", "ml-20m/ratings.csv", "movielens-20m/ratings.csv"])
-    movies_path = find_file(from_dir, ["movies.csv", "ml-20m/movies.csv", "movielens-20m/movies.csv"])
+  defp convert_kuairand(from_dir, out_dir, opts) do
+    train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
+    test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
+    seed = Keyword.get(opts, :seed, 42)
+    sync_to_db = Keyword.get(opts, :sync_to_db, false)
+
+    log_candidates = [
+      "log_standard_4_08_to_4_21_pure.csv",
+      "log_standard_4_22_to_5_08_pure.csv",
+      "log_random_4_22_to_5_08_pure.csv"
+    ]
+
+    log_paths =
+      log_candidates
+      |> Enum.map(fn name -> Path.join(from_dir, name) end)
+      |> Enum.filter(&File.regular?/1)
+
+    videos_path =
+      find_file(from_dir, [
+        "video_features_basic_pure.csv",
+        "KuaiRand-Pure/video_features_basic_pure.csv"
+      ])
+
+    if log_paths == [] do
+      {:error,
+       "no KuaiRand log CSV found in #{from_dir} (expected log_standard_*.csv or log_random_*.csv)"}
+    else
+      with {:ok, interactions} <- parse_kuairand_logs(log_paths),
+           {:ok, titles} <- parse_kuairand_videos(videos_path),
+           {:ok, item_ids, old_to_new} <- build_item_map_kuairand(interactions, titles),
+           {:ok, sequences} <- build_sequences_kuairand(interactions, old_to_new),
+           {:ok, train_seqs, test_cases} <- split_train_test(sequences, seed),
+           train_seqs <- maybe_take(train_seqs, train_limit),
+           test_cases <- maybe_take(test_cases, test_limit),
+           cold_set <- cold_items(train_seqs, @cold_k),
+           cold_test <- Enum.filter(test_cases, fn tc -> tc["next_item"] in cold_set end),
+           cold_train <- cold_train_sequences(train_seqs, cold_set) do
+        num_items = map_size(old_to_new)
+
+        items =
+          Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
+            %{"id" => i, "title" => Map.get(titles, old_id, "")}
+          end)
+
+        emit_output(
+          out_dir,
+          items,
+          train_seqs,
+          test_cases,
+          cold_test,
+          cold_train,
+          num_items,
+          sync_to_db
+        )
+
+        :ok
+      end
+    end
+  end
+
+  defp convert_jon_becker(from_dir, out_dir, opts) do
+    data_root = find_jon_becker_data_root(from_dir)
+    RecGPT.Trajectories.ConvertJonBecker.run(data_root, out_dir, opts)
+  end
+
+  defp find_jon_becker_data_root(from_dir) do
+    polymarket = Path.join(from_dir, "polymarket")
+    data_poly = Path.join(from_dir, "data/polymarket")
+
+    cond do
+      File.dir?(polymarket) -> from_dir
+      File.dir?(data_poly) -> Path.join(from_dir, "data")
+      true -> from_dir
+    end
+  end
+
+  defp convert_movielens(from_dir, out_dir, opts) do
+    train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
+    test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
+    seed = Keyword.get(opts, :seed, 42)
+    sync_to_db = Keyword.get(opts, :sync_to_db, false)
+
+    ratings_path =
+      find_file(from_dir, ["ratings.csv", "ml-20m/ratings.csv", "movielens-20m/ratings.csv"])
+
+    movies_path =
+      find_file(from_dir, ["movies.csv", "ml-20m/movies.csv", "movielens-20m/movies.csv"])
 
     unless ratings_path do
       {:error, "ratings.csv not found in #{from_dir}"}
@@ -64,13 +160,75 @@ defmodule RecGPT.Trajectories.Convert do
          cold_test <- Enum.filter(test_cases, fn tc -> tc["next_item"] in cold_set end),
          cold_train <- cold_train_sequences(train_seqs, cold_set) do
       num_items = map_size(old_to_new)
-      write_items_json(out_dir, item_ids, titles)
-      write_sequences_json(out_dir, train_seqs, "train_sequences.json", "sequences", num_items)
-      write_test_json(out_dir, test_cases, "test_sequences.json", num_items)
-      write_test_json(out_dir, cold_test, "cold_test_sequences.json", num_items)
-      write_sequences_json(out_dir, cold_train, "cold_train_sequences.json", "sequences", num_items)
+
+      items =
+        Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
+          %{"id" => i, "title" => Map.get(titles, old_id, "")}
+        end)
+
+      emit_output(
+        out_dir,
+        items,
+        train_seqs,
+        test_cases,
+        cold_test,
+        cold_train,
+        num_items,
+        sync_to_db
+      )
+
       :ok
     end
+  end
+
+  defp emit_output(out_dir, items, train_seqs, test_cases, cold_test, cold_train, num_items, true) do
+    if System.get_env("RECGPT_SQLITE_PATH") in [nil, ""] do
+      raise "sync_to_db requires RECGPT_SQLITE_PATH to be set"
+    end
+
+    Application.ensure_all_started(:recgpt)
+    alias RecGPT.Catalog.Sync
+
+    Sync.sync_items_from_list(items)
+    Sync.sync_sequences_from_list(train_seqs, cold_train)
+    Sync.sync_test_from_list(test_cases, cold_test)
+
+    n = num_items || length(items)
+    File.mkdir_p!(out_dir)
+    write_items_json_from_list(out_dir, items, n)
+    write_test_json(out_dir, test_cases, "test_sequences.json", n)
+    write_test_json(out_dir, cold_test, "cold_test_sequences.json", n)
+
+    require Logger
+
+    Logger.info(
+      "Synced items and sequences to SQLite. Use --items db for build_fixture and pretrain."
+    )
+  end
+
+  defp emit_output(
+         out_dir,
+         items,
+         train_seqs,
+         test_cases,
+         cold_test,
+         cold_train,
+         num_items,
+         false
+       ) do
+    write_items_json_from_list(out_dir, items, num_items)
+    write_sequences_json(out_dir, train_seqs, "train_sequences.json", "sequences", num_items)
+    write_test_json(out_dir, test_cases, "test_sequences.json", num_items)
+    write_test_json(out_dir, cold_test, "cold_test_sequences.json", num_items)
+    write_sequences_json(out_dir, cold_train, "cold_train_sequences.json", "sequences", num_items)
+  end
+
+  defp write_items_json_from_list(out_dir, items, num_items) do
+    path = Path.join(out_dir, "items.json")
+    File.write!(path, Jason.encode!(%{"items" => items, "num_items" => num_items}, pretty: true))
+    require Logger
+    Logger.info("Wrote #{path} (#{num_items} items)")
+    :ok
   end
 
   defp maybe_take(list, 0), do: list
@@ -93,7 +251,7 @@ defmodule RecGPT.Trajectories.Convert do
     [header | data] = rows
 
     col = fn row, name ->
-      idx = Enum.find_index(header, &String.downcase(&1) == name)
+      idx = Enum.find_index(header, &(String.downcase(&1) == name))
       if idx, do: Enum.at(row, idx), else: nil
     end
 
@@ -122,7 +280,7 @@ defmodule RecGPT.Trajectories.Convert do
     [header | data] = rows
 
     col = fn row, name ->
-      idx = Enum.find_index(header, &String.downcase(&1) == name)
+      idx = Enum.find_index(header, &(String.downcase(&1) == name))
       if idx, do: Enum.at(row, idx), else: nil
     end
 
@@ -138,17 +296,105 @@ defmodule RecGPT.Trajectories.Convert do
     e -> {:error, e}
   end
 
+  defp parse_kuairand_logs(log_paths) do
+    parsed =
+      Enum.flat_map(log_paths, fn path ->
+        content = File.read!(path)
+        rows = parse_csv(content)
+        [header | data] = rows
+
+        col = fn row, name ->
+          idx = Enum.find_index(header, &(String.downcase(&1) == name))
+          if idx, do: Enum.at(row, idx), else: nil
+        end
+
+        Enum.map(data, fn row ->
+          user_id = parse_int(col.(row, "user_id"))
+          video_id = parse_int(col.(row, "video_id"))
+          time_ms = parse_int(col.(row, "time_ms"))
+          {user_id, video_id, time_ms}
+        end)
+        |> Enum.filter(fn
+          {nil, _, _} -> false
+          {_, nil, _} -> false
+          {_, _, nil} -> false
+          _ -> true
+        end)
+      end)
+
+    {:ok, parsed}
+  rescue
+    e -> {:error, e}
+  end
+
+  defp parse_kuairand_videos(nil), do: {:ok, %{}}
+
+  defp parse_kuairand_videos(path) do
+    content = File.read!(path)
+    rows = parse_csv(content)
+    [header | data] = rows
+
+    col = fn row, name ->
+      idx = Enum.find_index(header, &(String.downcase(&1) == name))
+      if idx, do: Enum.at(row, idx), else: nil
+    end
+
+    titles =
+      Enum.reduce(data, %{}, fn row, acc ->
+        video_id = parse_int(col.(row, "video_id"))
+        tag = col.(row, "tag") || ""
+        video_type = col.(row, "video_type") || ""
+
+        title =
+          if tag != "" or video_type != "",
+            do: "video #{video_id} #{tag} #{video_type}" |> String.trim(),
+            else: "video #{video_id}"
+
+        if video_id, do: Map.put(acc, video_id, title), else: acc
+      end)
+
+    {:ok, titles}
+  rescue
+    e -> {:error, e}
+  end
+
+  defp build_item_map_kuairand(interactions, titles) do
+    item_ids = interactions |> Enum.map(fn {_, v, _} -> v end) |> Enum.uniq()
+    all_ids = MapSet.new(item_ids) |> MapSet.union(MapSet.new(Map.keys(titles)))
+    sorted = Enum.sort(all_ids)
+    old_to_new = Map.new(Enum.with_index(sorted), fn {old, i} -> {old, i} end)
+    {:ok, sorted, old_to_new}
+  end
+
+  defp build_sequences_kuairand(interactions, old_to_new) do
+    by_user = Enum.group_by(interactions, fn {u, _, _} -> u end)
+
+    sequences =
+      by_user
+      |> Enum.map(fn {_user, rows} ->
+        rows
+        |> Enum.sort_by(fn {_, _, t} -> t end)
+        |> Enum.map(fn {_, video_id, _} -> Map.get(old_to_new, video_id) end)
+        |> Enum.reject(&is_nil/1)
+      end)
+      |> Enum.filter(fn seq -> length(seq) >= 2 end)
+
+    {:ok, sequences}
+  end
+
   defp parse_csv(content) do
     NimbleCSV.RFC4180.parse_string(content, skip_headers: false)
   end
 
   defp parse_int(nil), do: nil
+
   defp parse_int(s) when is_binary(s) do
     case Integer.parse(String.trim(s)) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(n) when is_integer(n), do: n
   defp parse_int(_), do: nil
 
@@ -162,6 +408,7 @@ defmodule RecGPT.Trajectories.Convert do
 
   defp build_sequences(ratings, old_to_new) do
     by_user = Enum.group_by(ratings, fn {u, _, _} -> u end)
+
     sequences =
       by_user
       |> Enum.map(fn {_user, rows} ->
@@ -219,20 +466,6 @@ defmodule RecGPT.Trajectories.Convert do
     Enum.filter(train_seqs, fn seq ->
       Enum.any?(seq, &MapSet.member?(cold_set, &1))
     end)
-  end
-
-  defp write_items_json(out_dir, item_ids, titles) do
-    items =
-      Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
-        %{"id" => i, "title" => Map.get(titles, old_id, "")}
-      end)
-
-    num_items = length(items)
-    path = Path.join(out_dir, "items.json")
-    File.write!(path, Jason.encode!(%{"items" => items, "num_items" => num_items}, pretty: true))
-    require Logger
-    Logger.info("Wrote #{path} (#{num_items} items)")
-    :ok
   end
 
   defp write_sequences_json(out_dir, sequences, filename, key, num_items) do

@@ -77,7 +77,7 @@ mix test
   mix test test/recgpt/eval_test.exs --include eval --include integration
   ```
 
-See [docs/06_evaluation_and_testing.md](docs/06_evaluation_and_testing.md) and [README.md](README.md#tests).
+See [docs/features/06_evaluation_and_testing.md](docs/features/06_evaluation_and_testing.md) and [README.md](README.md#tests).
 
 ---
 
@@ -104,31 +104,31 @@ See [docs/06_evaluation_and_testing.md](docs/06_evaluation_and_testing.md) and [
 
 ## Performance and accuracy
 
-- **Serve benchmark** (recommendation latency): `mix recgpt.trace_predict --runs 20` — loads state, runs recommend; or run `mix recgpt.serve` and call the gRPC Predict API repeatedly. See [docs/42_latency_and_performance.md](docs/42_latency_and_performance.md).
+- **Serve benchmark** (recommendation latency): `mix recgpt.trace_predict --runs 20` — loads state, runs recommend; or run `mix recgpt.serve` and call the gRPC Predict API repeatedly. See [docs/features/42_latency_and_performance.md](docs/features/42_latency_and_performance.md).
 
 - **Accuracy (Hit@k, MRR)** on a held-out test set requires fixture, checkpoint, and test sequences (e.g. after `mix recgpt.fetch_steam data/steam` and `mix recgpt.build_fixture`):
   ```bash
   mix recgpt.eval --data-dir data/steam --ckpt data/recgpt_ckpt_export --test data/steam/test_sequences.json
   ```
-  See [mix recgpt.eval](mix/tasks/recgpt.eval.ex) and [docs/06_evaluation_and_testing.md](docs/06_evaluation_and_testing.md). Eval runs in Elixir (RecGPT.Serve + RecGPT.Eval).
+  See [mix recgpt.eval](mix/tasks/recgpt.eval.ex) and [docs/features/06_evaluation_and_testing.md](docs/features/06_evaluation_and_testing.md). Eval runs in Elixir (RecGPT.Serve + RecGPT.Eval).
 
-- **Divide:** Generating embeddings and testing recommendation performance are separate concerns. See [docs/embedding_vs_eval.md](docs/embedding_vs_eval.md).
+- **Divide:** Generating embeddings and testing recommendation performance are separate concerns. See [docs/proposals/26_embedding_mismatch.md](docs/proposals/26_embedding_mismatch.md) and [docs/proposals/28_thirdparty_vs_elixir_parity.md](docs/proposals/28_thirdparty_vs_elixir_parity.md).
 - **Embedding parity** (our Bumblebee embeddings vs dataset `item_text_embeddings.npy`):
   - Inspect the reference text shape: `mix recgpt.inspect_item_text --steam-dir data/steam --limit 5`
   - Compare embeddings: `mix recgpt.compare_embeddings --steam-dir data/steam --limit 500`
   - Try `--text-format title_only` to test plain title vs dict-style string (dict-style gives higher similarity).
-  Reports per-item cosine similarity (mean, min, max). A mean below 0.95 is a large mismatch and can explain poor eval when using the released checkpoint. **Workaround:** use the original dataset’s `item_text_embeddings.npy` when building the fixture: `mix recgpt.build_fixture --embeddings-npy data/steam/item_text_embeddings.npy` so `token_id_list` matches the checkpoint. See [docs/26_embedding_mismatch.md](docs/26_embedding_mismatch.md) for the text-format pattern and debugging (e.g. `--dump-row 0`).
+  Reports per-item cosine similarity (mean, min, max). A mean below 0.95 is a large mismatch and can explain poor eval when using the released checkpoint. **Workaround:** use the original dataset’s `item_text_embeddings.npy` when building the fixture: `mix recgpt.build_fixture --embeddings-npy data/steam/item_text_embeddings.npy` so `token_id_list` matches the checkpoint. See [docs/proposals/26_embedding_mismatch.md](docs/proposals/26_embedding_mismatch.md) for the text-format pattern and debugging (e.g. `--dump-row 0`).
   - **Local dataset clone:** If you have [hkuds/RecGPT_dataset](https://huggingface.co/datasets/hkuds/RecGPT_dataset) cloned locally, run `mix recgpt.fetch_steam <clone>/test/steam` then use `--steam-dir <clone>/test/steam` for inspect/compare so the large .npy is read from disk instead of downloaded.
 
 ---
 
 ## Documentation
 
-- **MVP guard rails:** [docs/25_mvp_guard_rails.md](docs/25_mvp_guard_rails.md) — tombstones to keep the rope bridge on track (no multi-rank SPMD / sharding until the minimal loop is closed).
-- **First step plan:** [docs/24_first_step_plan.md](docs/24_first_step_plan.md) — Steam baseline; one-shot: `mix recgpt.first_step` (fetch + build_fixture + eval in Elixir). Requires checkpoint.
+- **MVP guard rails:** [docs/proposals/25_mvp_guard_rails.md](docs/proposals/25_mvp_guard_rails.md) — tombstones to keep the rope bridge on track (no multi-rank SPMD / sharding until the minimal loop is closed).
+- **First step plan:** [docs/proposals/24_first_step_plan.md](docs/proposals/24_first_step_plan.md) — Steam baseline; one-shot: `mix recgpt.first_step` (fetch + build_fixture + eval in Elixir). Requires checkpoint.
 - **Index:** [docs/README.md](docs/README.md) — topics, pipeline, API, parity, and links to other docs.
-- **Library and API:** [docs/04_recgpt_library.md](docs/04_recgpt_library.md).
-- **Parity and embedding gap:** [docs/09_parity_overview.md](docs/09_parity_overview.md), [docs/10_parity_layers.md](docs/10_parity_layers.md), [docs/26_embedding_mismatch.md](docs/26_embedding_mismatch.md).
+- **Library and API:** [docs/features/04_recgpt_library.md](docs/features/04_recgpt_library.md).
+- **Parity and embedding gap:** [docs/features/09_parity_overview.md](docs/features/09_parity_overview.md), [docs/features/10_parity_layers.md](docs/features/10_parity_layers.md), [docs/proposals/26_embedding_mismatch.md](docs/proposals/26_embedding_mismatch.md).
 
 When adding features or changing behavior, update the relevant doc and the index if needed.
 

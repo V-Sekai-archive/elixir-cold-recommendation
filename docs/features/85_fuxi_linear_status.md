@@ -47,7 +47,9 @@ mix recgpt.pretrain --ckpt data/fuxi_init --fixture <fixture> --train <train_seq
 mix recgpt.serve --fixture <fixture> --ckpt data/fuxi_trained
 ```
 
-**One-shot training signal test:** `mix recgpt.training_signal_test --fuxi` runs the full FuXi pipeline (export_fuxi_ckpt → convert → build_fixture → pretrain → eval) and saves checkpoints to `ckpt_fuxi_pretrained`, `ckpt_fuxi_10min`, or `ckpt_fuxi_5epochs` depending on `--regime`.
+**Default model:** FuXi-Linear is now the default. `mix recgpt.refetch` exports FuXi init to `data/fuxi_ckpt_export`. Use `--gpt2` for GPT-2.
+
+**One-shot training signal test:** `mix recgpt.training_signal_test` (default FuXi) runs the full pipeline and saves checkpoints to `ckpt_fuxi_pretrained`, `ckpt_fuxi_10min`, or `ckpt_fuxi_5epochs` depending on `--regime`.
 
 ---
 

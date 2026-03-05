@@ -1,18 +1,18 @@
 defmodule Mix.Tasks.Recgpt.FirstStep do
   @shortdoc "Run the first step (Steam baseline): fetch → build_fixture → eval"
   @moduledoc """
-  Runs the full first step from [docs/24_first_step_plan.md](docs/24_first_step_plan.md):
+  Runs the full first step from [docs/proposals/24_first_step_plan.md](docs/proposals/24_first_step_plan.md):
   1. Fetch Steam data to steam dir.
   2. Build fixture with canonical texts (Elixir Bumblebee + VAE FSQ; semantic IDs match released model).
   3. Run eval in **Elixir** (RecGPT.Serve + RecGPT.Eval) and print metrics.
 
   **Prerequisites:** Checkpoint export (manifest + .npy), VAE checkpoint, canonical_item_texts in SQLite.
-  See docs/24_first_step_plan.md for setup (fetch_ckpt, export_ckpt, fetch_vae_ckpt, dump_canonical_to_sqlite.py).
+  See docs/proposals/24_first_step_plan.md. Run `mix recgpt.refetch` for FuXi (default) or `mix recgpt.refetch --gpt2` for GPT-2.
 
   ## Options
 
     * `--steam-dir` - Directory for Steam data and fixture (default: data/steam)
-    * `--ckpt` - Checkpoint export dir (default: thirdparty/checkpoints/recgpt)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export). Use --ckpt for GPT-2.
     * `--vae-ckpt` - Path to VAE checkpoint .pt (optional; env RECGPT_VAE_CKPT)
     * `--skip-fetch` - Use existing steam dir; do not run fetch_steam
     * `--skip-build` - Use existing fixture; do not run build_fixture
@@ -21,7 +21,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
   ## Examples
 
       mix recgpt.first_step
-      mix recgpt.first_step --steam-dir data/steam --ckpt data/recgpt_ckpt_export
+      mix recgpt.first_step --steam-dir data/steam --ckpt data/fuxi_ckpt_export
       mix recgpt.first_step --skip-fetch --skip-build
   """
   use Mix.Task
@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
 
     ckpt_dir =
       opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
-        Path.join([File.cwd!(), "thirdparty", "checkpoints", "recgpt"])
+        Path.join([File.cwd!(), "data", "fuxi_ckpt_export"])
 
     vae_ckpt = opts[:vae_ckpt] || System.get_env("RECGPT_VAE_CKPT")
     steam_dir = Path.expand(steam_dir, File.cwd!())
@@ -77,8 +77,9 @@ defmodule Mix.Tasks.Recgpt.FirstStep do
     unless File.dir?(ckpt_dir) and File.regular?(manifest) do
       Mix.raise("""
       Checkpoint required at #{ckpt_dir}.
-      Run: mix recgpt.fetch_ckpt
-           mix recgpt.export_ckpt --from-pt #{Path.join(ckpt_dir, "recgpt_layer_3_weight.pt")} --out #{ckpt_dir}
+      Run: mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}
+      Or for GPT-2: mix recgpt.fetch_ckpt
+           mix recgpt.export_ckpt --from-pt <pt> --out <dir>
       """)
     end
   end

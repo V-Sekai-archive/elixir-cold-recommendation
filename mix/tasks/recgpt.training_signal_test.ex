@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
   @shortdoc "Run training signal test: convert (optional) → build_fixture → pretrain → eval (compare zero-shot vs pretrained)"
   @moduledoc """
-  Orchestrates the full training signal test pipeline from [86 Training signal test dataset plan](docs/86_training_signal_test_dataset_plan.md) and [88 Training domain recommendation](docs/88_training_domain_recommendation.md):
+  Orchestrates the full training signal test pipeline from [86 Training signal test dataset plan](docs/proposals/86_training_signal_test_dataset_plan.md) and [88 Training domain recommendation](docs/proposals/88_training_domain_recommendation.md):
 
   1. Optionally convert raw data (`--convert-from`)
   2. Build fixture
@@ -22,12 +22,12 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     * `--convert-from` - Raw dataset path; runs convert_trajectories first
     * `--train-limit` - Max train sequences (0 = no cap, default: 0)
     * `--test-limit` - Max test cases (0 = no cap, default: 0)
-    * `--ckpt` - Base checkpoint (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Base checkpoint (default: data/fuxi_ckpt_export). Add --gpt2 for GPT-2.
     * `--iterations` - Pretrain steps (default: 500 for single; 1200 for 10min regime)
     * `--epochs` - Pretrain epochs (overrides iterations when set)
     * `--regime` - single (default), 10min, 5epochs, or compare
     * `--fixture-limit` - Max items in fixture (default: 5000)
-    * `--fuxi` - Use FuXi-Linear init instead of GPT-2; saves to ckpt_fuxi_*
+    * `--fuxi` - Use FuXi-Linear init (default). Saves to ckpt_fuxi_*. Use --gpt2 for GPT-2.
     * `--skip-convert` - Skip convert step (data already converted)
     * `--skip-build` - Skip build_fixture (fixture.json exists)
     * `--skip-pretrain` - Skip pretrain (ckpt exists; eval-only)
@@ -49,6 +49,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
           regime: :string,
           fixture_limit: :integer,
           fuxi: :boolean,
+          gpt2: :boolean,
           skip_convert: :boolean,
           skip_build: :boolean,
           skip_pretrain: :boolean
@@ -65,23 +66,28 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     test_limit = opts[:test_limit] || 0
     fixture_limit = opts[:fixture_limit] || 5000
     regime = opts[:regime] || "single"
-    fuxi? = opts[:fuxi] || false
+    fuxi? = !(opts[:gpt2] || false) and opts[:fuxi] != false
     skip_convert = opts[:skip_convert] || false
     skip_build = opts[:skip_build] || false
     skip_pretrain = opts[:skip_pretrain] || false
 
+    gpt2? = opts[:gpt2] || false
+    default_ckpt = if gpt2?, do: "data/recgpt_ckpt_export", else: "data/fuxi_ckpt_export"
+
     ckpt_dir =
-      (opts[:ckpt] || Path.join(File.cwd!(), "data/recgpt_ckpt_export"))
+      (opts[:ckpt] || Path.join(File.cwd!(), default_ckpt))
       |> Path.expand(File.cwd!())
 
     ckpt_dir =
       if fuxi? do
         fuxi_init = Path.join(data_dir, "fuxi_init")
+
         unless File.dir?(fuxi_init) and File.regular?(Path.join(fuxi_init, "manifest.json")) do
           Mix.shell().info("Step 0: Export FuXi-Linear init params...")
           Mix.Task.reenable("recgpt.export_fuxi_ckpt")
           Mix.Task.run("recgpt.export_fuxi_ckpt", ["--out", fuxi_init])
         end
+
         fuxi_init
       else
         ensure_checkpoint!(ckpt_dir)
@@ -118,6 +124,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     iterations = opts[:iterations] || 500
     epochs = opts[:epochs]
     out_suffix = if fuxi?, do: "ckpt_fuxi_pretrained", else: "ckpt_pretrained"
+
     [
       %{label: "Pretrained", out_suffix: out_suffix, iterations: epochs && nil, epochs: epochs}
       |> maybe_put_iterations(iterations)
@@ -138,6 +145,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
   defp regime_config("compare", _opts, fuxi?) do
     out_10 = if fuxi?, do: "ckpt_fuxi_10min", else: "ckpt_10min"
     out_5 = if fuxi?, do: "ckpt_fuxi_5epochs", else: "ckpt_5epochs"
+
     [
       %{label: "10min", out_suffix: out_10, iterations: 1200, epochs: nil},
       %{label: "5epochs", out_suffix: out_5, iterations: nil, epochs: 5}
@@ -146,15 +154,19 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
 
   defp regime_config(_, opts, fuxi?), do: regime_config("single", opts, fuxi?)
 
-  defp maybe_put_iterations(r, iterations) when is_integer(iterations), do: Map.put(r, :iterations, iterations)
+  defp maybe_put_iterations(r, iterations) when is_integer(iterations),
+    do: Map.put(r, :iterations, iterations)
+
   defp maybe_put_iterations(r, _), do: r
 
   defp run_pretrain_regime(data_dir, ckpt_dir, configs, skip_pretrain, _fuxi?) do
     Enum.flat_map(configs, fn cfg ->
       out_dir = Path.join(data_dir, cfg.out_suffix)
+
       unless skip_pretrain do
         run_pretrain(data_dir, ckpt_dir, out_dir, cfg)
       end
+
       [{cfg.label, out_dir}]
     end)
   end
@@ -186,11 +198,15 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     end
 
     args = [
-      "--items", items_path,
-      "--out", fixture_path,
+      "--items",
+      items_path,
+      "--out",
+      fixture_path,
       "--no-canonical-texts",
-      "--ckpt", ckpt_dir,
-      "--limit", to_string(fixture_limit)
+      "--ckpt",
+      ckpt_dir,
+      "--limit",
+      to_string(fixture_limit)
     ]
 
     Mix.Task.reenable("recgpt.build_fixture")
@@ -212,11 +228,16 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     end
 
     args = [
-      "--ckpt", ckpt_dir,
-      "--fixture", fixture_path,
-      "--train", train_path,
-      "--items", items_path,
-      "--out", out_dir
+      "--ckpt",
+      ckpt_dir,
+      "--fixture",
+      fixture_path,
+      "--train",
+      train_path,
+      "--items",
+      items_path,
+      "--out",
+      out_dir
     ]
 
     args =
@@ -285,7 +306,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     unless File.dir?(ckpt_dir) and File.regular?(manifest) do
       Mix.raise(
         "Checkpoint required at #{ckpt_dir}. Run: mix recgpt.fetch_ckpt && mix recgpt.export_ckpt ... " <>
-          "Or use --fuxi for FuXi-Linear init."
+          "Use --gpt2 to use GPT-2 (mix recgpt.fetch_ckpt + export_ckpt)."
       )
     end
   end
@@ -297,6 +318,7 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     for {label, metrics, cold_metrics} <- results do
       Mix.shell().info("")
       Mix.shell().info("#{label}:")
+
       if metrics && metrics[:n] && metrics[:n] > 0 do
         Mix.shell().info("  hit_at_1 = #{Float.round(metrics[:hit_at_1] || 0, 4)}")
         Mix.shell().info("  hit_at_5 = #{Float.round(metrics[:hit_at_5] || 0, 4)}")
@@ -306,7 +328,9 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
       end
 
       if cold_metrics && cold_metrics[:n] && cold_metrics[:n] > 0 do
-        Mix.shell().info("  cold: hit_at_1 = #{Float.round(cold_metrics[:hit_at_1] || 0, 4)}, hit_at_5 = #{Float.round(cold_metrics[:hit_at_5] || 0, 4)}")
+        Mix.shell().info(
+          "  cold: hit_at_1 = #{Float.round(cold_metrics[:hit_at_1] || 0, 4)}, hit_at_5 = #{Float.round(cold_metrics[:hit_at_5] || 0, 4)}"
+        )
       end
     end
 
@@ -316,10 +340,16 @@ defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
     if zero_shot && pretrained do
       {_, zs, _} = zero_shot
       {label, pt, _} = pretrained
+
       if zs && zs[:n] && zs[:n] > 0 && pt && pt[:n] && pt[:n] > 0 do
         improved = (pt[:hit_at_1] || 0) >= (zs[:hit_at_1] || 0)
         Mix.shell().info("")
-        Mix.shell().info(if improved, do: "Signal: #{label} Hit@1 >= zero-shot", else: "Signal: #{label} Hit@1 < zero-shot")
+
+        Mix.shell().info(
+          if improved,
+            do: "Signal: #{label} Hit@1 >= zero-shot",
+            else: "Signal: #{label} Hit@1 < zero-shot"
+        )
       end
     end
 

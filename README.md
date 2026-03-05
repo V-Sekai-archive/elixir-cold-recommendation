@@ -8,11 +8,11 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 
 ## Quick start
 
-1. Get a checkpoint: `mix recgpt.fetch_ckpt` then `mix recgpt.export_ckpt --from-pt data/recgpt_layer_3_weight.pt --out data/recgpt_ckpt_export`
-2. Generate data and eval: `mix recgpt.first_step` (or `mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture && mix recgpt.eval`)
-3. Serve: `RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/recgpt_ckpt_export mix recgpt.serve`
+1. Get checkpoint and data: `mix recgpt.refetch` (FuXi-Linear init + VAE + Steam). Use `--gpt2` for GPT-2.
+2. Eval: `mix recgpt.first_step` (or `mix recgpt.fetch_steam data/steam && mix recgpt.build_fixture && mix recgpt.eval`)
+3. Serve: `RECGPT_FIXTURE=data/steam/fixture.json RECGPT_CKPT_EXPORT=data/fuxi_ckpt_export mix recgpt.serve`
 
-→ Full steps and options: [docs/51_quick_start.md](docs/51_quick_start.md), [docs/02_pipeline_overview.md](docs/02_pipeline_overview.md), [docs/03_pipeline_steps.md](docs/03_pipeline_steps.md).
+→ Full steps and options: [docs/features/51_quick_start.md](docs/features/51_quick_start.md), [docs/features/02_pipeline_overview.md](docs/features/02_pipeline_overview.md), [docs/features/03_pipeline_steps.md](docs/features/03_pipeline_steps.md).
 
 ---
 
@@ -20,14 +20,14 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 
 | Topic | Doc |
 |-------|-----|
-| **Quick start** | [docs/51_quick_start.md](docs/51_quick_start.md) |
+| **Quick start** | [docs/features/51_quick_start.md](docs/features/51_quick_start.md) |
 | **Pipeline** | [docs/52_pipeline_summary.md](docs/52_pipeline_summary.md) |
-| **Mix tasks** | [docs/53_mix_tasks.md](docs/53_mix_tasks.md) |
-| **Modules** | [docs/54_modules_overview.md](docs/54_modules_overview.md) |
-| **Dependencies** | [docs/55_dependencies.md](docs/55_dependencies.md) |
-| **Dev container (Torchx)** | [docs/56_dev_container.md](docs/56_dev_container.md) |
-| **Tests** | [docs/57_tests.md](docs/57_tests.md) |
-| **gRPC API** | [docs/58_grpc_serve.md](docs/58_grpc_serve.md), [docs/01_grpc_api.md](docs/01_grpc_api.md) |
-| **Versioning & references** | [docs/59_versioning_and_references.md](docs/59_versioning_and_references.md) |
+| **Mix tasks** | [docs/features/53_mix_tasks.md](docs/features/53_mix_tasks.md) |
+| **Modules** | [docs/features/54_modules_overview.md](docs/features/54_modules_overview.md) |
+| **Dependencies** | [docs/features/55_dependencies.md](docs/features/55_dependencies.md) |
+| **Dev container (Torchx)** | [docs/features/56_dev_container.md](docs/features/56_dev_container.md) |
+| **Tests** | [docs/features/57_tests.md](docs/features/57_tests.md) |
+| **gRPC API** | [docs/features/58_grpc_serve.md](docs/features/58_grpc_serve.md), [docs/features/01_grpc_api.md](docs/features/01_grpc_api.md) |
+| **Versioning & references** | [docs/features/59_versioning_and_references.md](docs/features/59_versioning_and_references.md) |
 
 **Full index:** [docs/README.md](docs/README.md) — library reference, pipeline, eval, checkpoint layout, parity, and more.

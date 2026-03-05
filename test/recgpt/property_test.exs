@@ -1,4 +1,4 @@
-# Property-based tests: trie build/lookup round-trip (see docs/14_top_tier_recommendations.md).
+# Property-based tests: trie build/lookup round-trip (see docs/features/22_top_tier_recommendations.md).
 defmodule RecGPT.PropertyTest do
   use ExUnit.Case, async: true
   alias RecGPT.Trie

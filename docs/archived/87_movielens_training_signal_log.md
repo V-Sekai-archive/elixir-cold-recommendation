@@ -66,6 +66,8 @@ mix recgpt.eval --data-dir data/training_signal_test --ckpt data/training_signal
 
 **Acceptable loss:** From this run, loss ~0.5 at ~200 iterations (10k seqs). For `mix recgpt.training_signal_test`, default `--iterations 500` (single regime) trains until acceptable loss; `--epochs 5` or `--regime compare` (10 min vs 5 epochs) for longer runs. See [88 Training domain recommendation](88_training_domain_recommendation.md).
 
+**Test loss loop:** To find the best test loss and track progress, use `mix recgpt.pretrain` with `--eval-test-every N --test <test_path>`. Prints `train_loss`, `test_loss`, and `best_test` every N steps.
+
 ---
 
 ## Eval (pending)

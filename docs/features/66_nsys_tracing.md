@@ -7,7 +7,7 @@ Use [NVIDIA Nsight Systems](https://developer.nvidia.com/nsight-systems) to prof
 ### Ad-hoc test (recommend for 3 contexts)
 
 ```bash
-mix recgpt.ad_hoc_test --profile --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export
+mix recgpt.ad_hoc_test --profile --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export
 ```
 
 Writes `recgpt_adhoc_<timestamp>.nsys-rep`. Open in Nsight Systems GUI (`nsys-ui` or Nsight Systems).

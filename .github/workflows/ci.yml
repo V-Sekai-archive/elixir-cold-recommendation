@@ -1,4 +1,4 @@
-# CI: runs the QA checklist from docs/23_quality_assurance.md (steps 1–6).
+# CI: runs the QA checklist from docs/features/23_quality_assurance.md (steps 1–6).
 # Steps 1–5: compile, format, Credo, unit tests, Dialyzer.
 # Step 6: pipeline (fetch_steam, build_fixture); pretrain commented out for CI; use base ckpt for eval. Pretrain block below kept for local testing.
 # Uses Steam test data (hkuds/RecGPT_dataset) and frozen RecGPT weights (hkuds/RecGPT_model).

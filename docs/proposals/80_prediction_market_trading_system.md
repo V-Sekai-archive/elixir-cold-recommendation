@@ -50,6 +50,11 @@ Ask yourself honestly: Is your description above specific enough for contributor
 
 If not, consider opening a discussion first instead. Repeatedly posting unactionable or low-effort proposals may lead to restrictions on your ability to post.
 
+## Implementation dependencies
+
+- **Real timestamps for Scout:** Leader sequences must include per-position timestamps (trade time). FuXi-Linear expects real timestamps in its Temporal Retention Channel; position indices lose the temporal signal (trade recency, market lifecycle, trajectory shape). See [91 FuXi-Linear real timestamps](91_fuxi_linear_real_timestamps.md).
+- **Stable semantic source for items:** Polymarket item embedding text uses JCS canonical JSON-LD (conditionId, slug, outcome, category). See [92 Polymarket semantic source](92_polymarket_semantic_source.md).
+
 ## Glossary
 
 | Term              | Definition                                                                                                                                                       |
