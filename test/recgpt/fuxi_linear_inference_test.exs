@@ -5,13 +5,58 @@ defmodule RecGPT.FuxiLinearInferenceTest do
 
   alias RecGPT.FuxiLinearInference
 
+  describe "forward_full_sequence/4" do
+    test "returns logits (batch, seq_len, 15_361) for every position" do
+      params = FuxiLinearInference.init_full_params()
+      batch = 2
+      seq_len = 4
+      batch_token_ids = Nx.iota({batch, seq_len}) |> Nx.remainder(50) |> Nx.as_type({:s, 32})
+      batch_aux = Nx.broadcast(0.1, {batch, seq_len, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {batch, seq_len, 1}) |> Nx.as_type({:f, 32})
+
+      logits = FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
+
+      assert Nx.shape(logits) == {batch, seq_len, 15_361}
+      assert Nx.type(logits) == {:f, 32}
+    end
+  end
+
+  describe "forward_with_cache/4 and forward_incremental/5" do
+    test "forward_with_cache returns {logits, []}" do
+      params = FuxiLinearInference.init_full_params()
+      batch_token_ids = Nx.tensor([[1, 2, 3, 4]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
+
+      {logits, cache} = FuxiLinearInference.forward_with_cache(batch_token_ids, batch_aux, embed_mask, params)
+
+      assert Nx.shape(logits) == {1, 15_361}
+      assert cache == []
+    end
+
+    test "forward_incremental returns {logits, []}" do
+      params = FuxiLinearInference.init_full_params()
+      batch_token_ids = Nx.tensor([[42]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.0, {1, 1, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 1, 1}) |> Nx.as_type({:f, 32})
+
+      {logits, cache} = FuxiLinearInference.forward_incremental(batch_token_ids, batch_aux, embed_mask, params, [])
+
+      assert Nx.shape(logits) == {1, 15_361}
+      assert cache == []
+    end
+  end
+
   describe "forward/4 with full params" do
     test "returns logits (batch, 15_361) for last position" do
       params = FuxiLinearInference.init_full_params()
       batch = 2
       seq_len = 8
       batch_token_ids = Nx.iota({batch, seq_len}) |> Nx.remainder(100) |> Nx.as_type({:s, 32})
-      batch_aux = Nx.iota({batch, seq_len, 192}, type: {:f, 32}) |> Nx.divide(1_000) |> Nx.subtract(0.1)
+
+      batch_aux =
+        Nx.iota({batch, seq_len, 192}, type: {:f, 32}) |> Nx.divide(1_000) |> Nx.subtract(0.1)
+
       embed_mask = Nx.broadcast(1.0, {batch, seq_len, 1}) |> Nx.as_type({:f, 32})
 
       logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
@@ -40,7 +85,8 @@ defmodule RecGPT.FuxiLinearInferenceTest do
 
       logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
 
-      refute Nx.any(Nx.not_equal(logits, logits)) |> Nx.to_number() == 1, "logits must not contain NaN"
+      refute Nx.any(Nx.not_equal(logits, logits)) |> Nx.to_number() == 1,
+             "logits must not contain NaN"
     end
 
     test "forward with seq_len 1 returns valid logits" do
@@ -79,7 +125,11 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       # Real timestamps shape (1, 4, 8) - different from position indices 0,1,2,3
       real_ts = Nx.iota({1, 4, 8}, type: {:f, 32}) |> Nx.multiply(100.0)
 
-      logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params, all_timestamps: real_ts)
+      logits =
+        FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params,
+          all_timestamps: real_ts
+        )
+
       assert Nx.shape(logits) == {1, 15_361}
     end
 
@@ -90,7 +140,11 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       batch_aux = Nx.iota({1, seq_len, 192}, type: {:f, 32}) |> Nx.divide(1000)
       embed_mask = Nx.broadcast(1.0, {1, seq_len, 1}) |> Nx.as_type({:f, 32})
 
-      logits_chunked = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params, chunk_size: 16)
+      logits_chunked =
+        FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params,
+          chunk_size: 16
+        )
+
       assert Nx.shape(logits_chunked) == {1, 15_361}
       refute Nx.any(Nx.not_equal(logits_chunked, logits_chunked)) |> Nx.to_number() == 1
     end
@@ -105,6 +159,31 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
 
       assert Nx.shape(logits) == {1, 15_361}
+    end
+
+    test "forward logits match last position of forward_full_sequence" do
+      params = FuxiLinearInference.init_full_params()
+      batch_token_ids = Nx.tensor([[1, 2, 3, 4, 5]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.1, {1, 5, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 5, 1}) |> Nx.as_type({:f, 32})
+
+      logits_last = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
+      full_logits = FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
+      last_pos = Nx.slice_along_axis(full_logits, 4, 1, axis: 1) |> Nx.squeeze(axes: [1])
+
+      assert Nx.all_close(logits_last, last_pos) |> Nx.to_number() == 1
+    end
+
+    test "forward with n_blocks: 1 (minimal FuXi body) returns valid logits" do
+      params = FuxiLinearInference.init_full_params(n_blocks: 1)
+      batch_token_ids = Nx.tensor([[0, 1, 2, 3]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
+
+      logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
+
+      assert Nx.shape(logits) == {1, 15_361}
+      refute Nx.any(Nx.not_equal(logits, logits)) |> Nx.to_number() == 1, "no NaN"
     end
   end
 
@@ -157,6 +236,25 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       assert Map.has_key?(params, "fuxi.block.0.uvqk")
       assert Map.has_key?(params, "fuxi.block.1.uvqk")
       refute Map.has_key?(params, "fuxi.block.2.uvqk")
+    end
+
+    test "init_params/1 returns block params only (no wte, ae, pred_head)" do
+      block_params = FuxiLinearInference.init_params(n_blocks: 1)
+
+      assert Map.has_key?(block_params, "fuxi.block.0.uvqk")
+      refute Map.has_key?(block_params, "wte")
+      refute Map.has_key?(block_params, "pred_head.weight")
+
+      # Merge with init_full_params base; forward still works
+      base = FuxiLinearInference.init_full_params(n_blocks: 1)
+      merged = Map.merge(base, block_params)
+
+      batch_token_ids = Nx.tensor([[0, 1]], type: {:s, 32})
+      batch_aux = Nx.broadcast(0.0, {1, 2, 192}) |> Nx.as_type({:f, 32})
+      embed_mask = Nx.broadcast(1.0, {1, 2, 1}) |> Nx.as_type({:f, 32})
+
+      logits = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, merged)
+      assert Nx.shape(logits) == {1, 15_361}
     end
   end
 
