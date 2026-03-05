@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Recgpt.GrpcCurl do
   Runs grpcurl against a running RecGPT gRPC server to test the Predict RPC.
 
   Start the server first in another terminal:
-      mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --catalog data/steam/items.json
+      mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export --catalog data/steam/items.json
 
   Then run:
       mix recgpt.grpc_curl

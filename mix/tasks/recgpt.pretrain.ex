@@ -22,6 +22,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
     * `--learning-rate` - Learning rate (default: 1.0e-4)
     * `--log` - Log every N batches (default: 50; 0 to disable)
     * `--log-interval-sec` - Log progress at least every N seconds (default: 20; 0 to disable)
+    * `--mtp-loss-weight` - Weight for MTP loss over last 4 positions (default: 1.0). Set 0 for shifted CE only.
   """
   use Mix.Task
 
@@ -44,7 +45,8 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           batch_size: :integer,
           learning_rate: :float,
           log: :integer,
-          log_interval_sec: :integer
+          log_interval_sec: :integer,
+          mtp_loss_weight: :float
         ]
       )
 
@@ -128,6 +130,9 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       end
     end
 
+    mtp_loss_weight = opts[:mtp_loss_weight]
+    mtp_loss_weight = if is_number(mtp_loss_weight), do: mtp_loss_weight, else: 1.0
+
     runner_opts = [
       ckpt_dir: ckpt_dir,
       fixture_path: fixture_path,
@@ -144,6 +149,7 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
       learning_rate: learning_rate,
       log: log_every,
       log_interval_sec: log_interval_sec,
+      mtp_loss_weight: mtp_loss_weight,
       resource_check_opts: pretrain_resource_check_opts()
     ]
 

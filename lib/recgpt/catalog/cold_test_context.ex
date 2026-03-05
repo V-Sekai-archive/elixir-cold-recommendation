@@ -7,5 +7,6 @@ defmodule RecGPT.Catalog.ColdTestContext do
     field(:case_id, :integer)
     field(:pos, :integer)
     field(:item_id, :integer)
+    field(:time_ms, :integer)
   end
 end

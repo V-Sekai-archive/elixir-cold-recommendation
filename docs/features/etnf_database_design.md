@@ -42,7 +42,7 @@ mix recgpt.pretrain --train db --items db --fixture data/kuairand/fixture.json -
 mix recgpt.eval --fixture data/kuairand/fixture.json --ckpt data/kuairand/ckpt --test db
 ```
 
-**item_embedding_texts:** Text used as embedding input. When present, use it; when absent, fall back to `items.title`. Polymarket: canonical JSON-LD (RFC 8785 JCS); Steam/KuaiRand: typically nil (embedding uses title). See [92 Polymarket semantic source](92_polymarket_semantic_source.md).
+**item_embedding_texts:** Text used as embedding input. When present, use it; when absent, fall back to `items.title`. KuaiRand/Steam: typically nil (embedding uses title).
 
 ## See also
 

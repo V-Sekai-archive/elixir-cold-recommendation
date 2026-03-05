@@ -6,11 +6,11 @@ defmodule Mix.Tasks.Recgpt.CkptSha256 do
   hash, then set config :recgpt, :ckpt_expected_sha256 or RECGPT_CKPT_SHA256.
 
   ## Options
-    * `--ckpt` - Checkpoint export directory (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export directory (default: data/fuxi_ckpt_export)
 
   ## Examples
       mix recgpt.ckpt_sha256
-      mix recgpt.ckpt_sha256 --ckpt data/recgpt_ckpt_export
+      mix recgpt.ckpt_sha256 --ckpt data/fuxi_ckpt_export
 
   ## Config
   Add to config/config.exs (or config/runtime.exs):
@@ -27,7 +27,7 @@ defmodule Mix.Tasks.Recgpt.CkptSha256 do
 
     ckpt =
       opts[:ckpt] ||
-        Path.expand("data/recgpt_ckpt_export", File.cwd!())
+        Path.expand("data/fuxi_ckpt_export", File.cwd!())
 
     manifest_path = Path.join(ckpt, "manifest.json")
 

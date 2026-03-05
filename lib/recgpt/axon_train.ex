@@ -37,10 +37,20 @@ defmodule RecGPT.AxonTrain do
   @doc """
   Forward for training: full-sequence logits. Params are the flat map from CheckpointLoader.
   Uses FuxiLinearInference when params are FuXi checkpoint; otherwise Inference (GPT-2).
+  Input: {batch_token_ids, batch_aux_embeds, embed_mask} or
+  {batch_token_ids, batch_aux_embeds, embed_mask, all_timestamps} when FuXi real timestamps.
   """
-  def predict(params, {batch_token_ids, batch_aux_embeds, embed_mask}) when is_map(params) do
+  def predict(params, input) when is_map(params) do
+    {batch_token_ids, batch_aux_embeds, embed_mask, all_timestamps} =
+      case input do
+        {a, b, c} -> {a, b, c, nil}
+        {a, b, c, t} -> {a, b, c, t}
+      end
+
+    fuxi_opts = if all_timestamps, do: [all_timestamps: all_timestamps], else: []
+
     if Inference.fuxi_checkpoint?(params) do
-      FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
+      FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params, fuxi_opts)
     else
       Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
     end
@@ -74,7 +84,10 @@ defmodule RecGPT.AxonTrain do
   - `opts` - `:iterations` (default 1), `:log` (log every N batches), `:log_interval_sec` (log at
     least every N seconds, default 20; 0 to disable), `:optimizer` (e.g. `:adam`),
     `:learning_rate` (default 1.0e-4), `:save_every` (save checkpoint every N steps; 0 to disable),
-    `:save_fn` (fn (step, params) -> :ok; called when step > 0 and rem(step, save_every) == 0).
+    `:save_fn` (fn (step, params) -> :ok; called when step > 0 and rem(step, save_every) == 0),
+    `:eval_test_every` (eval test loss every N steps; 0 to disable),
+    `:eval_test_fn` (fn (params) -> {:ok, loss} | {:error, _}; required when eval_test_every > 0),
+    `:mtp_loss_weight` (default 0): when > 0, add MTP loss over last 4 positions (next item).
 
   Returns the updated flat params.
   """
@@ -85,12 +98,15 @@ defmodule RecGPT.AxonTrain do
     check_interval = opts[:resource_check_interval] |> Kernel.||(5)
     save_every = opts[:save_every] |> Kernel.||(0)
     save_fn = Keyword.get(opts, :save_fn)
+    eval_test_every = opts[:eval_test_every] |> Kernel.||(0)
+    eval_test_fn = Keyword.get(opts, :eval_test_fn)
 
     check_opts =
       Keyword.get(opts, :resource_check_opts, [])
       |> Keyword.put_new(:start_monotonic_sec, System.monotonic_time(:second))
 
     {init_opt, update_opt} = optimizer_from_opts(opts)
+    loss_fn_effective = build_loss_fn(Keyword.get(opts, :mtp_loss_weight, 0.0))
 
     batches = stream |> Enum.take(iterations)
     opt_state = init_opt.(initial_state)
@@ -101,7 +117,7 @@ defmodule RecGPT.AxonTrain do
         {loss, grads} =
           Nx.Defn.value_and_grad(params, fn p ->
             logits = predict(p, input)
-            loss_fn(labels, logits)
+            loss_fn_effective.(labels, logits)
           end)
 
         {updates, new_opt_state} = update_opt.(grads, opt_state, params)
@@ -109,9 +125,9 @@ defmodule RecGPT.AxonTrain do
         {new_params, new_opt_state, loss}
       end)
 
-    {final_params, _, _, _} =
-      Enum.reduce_while(batches, {initial_state, opt_state, 0, start_sec}, fn
-        {input, labels}, {params, opt_state, i, last_log_sec} ->
+    {final_params, _, _, _, _} =
+      Enum.reduce_while(batches, {initial_state, opt_state, 0, start_sec, nil}, fn
+        {input, labels}, {params, opt_state, i, last_log_sec, best_test} ->
           {new_params, new_opt_state, loss} = step_jit.(params, opt_state, input, labels)
 
           loss_num = Nx.to_number(loss)
@@ -126,13 +142,39 @@ defmodule RecGPT.AxonTrain do
           last_log_sec =
             if log_interval_sec > 0 and (i == 0 or now_sec - last_log_sec >= log_interval_sec) do
               msg =
-                "Step #{i}, loss: #{Float.round(loss_num, 6)}, elapsed #{now_sec - start_sec}s"
+                "Step #{i}, train_loss: #{safe_round(loss_num, 6)}, elapsed #{now_sec - start_sec}s"
 
               padded = String.pad_trailing(msg, 80)
               IO.write(:stdio, "\r" <> padded)
               now_sec
             else
               last_log_sec
+            end
+
+          # Eval test loss every N steps
+          {new_best_test, _} =
+            if eval_test_every > 0 and eval_test_fn && rem(i + 1, eval_test_every) == 0 do
+              case eval_test_fn.(new_params) do
+                {:ok, test_loss} when is_number(test_loss) and not (test_loss != test_loss) ->
+                  best = if is_nil(best_test) or test_loss < best_test, do: test_loss, else: best_test
+                  require Logger
+                  Logger.info(
+                    "Step #{i + 1} train_loss=#{safe_round(loss_num, 4)} test_loss=#{safe_round(test_loss, 4)} best_test=#{safe_round(best || test_loss, 4)}"
+                  )
+                  {best, :ok}
+
+                {:ok, _} ->
+                  require Logger
+                  Logger.warning("Step #{i + 1} test_loss=nan or invalid")
+                  {best_test, :ok}
+
+                {:error, reason} ->
+                  require Logger
+                  Logger.warning("Step #{i + 1} test loss failed: #{inspect(reason)}")
+                  {best_test, :ok}
+              end
+            else
+              {best_test, :ok}
             end
 
           if is_integer(save_every) and save_every > 0 and save_fn && rem(i + 1, save_every) == 0 do
@@ -142,20 +184,33 @@ defmodule RecGPT.AxonTrain do
           if is_integer(check_interval) and check_interval > 0 and rem(i + 1, check_interval) == 0 do
             case RecGPT.ResourceCheck.check(check_opts) do
               :ok ->
-                {:cont, {new_params, new_opt_state, i + 1, last_log_sec}}
+                {:cont, {new_params, new_opt_state, i + 1, last_log_sec, new_best_test}}
 
               {:halt, reason} ->
                 require Logger
                 Logger.warning("Pretrain circuit break: #{reason}")
-                {:halt, {new_params, new_opt_state, i + 1, last_log_sec}}
+                {:halt, {new_params, new_opt_state, i + 1, last_log_sec, new_best_test}}
             end
           else
-            {:cont, {new_params, new_opt_state, i + 1, last_log_sec}}
+            {:cont, {new_params, new_opt_state, i + 1, last_log_sec, new_best_test}}
           end
       end)
 
     final_params
   end
+
+  defp build_loss_fn(mtp_weight) when is_number(mtp_weight) and mtp_weight > 0 do
+    fn labels, logits ->
+      l_ce = Training.loss_shifted_ce(logits, labels)
+      l_mtp = Training.loss_mtp_last_4(logits, labels)
+      Nx.add(l_ce, Nx.multiply(mtp_weight, l_mtp))
+    end
+  end
+
+  defp build_loss_fn(_), do: &Training.loss_shifted_ce(&2, &1)
+
+  defp safe_round(x, precision) when is_number(x) and x == x, do: Float.round(x, precision)
+  defp safe_round(_, _), do: "nan"
 
   defp optimizer_from_opts(opts) do
     lr = Keyword.get(opts, :learning_rate, 1.0e-4)
@@ -187,6 +242,7 @@ defmodule RecGPT.AxonTrain do
     batch_size = Keyword.get(opts, :batch_size, 8)
     epochs = Keyword.get(opts, :epochs, 1)
     shuffle = Keyword.get(opts, :shuffle, true)
+    timestamps = Keyword.get(opts, :timestamps)
 
     indices = 0..(length(seqs) - 1)//1 |> Enum.to_list()
 
@@ -196,10 +252,16 @@ defmodule RecGPT.AxonTrain do
       indices
       |> Enum.chunk_every(batch_size)
       |> Stream.map(fn batch_indices ->
-        {batch_seq, batch_labels, batch_aux_embeds, embed_mask} =
-          Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
+        {batch_seq, batch_labels, batch_aux_embeds, embed_mask, all_timestamps} =
+          Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices, timestamps)
 
-        inputs = {batch_seq, batch_aux_embeds, embed_mask}
+        inputs =
+          if all_timestamps do
+            {batch_seq, batch_aux_embeds, embed_mask, all_timestamps}
+          else
+            {batch_seq, batch_aux_embeds, embed_mask}
+          end
+
         {inputs, batch_labels}
       end)
     end)

@@ -124,7 +124,14 @@ defmodule RecGPT.FuxiLinearInference do
 
       # Slice inputs for this chunk; block needs causal context [0..end_pos)
       h_slice = Nx.slice(acc, [0, 0, 0], [elem(Nx.shape(acc), 0), end_pos, @n_embd])
-      ts_slice = Nx.slice(all_timestamps, [0, 0, 0], [elem(Nx.shape(all_timestamps), 0), end_pos, @channel_t_heads])
+
+      ts_slice =
+        Nx.slice(all_timestamps, [0, 0, 0], [
+          elem(Nx.shape(all_timestamps), 0),
+          end_pos,
+          @channel_t_heads
+        ])
+
       mask_slice = Nx.slice(invalid_attn_mask, [0, 0], [end_pos, end_pos])
 
       chunk_out =
@@ -134,7 +141,9 @@ defmodule RecGPT.FuxiLinearInference do
         end
 
       # Take only the new rows [start_pos..end_pos) and write into acc
-      new_rows = Nx.slice(chunk_out, [0, start_pos, 0], [elem(Nx.shape(chunk_out), 0), chunk_len, @n_embd])
+      new_rows =
+        Nx.slice(chunk_out, [0, start_pos, 0], [elem(Nx.shape(chunk_out), 0), chunk_len, @n_embd])
+
       # Put the new rows back into full tensor
       Nx.put_slice(acc, [0, start_pos, 0], new_rows)
     end)
@@ -197,13 +206,15 @@ defmodule RecGPT.FuxiLinearInference do
     v = Nx.reshape(v, {batch, seq_len, @n_head, @head_dim})
 
     gamma_raw = params[base <> "retention.gamma"] || params[:"#{base}retention_gamma"]
-    gamma = if gamma_raw do
-      g = Nx.log(Nx.add(1, Nx.exp(gamma_raw)))
-      g = Nx.cumulative_sum(g, axis: 0)
-      Nx.exp(Nx.negate(g))
-    else
-      Nx.broadcast(Nx.tensor(0.9, type: {:f, 32}), {@n_head})
-    end
+
+    gamma =
+      if gamma_raw do
+        g = Nx.log(Nx.add(1, Nx.exp(gamma_raw)))
+        g = Nx.cumulative_sum(g, axis: 0)
+        Nx.exp(Nx.negate(g))
+      else
+        Nx.broadcast(Nx.tensor(0.9, type: {:f, 32}), {@n_head})
+      end
 
     q_t = Nx.transpose(q, axes: [0, 2, 1, 3])
     k_t = Nx.transpose(k, axes: [0, 2, 3, 1])
@@ -241,46 +252,70 @@ defmodule RecGPT.FuxiLinearInference do
       idx = Nx.iota({@channel_t_heads}, type: {:s, 64})
       intervals = Nx.pow(base_val, idx)
       scale_factor = Nx.multiply(2 * :math.pi(), Nx.pow(1 / base_val, Nx.as_type(idx, {:f, 32})))
-      gamma_t = params[base <> "channel_t.gamma"] || Nx.broadcast(Nx.tensor(0.0, type: {:f, 32}), {@channel_t_heads})
+
+      gamma_t =
+        params[base <> "channel_t.gamma"] ||
+          Nx.broadcast(Nx.tensor(0.0, type: {:f, 32}), {@channel_t_heads})
+
       gamma = Nx.sigmoid(gamma_t)
 
-      theta = Nx.multiply(
-        Nx.remainder(all_timestamps, Nx.reshape(intervals, {1, 1, @channel_t_heads})),
-        Nx.reshape(scale_factor, {1, 1, @channel_t_heads})
-      )
+      theta =
+        Nx.multiply(
+          Nx.remainder(all_timestamps, Nx.reshape(intervals, {1, 1, @channel_t_heads})),
+          Nx.reshape(scale_factor, {1, 1, @channel_t_heads})
+        )
+
       cos_t = Nx.cos(theta)
       sin_t = Nx.sin(theta)
       k = Nx.concatenate([cos_t, cos_t, sin_t, sin_t], axis: 2)
 
-      q_sin = Nx.concatenate([
-        Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-        Nx.negate(Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]))
-      ], axis: 2)
-      q_cos = Nx.concatenate([
-        Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-        Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads])
-      ], axis: 2)
+      q_sin =
+        Nx.concatenate(
+          [
+            Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+            Nx.negate(Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]))
+          ],
+          axis: 2
+        )
+
+      q_cos =
+        Nx.concatenate(
+          [
+            Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+            Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads])
+          ],
+          axis: 2
+        )
+
       q_part = Nx.concatenate([q_sin, q_cos], axis: 2)
       q_last_idx = max(0, seq_len - 2)
       q_last = Nx.slice(q_part, [0, q_last_idx, 0], [batch, 1, @channel_t_heads * 4])
       q = Nx.concatenate([q_part, q_last], axis: 1)
 
-      interval_diff = Nx.clip(
-        Nx.subtract(
-          Nx.slice(all_timestamps, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-          Nx.slice(all_timestamps, [0, 0, 0], [batch, seq_len - 1, @channel_t_heads])
-        ),
-        0,
-        1.0e9
-      )
-      interval_diff = Nx.concatenate([Nx.broadcast(0.0, {batch, 1, @channel_t_heads}), interval_diff], axis: 1)
+      interval_diff =
+        Nx.clip(
+          Nx.subtract(
+            Nx.slice(all_timestamps, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+            Nx.slice(all_timestamps, [0, 0, 0], [batch, seq_len - 1, @channel_t_heads])
+          ),
+          0,
+          1.0e9
+        )
+
+      interval_diff =
+        Nx.concatenate([Nx.broadcast(0.0, {batch, 1, @channel_t_heads}), interval_diff], axis: 1)
+
       hinterval = Nx.multiply(interval_diff, Nx.reshape(scale_factor, {1, 1, @channel_t_heads}))
       log_decay_pos = Nx.multiply(hinterval, Nx.negate(Nx.log(gamma)))
       log_decay_pos = Nx.concatenate([log_decay_pos, log_decay_pos], axis: 2)
 
       decay_map = ext_decay_attn_map(log_decay_pos, seq_len)
       decay_map = Nx.multiply(decay_map, Nx.reshape(invalid_attn_mask, {1, seq_len, seq_len}))
-      decay_map = Nx.reshape(decay_map, {batch, 16, 1, seq_len, seq_len}) |> Nx.broadcast({batch, 16, 2, seq_len, seq_len}) |> Nx.reshape({batch, 32, seq_len, seq_len})
+
+      decay_map =
+        Nx.reshape(decay_map, {batch, 16, 1, seq_len, seq_len})
+        |> Nx.broadcast({batch, 16, 2, seq_len, seq_len})
+        |> Nx.reshape({batch, 32, seq_len, seq_len})
 
       q_4d = Nx.reshape(q, {batch, seq_len, @channel_t_heads * 4, 1})
       k_4d = Nx.reshape(k, {batch, seq_len, @channel_t_heads * 4, 1})
@@ -298,6 +333,7 @@ defmodule RecGPT.FuxiLinearInference do
 
       alpha = params[base <> "channel_t.alpha"]
       beta = params[base <> "channel_t.beta"]
+
       if alpha && beta do
         Nx.add(Nx.multiply(out, alpha), Nx.multiply(v, beta))
       else
@@ -324,21 +360,28 @@ defmodule RecGPT.FuxiLinearInference do
   defp channel_p_forward(normed_x, seq_len, invalid_attn_mask, base, params) do
     {batch, _n, _} = Nx.shape(normed_x)
     proj_w = params[base <> "channel_p.proj_p.weight"]
-    v = if proj_w do
-      Nx.dot(normed_x, [2], proj_w, [0])
-    else
-      Nx.slice(normed_x, [0, 0, 0], [batch, seq_len, @value_dim])
-    end
+
+    v =
+      if proj_w do
+        Nx.dot(normed_x, [2], proj_w, [0])
+      else
+        Nx.slice(normed_x, [0, 0, 0], [batch, seq_len, @value_dim])
+      end
 
     emb = params[base <> "channel_p.emb"] || params[:"#{base}channel_p_emb"]
-    emb = if emb do
-      Nx.slice(emb, [0, 0], [seq_len, @channel_p_dim])
-    else
-      half = div(@channel_p_dim, 2)
-      theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
-      pos = Nx.iota({seq_len}, type: {:f, 32}) |> Nx.new_axis(-1)
-      Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))], axis: 1)
-    end
+
+    emb =
+      if emb do
+        Nx.slice(emb, [0, 0], [seq_len, @channel_p_dim])
+      else
+        half = div(@channel_p_dim, 2)
+        theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
+        pos = Nx.iota({seq_len}, type: {:f, 32}) |> Nx.new_axis(-1)
+
+        Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))],
+          axis: 1
+        )
+      end
 
     attn_w = Nx.dot(emb, [1], emb, [1])
     attn_w = Nx.divide(attn_w, max(div(@channel_p_dim, 2), 1))
@@ -350,6 +393,7 @@ defmodule RecGPT.FuxiLinearInference do
 
     alpha = params[base <> "channel_p.alpha"]
     beta = params[base <> "channel_p.beta"]
+
     if alpha && beta do
       Nx.add(Nx.multiply(out, alpha), Nx.multiply(v, beta))
     else
@@ -404,6 +448,7 @@ defmodule RecGPT.FuxiLinearInference do
     w = params["pred_head.weight"] || params["pred_head_weight"]
     b = params["pred_head.bias"] || params["pred_head_bias"]
     shape = Nx.shape(hidden)
+
     logits =
       if tuple_size(shape) == 2 do
         Nx.dot(hidden, [1], w, [0])
@@ -413,6 +458,7 @@ defmodule RecGPT.FuxiLinearInference do
         out = Nx.dot(flat, [1], w, [0])
         Nx.reshape(out, {batch, seq_len, @vocab_size})
       end
+
     Nx.add(logits, b)
   end
 
@@ -442,7 +488,11 @@ defmodule RecGPT.FuxiLinearInference do
   def init_full_params(opts \\ []) do
     init = fn shape, std ->
       n = shape |> Tuple.to_list() |> Enum.reduce(1, &Kernel.*/2)
-      Nx.iota(shape, type: {:f, 32}) |> Nx.divide(max(n, 1)) |> Nx.multiply(std * 4) |> Nx.subtract(std * 2)
+
+      Nx.iota(shape, type: {:f, 32})
+      |> Nx.divide(max(n, 1))
+      |> Nx.multiply(std * 4)
+      |> Nx.subtract(std * 2)
     end
 
     block_params = init_params(opts)
@@ -474,7 +524,11 @@ defmodule RecGPT.FuxiLinearInference do
 
     init = fn shape, std ->
       n = shape |> Tuple.to_list() |> Enum.reduce(1, &Kernel.*/2)
-      Nx.iota(shape, type: {:f, 32}) |> Nx.divide(max(n, 1)) |> Nx.multiply(std * 4) |> Nx.subtract(std * 2)
+
+      Nx.iota(shape, type: {:f, 32})
+      |> Nx.divide(max(n, 1))
+      |> Nx.multiply(std * 4)
+      |> Nx.subtract(std * 2)
     end
 
     Enum.reduce(0..(n_blocks - 1), %{}, fn i, params ->
@@ -482,17 +536,30 @@ defmodule RecGPT.FuxiLinearInference do
       half = div(@channel_p_dim, 2)
       theta = Nx.pow(10000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
       pos = Nx.iota({min(max_seq_len, 2048)}, type: {:f, 32}) |> Nx.new_axis(-1)
-      emb = Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))], axis: 1)
+
+      emb =
+        Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))],
+          axis: 1
+        )
 
       params
       |> Map.put(base <> "ln.weight", Nx.iota({@n_embd}, type: {:f, 32}) |> Nx.add(1))
       |> Map.put(base <> "ln.bias", Nx.broadcast(0, {@n_embd}) |> Nx.as_type({:f, 32}))
       |> Map.put(base <> "uvqk", init.({@n_embd, @uvqk_out}, 0.02))
       |> Map.put(base <> "retention.gamma", init.({@n_head}, 0.02))
-      |> Map.put(base <> "retention.ln.weight", Nx.iota({@value_dim}, type: {:f, 32}) |> Nx.add(1))
-      |> Map.put(base <> "retention.ln.bias", Nx.broadcast(0, {@value_dim}) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        base <> "retention.ln.weight",
+        Nx.iota({@value_dim}, type: {:f, 32}) |> Nx.add(1)
+      )
+      |> Map.put(
+        base <> "retention.ln.bias",
+        Nx.broadcast(0, {@value_dim}) |> Nx.as_type({:f, 32})
+      )
       |> Map.put(base <> "channel_t.proj_v.weight", init.({@n_embd, @value_dim}, 0.02))
-      |> Map.put(base <> "channel_t.gamma", Nx.broadcast(0, {@channel_t_heads}) |> Nx.as_type({:f, 32}))
+      |> Map.put(
+        base <> "channel_t.gamma",
+        Nx.broadcast(0, {@channel_t_heads}) |> Nx.as_type({:f, 32})
+      )
       |> Map.put(base <> "channel_t.alpha", init.({1}, 0.02))
       |> Map.put(base <> "channel_t.beta", Nx.broadcast(1, {1}) |> Nx.as_type({:f, 32}))
       |> Map.put(base <> "channel_p.proj_p.weight", init.({@n_embd, @value_dim}, 0.02))

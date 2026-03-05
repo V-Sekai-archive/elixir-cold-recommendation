@@ -21,7 +21,7 @@ Use a **prefix trie** over fixture token sequences and **catalog-aware beam sear
 - **Trie:** `RecGPT.Trie.build/1` builds a trie from `token_id_list` (4 tokens per item). It supports `lookup/2` (sequence → item_id) and `valid_next_tokens/2` (prefix → valid next tokens).
 - **Decode:** `RecGPT.Decode.beam_search/4` and `beam_search_top_k/4` take a logits function (from `RecGPT.Inference`), the trie, context token IDs, and beam width; they return best item_id(s) constrained to the catalog.
 
-The trie is built once at startup and held in `RecGPT.Serve` state. Beam search improves over greedy decoding by keeping multiple hypotheses; the trie avoids work on invalid paths.
+The trie is built once at startup and held in `RecGPT.Serve` state. Beam search keeps multiple hypotheses; the trie avoids work on invalid paths.
 
 ---
 

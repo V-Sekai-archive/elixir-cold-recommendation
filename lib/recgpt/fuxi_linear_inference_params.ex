@@ -54,8 +54,10 @@ defmodule RecGPT.FuxiLinearInferenceParams do
   end
 
   defp get_ae_weight(params) do
-    w = params["ae.linear.weight"] || params["ae.weight"] || params["linear_layer.weight"] ||
-          raise("missing ae.linear.weight in FuXi params")
+    w =
+      params["ae.linear.weight"] || params["ae.weight"] || params["linear_layer.weight"] ||
+        raise("missing ae.linear.weight in FuXi params")
+
     ensure_ae_shape(w, {192, @n_embd})
   end
 
@@ -106,21 +108,28 @@ defmodule RecGPT.FuxiLinearInferenceParams do
       :"block_#{i}_ln_w" => get_param(params, base <> "ln.weight") |> as_dtype(dtype),
       :"block_#{i}_ln_b" => get_param(params, base <> "ln.bias") |> as_dtype(dtype),
       :"block_#{i}_uvqk" => get_param(params, base <> "uvqk") |> as_dtype(dtype),
-      :"block_#{i}_ret_gamma" => (params[base <> "retention.gamma"] || ones({4}, dtype)) |> as_dtype(dtype),
-      :"block_#{i}_ret_ln_w" => get_param(params, base <> "retention.ln.weight") |> as_dtype(dtype),
+      :"block_#{i}_ret_gamma" =>
+        (params[base <> "retention.gamma"] || ones({4}, dtype)) |> as_dtype(dtype),
+      :"block_#{i}_ret_ln_w" =>
+        get_param(params, base <> "retention.ln.weight") |> as_dtype(dtype),
       :"block_#{i}_ret_ln_b" => get_param(params, base <> "retention.ln.bias") |> as_dtype(dtype),
-      :"block_#{i}_ct_proj_v" => get_param(params, base <> "channel_t.proj_v.weight") |> as_dtype(dtype),
+      :"block_#{i}_ct_proj_v" =>
+        get_param(params, base <> "channel_t.proj_v.weight") |> as_dtype(dtype),
       :"block_#{i}_ct_gamma" =>
         (params[base <> "channel_t.gamma"] || zeros({@channel_t_heads}, dtype)) |> as_dtype(dtype),
-      :"block_#{i}_ct_alpha" => (params[base <> "channel_t.alpha"] || ones({1}, dtype)) |> as_dtype(dtype),
-      :"block_#{i}_ct_beta" => (params[base <> "channel_t.beta"] || ones({1}, dtype)) |> as_dtype(dtype),
+      :"block_#{i}_ct_alpha" =>
+        (params[base <> "channel_t.alpha"] || ones({1}, dtype)) |> as_dtype(dtype),
+      :"block_#{i}_ct_beta" =>
+        (params[base <> "channel_t.beta"] || ones({1}, dtype)) |> as_dtype(dtype),
       :"block_#{i}_cp_proj" =>
         (params[base <> "channel_p.proj_p.weight"] || zeros({@n_embd, @value_dim}, dtype))
         |> as_dtype(dtype),
       :"block_#{i}_cp_emb" =>
         (params[base <> "channel_p.emb"] || build_sinusoidal_emb(1024)) |> as_dtype(dtype),
-      :"block_#{i}_cp_alpha" => (params[base <> "channel_p.alpha"] || ones({1}, dtype)) |> as_dtype(dtype),
-      :"block_#{i}_cp_beta" => (params[base <> "channel_p.beta"] || ones({1}, dtype)) |> as_dtype(dtype),
+      :"block_#{i}_cp_alpha" =>
+        (params[base <> "channel_p.alpha"] || ones({1}, dtype)) |> as_dtype(dtype),
+      :"block_#{i}_cp_beta" =>
+        (params[base <> "channel_p.beta"] || ones({1}, dtype)) |> as_dtype(dtype),
       :"block_#{i}_mffn_lin0" => get_param(params, base <> "mffn.lin0.weight") |> as_dtype(dtype),
       :"block_#{i}_mffn_lin1" => get_param(params, base <> "mffn.lin1.weight") |> as_dtype(dtype),
       :"block_#{i}_mffn_lin2" => get_param(params, base <> "mffn.lin2.weight") |> as_dtype(dtype),

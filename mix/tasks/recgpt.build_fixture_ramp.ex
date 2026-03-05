@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixtureRamp do
   ## Options
     * `--items` - Path to items.json (default: data/steam/items.json)
     * `--out` - Output fixture path (default: data/steam/fixture.json)
-    * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--start` - First limit to try (default: 100)
     * `--step` - Add this many items each time (default: 100). Next limits: start, start+step, start+2*step, ...
     * `--max` - Stop increasing at this limit (default: use full num_items from items.json)
@@ -31,7 +31,7 @@ defmodule Mix.Tasks.Recgpt.BuildFixtureRamp do
 
     items_path = opts[:items] || resolve("data/steam/items.json")
     out_path = opts[:out] || resolve("data/steam/fixture.json")
-    ckpt_dir = opts[:ckpt] || resolve("data/recgpt_ckpt_export")
+    ckpt_dir = opts[:ckpt] || resolve("data/fuxi_ckpt_export")
     start_limit = opts[:start] || 100
     step = opts[:step] || 100
     max_limit = opts[:max]

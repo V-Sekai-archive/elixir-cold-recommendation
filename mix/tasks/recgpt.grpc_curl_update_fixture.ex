@@ -6,7 +6,7 @@ defmodule Mix.Tasks.Recgpt.GrpcCurlUpdateFixture do
   when the real catalogue or model changes.
 
   Start the server first in another terminal:
-      mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --catalog data/steam/items.json
+      mix recgpt.serve --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export --catalog data/steam/items.json
 
   Then run:
       mix recgpt.grpc_curl_update_fixture

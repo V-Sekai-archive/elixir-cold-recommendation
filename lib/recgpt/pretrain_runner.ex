@@ -10,6 +10,7 @@ defmodule RecGPT.PretrainRunner do
   alias RecGPT.CheckpointExport
   alias RecGPT.CheckpointLoader
   alias RecGPT.Embedding
+  alias RecGPT.TestLoss
 
   @doc """
   Runs the pretrain pipeline.
@@ -28,6 +29,9 @@ defmodule RecGPT.PretrainRunner do
     * `:learning_rate` - Learning rate (default: 1.0e-4)
     * `:log` - Log every N batches (default: 50; 0 to disable)
     * `:log_interval_sec` - Log progress at least every N seconds (default: 20)
+    * `:eval_test_every` - Compute test loss every N steps (0 to disable)
+    * `:test_path` - Path to test_sequences.json (required when eval_test_every > 0)
+    * `:mtp_loss_weight` - Weight for MTP loss over last 4 positions (default 1.0). Set 0 to use only shifted CE.
     * `:resource_check_opts` - Options for ResourceCheck (e.g. max_memory_mb)
 
   Returns `:ok` on success, or `{:error, reason}`.
@@ -51,18 +55,17 @@ defmodule RecGPT.PretrainRunner do
     resource_check_opts = Keyword.get(opts, :resource_check_opts, [])
 
     with :ok <- ensure_regular_file!(fixture_path, "fixture"),
-         :ok <- ensure_regular_file!(train_path, "train_sequences"),
+         :ok <- ensure_train_source!(train_path),
          :ok <- ensure_dir!(ckpt_dir, "ckpt_dir"),
          {:ok, params} <- load_checkpoint(ckpt_dir),
          {:ok, fixture} <- load_fixture(fixture_path),
-         {:ok, sequences} <- load_train_sequences(train_path) do
+         {:ok, sequences, timestamps} <- load_train_sequences(train_path) do
       if sequences == [] do
         File.mkdir_p!(out_dir)
         CheckpointExport.write_export(params, out_dir)
         :ok
       else
-        with {:ok, _} <- require_items_path(items_path),
-             :ok <- ensure_regular_file!(items_path, "items"),
+        with :ok <- require_items_source!(items_path),
              {:ok, token_id_list, fixture_num_items} <- fixture_token_list(fixture),
              {:ok, item_embeddings, _n} <-
                load_item_embeddings(items_path, fixture_num_items, opts) do
@@ -78,7 +81,8 @@ defmodule RecGPT.PretrainRunner do
             AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
               batch_size: batch_size,
               epochs: epochs,
-              shuffle: true
+              shuffle: true,
+              timestamps: timestamps
             )
 
           save_every = opts[:save_every] |> Kernel.||(0)
@@ -101,18 +105,45 @@ defmodule RecGPT.PretrainRunner do
               nil
             end
 
+          eval_test_every = opts[:eval_test_every] |> Kernel.||(0)
+          test_path = opts[:test_path]
+
+          eval_test_fn =
+            if eval_test_every > 0 and test_path && File.regular?(test_path) do
+              fn params ->
+                TestLoss.compute(params, token_id_list, item_embeddings, test_path,
+                  batch_size: batch_size,
+                  limit: opts[:limit]
+                )
+              end
+            else
+              nil
+            end
+
+          mtp_loss_weight = Keyword.get(opts, :mtp_loss_weight, 1.0)
+
           train_opts = [
             iterations: iterations,
             log: log_every,
             log_interval_sec: log_interval_sec,
             learning_rate: learning_rate,
             resource_check_interval: 5,
-            resource_check_opts: resource_check_opts
+            resource_check_opts: resource_check_opts,
+            mtp_loss_weight: mtp_loss_weight
           ]
 
           train_opts =
             if save_every > 0,
               do: Keyword.merge(train_opts, save_every: save_every, save_fn: save_fn),
+              else: train_opts
+
+          train_opts =
+            if eval_test_every > 0 and eval_test_fn,
+              do:
+                Keyword.merge(train_opts,
+                  eval_test_every: eval_test_every,
+                  eval_test_fn: eval_test_fn
+                ),
               else: train_opts
 
           trained = AxonTrain.run(stream, params, train_opts)
@@ -125,8 +156,18 @@ defmodule RecGPT.PretrainRunner do
     end
   end
 
-  defp require_items_path(nil), do: {:error, :items_path_required_for_pretrain}
-  defp require_items_path(path) when is_binary(path), do: {:ok, path}
+  defp require_items_source!(nil), do: {:error, :items_source_required_for_pretrain}
+  defp require_items_source!(:db), do: :ok
+  defp require_items_source!("db"), do: :ok
+  defp require_items_source!(path) when is_binary(path) do
+    if File.regular?(path), do: :ok, else: {:error, {:missing_file, path}}
+  end
+
+  defp ensure_train_source!(:db), do: :ok
+  defp ensure_train_source!("db"), do: :ok
+
+  defp ensure_train_source!(path) when is_binary(path),
+    do: ensure_regular_file!(path, "train_sequences")
 
   defp ensure_regular_file!(path, _name) when is_binary(path) do
     if File.regular?(path), do: :ok, else: {:error, {:missing_file, path}}
@@ -153,12 +194,50 @@ defmodule RecGPT.PretrainRunner do
     e -> {:error, e}
   end
 
-  defp load_train_sequences(path) do
+  defp load_train_sequences(:db), do: load_train_sequences_from_db()
+  defp load_train_sequences("db"), do: load_train_sequences_from_db()
+
+  defp load_train_sequences(path) when is_binary(path) do
     raw = File.read!(path) |> Jason.decode!()
-    sequences = raw["sequences"] || []
-    {:ok, sequences}
+    raw_seqs = raw["sequences"] || []
+    sequences = Enum.map(raw_seqs, &normalize_sequence/1)
+    timestamps =
+      Enum.map(raw_seqs, fn
+        %{"timestamps" => t} when is_list(t) -> t
+        _ -> nil
+      end)
+    timestamps = if Enum.any?(timestamps, & &1), do: timestamps, else: nil
+    {:ok, sequences, timestamps}
   rescue
     e -> {:error, e}
+  end
+
+  defp normalize_sequence(s) when is_list(s), do: s
+  defp normalize_sequence(%{"sequence" => s}) when is_list(s), do: s
+  defp normalize_sequence(_), do: []
+
+  defp load_train_sequences_from_db do
+    import Ecto.Query
+    alias RecGPT.Catalog.TrainSequenceRow
+    alias RecGPT.Repo
+
+    rows =
+      from(r in TrainSequenceRow, order_by: [asc: r.seq_id, asc: r.pos])
+      |> Repo.all()
+
+    {sequences, timestamps} =
+      rows
+      |> Enum.chunk_by(& &1.seq_id)
+      |> Enum.map(fn chunk ->
+        seq = Enum.map(chunk, & &1.item_id)
+        ts = Enum.map(chunk, & &1.time_ms)
+        has_ts = Enum.any?(ts, & &1)
+        {seq, if(has_ts, do: ts, else: nil)}
+      end)
+      |> Enum.unzip()
+
+    timestamps = if Enum.any?(timestamps, & &1), do: timestamps, else: nil
+    {:ok, sequences, timestamps}
   end
 
   defp fixture_token_list(fixture) do
@@ -170,7 +249,10 @@ defmodule RecGPT.PretrainRunner do
     {:ok, token_id_list, num_items}
   end
 
-  defp load_item_embeddings(items_path, fixture_num_items, opts) do
+  defp load_item_embeddings(:db, fixture_num_items, opts), do: load_item_embeddings_from_db(fixture_num_items, opts)
+  defp load_item_embeddings("db", fixture_num_items, opts), do: load_item_embeddings_from_db(fixture_num_items, opts)
+
+  defp load_item_embeddings(items_path, fixture_num_items, opts) when is_binary(items_path) do
     raw = File.read!(items_path) |> Jason.decode!()
     items = raw["items"] || []
     items_n = raw["num_items"] || length(items)
@@ -191,5 +273,36 @@ defmodule RecGPT.PretrainRunner do
     {:ok, item_embeddings, n}
   rescue
     e -> {:error, e}
+  end
+
+  defp load_item_embeddings_from_db(fixture_num_items, opts) do
+    import Ecto.Query
+    alias RecGPT.Catalog.Item
+    alias RecGPT.Catalog.ItemEmbeddingText
+    alias RecGPT.Repo
+
+    total = Repo.aggregate(Item, :count, :item_id)
+    n = min(total, fixture_num_items)
+    n = if limit = Keyword.get(opts, :limit), do: min(n, limit), else: n
+
+    items =
+      from(i in Item, order_by: [asc: i.item_id], limit: ^n)
+      |> Repo.all()
+
+    embed_map =
+      from(e in ItemEmbeddingText, where: e.item_id in ^Enum.map(items, & &1.item_id))
+      |> Repo.all()
+      |> Map.new(&{&1.item_id, &1.embedding_text})
+
+    item_text_dict =
+      items
+      |> Enum.with_index()
+      |> Map.new(fn {item, idx} ->
+        text = Map.get(embed_map, item.item_id) || item.title
+        {idx, Embedding.recgpt_item_text(%{title: text})}
+      end)
+
+    item_embeddings = Embedding.encode_item_text_dict(item_text_dict)
+    {:ok, item_embeddings, map_size(item_text_dict)}
   end
 end

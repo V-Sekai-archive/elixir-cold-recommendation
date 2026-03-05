@@ -47,7 +47,7 @@ defmodule RecGPT.Catalog.Artifact do
   def default_artifact_kinds do
     [
       {"fixture", "data/steam/fixture.json"},
-      {"checkpoint", "data/recgpt_ckpt_export"},
+      {"checkpoint", "data/fuxi_ckpt_export"},
       {"train_sequences", "data/steam/train_sequences.json"},
       {"cold_train_sequences", "data/steam/cold_train_sequences.json"},
       {"test_sequences", "data/steam/test_sequences.json"},

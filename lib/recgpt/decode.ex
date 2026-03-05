@@ -1,18 +1,106 @@
 defmodule RecGPT.Decode do
   @moduledoc """
-  SPMD-style catalog-aware beam search for next-item prediction.
+  Next-item prediction: beam search (default) or Multi-Token Prediction (MTP).
 
-  Decodes 4 tokens (one RecGPT item) over 4 steps, restricting at each step
-  to tokens that are valid prefixes in the catalog trie. Uses trie tensors
-  and batch inference on device with a single CPU sync at the end.
+  - **Beam search**: Decodes 4 tokens (one RecGPT item) over 4 steps; the t-th token waits for
+    the (t-1)-th (sequential dependency). Uses trie tensors and batch inference on device.
+  - **Multi-Token Prediction (MTP)**: The model predicts K tokens at once (e.g. 4 for one item);
+    acceleration is embedded in the model weights (no draft model or N-gram cache). One forward
+    produces logits for the full 4-token window; we score every catalog item and take top-k.
+    Can significantly reduce inference cost vs sequential decoding. Use `:mtp` or `:lookahead` strategy.
 
   STATIC-style minimal sync: top-k selection is done on GPU (Nx.top_k + gather);
-  only the top-k item_ids, scores, and prefix_tokens are transferred to host.
+  only the top-k item_ids (and scores) are transferred to host.
   """
 
   alias RecGPT.Trie
 
   @neg_inf -1.0e9
+
+  @doc """
+  Multi-Token Prediction (MTP): one forward for the full 4-token window, then score all items.
+
+  With fixed 4-token semantic IDs, MTP acts as a parallel path-classifier: one forward yields
+  logits for t₀…t₃; we do product search (sum of logits at each item's 4 tokens) over valid
+  catalog paths and take top-k—no recursive beam. Single-pass generation; top-k via constrained
+  search. Same semantic IDs (FSQ) as beam search. Head: one shared LM head at last 4 positions
+  (FuxiLinearInferenceDefn / InferenceDefn). Training currently uses shifted CE, not MTP loss;
+  see docs/features/65_latency_flow.md § MTP theory alignment. Returns {:ok, [item_id]} or :not_found.
+  """
+  @spec lookahead_top_k(
+          Nx.Tensor.t(),
+          Nx.Tensor.t() | [non_neg_integer()],
+          pos_integer(),
+          (Nx.Tensor.t() -> Nx.Tensor.t()),
+          term()
+        ) :: {:ok, [non_neg_integer()]} | :not_found
+  def lookahead_top_k(
+        item_id_to_tokens,
+        context_item_ids,
+        top_k,
+        get_logits_4_fn,
+        backend
+      )
+      when top_k >= 1 and is_function(get_logits_4_fn, 1) do
+    {context_tokens, _len} = build_context_tokens(item_id_to_tokens, context_item_ids, backend)
+    num_items = Nx.axis_size(item_id_to_tokens, 0)
+
+    RecGPT.NVTX.range_push("mtp_forward")
+    logits_4 = get_logits_4_fn.(context_tokens)
+    RecGPT.NVTX.range_pop()
+
+    # logits_4: (1, 4, vocab_size) -> (4, vocab_size)
+    logits_4 = logits_4 |> Nx.squeeze(axes: [0])
+
+    # Score each item by sum of logits at its 4-token semantic ID (parallel verify)
+    score_list =
+      for p <- 0..3 do
+        token_ids_p =
+          item_id_to_tokens
+          |> Nx.slice_along_axis(p, 1, axis: 1)
+          |> Nx.squeeze(axes: [1])
+          |> Nx.as_type({:s, 64})
+          |> Nx.new_axis(-1)
+
+        Nx.gather(logits_4[p], token_ids_p) |> Nx.reshape({:auto})
+      end
+
+    scores = Enum.reduce(Enum.drop(score_list, 1), hd(score_list), fn s, acc -> Nx.add(acc, s) end)
+
+    k = min(top_k, num_items)
+    {_top_scores, indices} = Nx.top_k(scores, k: k)
+    indices = Nx.backend_transfer(indices, Nx.BinaryBackend)
+    item_ids = indices |> Nx.to_flat_list() |> Enum.map(&decode_item_id_to_int/1)
+
+    list =
+      item_ids
+      |> Enum.uniq()
+      |> Enum.take(top_k)
+
+    case list do
+      [] -> :not_found
+      ids -> {:ok, ids}
+    end
+  end
+
+  @doc """
+  Direct all-item scoring (delegates to lookahead_top_k / MTP). Kept for backward compatibility.
+  """
+  @spec score_all_items_top_k(
+          Nx.Tensor.t(),
+          Nx.Tensor.t() | [non_neg_integer()],
+          pos_integer(),
+          (Nx.Tensor.t() -> Nx.Tensor.t()),
+          term()
+        ) :: {:ok, [non_neg_integer()]} | :not_found
+  def score_all_items_top_k(
+        item_id_to_tokens,
+        context_item_ids,
+        top_k,
+        get_logits_4_fn,
+        backend
+      ),
+      do: lookahead_top_k(item_id_to_tokens, context_item_ids, top_k, get_logits_4_fn, backend)
 
   @doc """
   SPMD-style beam search: one forward, trie and scoring on device, one sync at end.
@@ -47,23 +135,7 @@ defmodule RecGPT.Decode do
         opts \\ []
       )
       when is_map(trie_tensors) and top_k >= 1 and is_function(get_logits_4_fn, 1) do
-    {context_tokens, _context_len} =
-      if is_list(context_item_ids) and context_item_ids == [] do
-        pad = Nx.tensor([[0]], type: {:s, 32}) |> Nx.backend_transfer(backend)
-        {pad, 1}
-      else
-        context_item_ids =
-          if is_list(context_item_ids) do
-            Nx.tensor(context_item_ids, type: {:s, 32}) |> Nx.backend_transfer(backend)
-          else
-            context_item_ids
-          end
-
-        context_item_ids = Nx.new_axis(context_item_ids, -1)
-        ctx = Nx.gather(item_id_to_tokens, context_item_ids, axes: [0]) |> Nx.reshape({:auto})
-        len = Nx.size(ctx)
-        {Nx.reshape(ctx, {1, len}), len}
-      end
+    {context_tokens, _context_len} = build_context_tokens(item_id_to_tokens, context_item_ids, backend)
 
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state
@@ -140,6 +212,25 @@ defmodule RecGPT.Decode do
     case list do
       [] -> :not_found
       ids -> {:ok, ids}
+    end
+  end
+
+  defp build_context_tokens(item_id_to_tokens, context_item_ids, backend) do
+    if is_list(context_item_ids) and context_item_ids == [] do
+      pad = Nx.tensor([[0]], type: {:s, 32}) |> Nx.backend_transfer(backend)
+      {pad, 1}
+    else
+      context_item_ids =
+        if is_list(context_item_ids) do
+          Nx.tensor(context_item_ids, type: {:s, 32}) |> Nx.backend_transfer(backend)
+        else
+          context_item_ids
+        end
+
+      context_item_ids = Nx.new_axis(context_item_ids, -1)
+      ctx = Nx.gather(item_id_to_tokens, context_item_ids, axes: [0]) |> Nx.reshape({:auto})
+      len = Nx.size(ctx)
+      {Nx.reshape(ctx, {1, len}), len}
     end
   end
 

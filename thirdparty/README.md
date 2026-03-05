@@ -1,23 +1,16 @@
 # Third-party / checkpoints
 
-This directory holds **checkpoint artifacts** (VAE and RecGPT model binaries) and **git submodules** so this project can run inference and eval without depending on external servers. No vendored Python code; RecGPT inference, eval, and gRPC Predict run entirely in Elixir.
+This directory holds **checkpoint artifacts** (VAE and RecGPT model binaries) and optional **datasets** so this project can run inference and eval without depending on external servers. No vendored Python code; RecGPT inference, eval, and gRPC Predict run entirely in Elixir.
 
-## prediction-market-analysis (submodule)
+## KuaiRand-Pure (Phase 1 pretraining)
 
-Jon-Becker Polymarket dataset for `mix recgpt.convert_trajectories --format jon_becker`.
-
-```bash
-git submodule update --init thirdparty/prediction-market-analysis
-cd thirdparty/prediction-market-analysis && make setup   # ~36 GiB
-```
-
-Then convert with:
+Place the dataset in any directory (e.g. `thirdparty/KuaiRand-Pure` or `C:\Users\<user>\Desktop\KuaiRand-Pure` on Windows). Then:
 
 ```bash
-mix recgpt.convert_trajectories --from thirdparty/prediction-market-analysis --out data/polymarket --format jon_becker
+mix recgpt.convert_trajectories --from /path/to/KuaiRand-Pure --out data/kuairand --format kuairand
 ```
 
-Convert uses Polymarket Gamma API for stable canonical JSON-LD item embedding text (RFC 8785 JCS). See [docs/92_polymarket_semantic_source.md](../docs/features/92_polymarket_semantic_source.md).
+Requires `log_standard_*.csv`, `log_random_*.csv`, and optionally `video_features_basic_pure.csv`. Download from https://kuairand.com/. See [docs/features/93_pretraining_plan.md](../docs/features/93_pretraining_plan.md).
 
 ## checkpoints/
 

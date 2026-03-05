@@ -34,10 +34,10 @@ defmodule RecGPT.FixtureBuild do
         }
   def build(items_path, ckpt_dir, opts \\ []) do
     item_text_dict =
-      if opts[:canonical_texts] do
-        load_canonical_texts(opts[:limit])
-      else
-        load_item_text_dict(items_path, opts[:limit])
+      cond do
+        opts[:canonical_texts] -> load_canonical_texts(opts[:limit])
+        items_path in [:db, "db"] -> load_item_text_dict_from_db(opts[:limit])
+        true -> load_item_text_dict(items_path, opts[:limit])
       end
 
     sqlite? = opts[:sqlite] || System.get_env("RECGPT_SQLITE_PATH") != nil
@@ -64,9 +64,13 @@ defmodule RecGPT.FixtureBuild do
     num_items = length(ids)
     # When using dataset .npy, load once and slice per batch; otherwise encode per batch.
     preloaded =
-      if npy_path = resolve_embeddings_npy(items_path, opts),
-        do: load_embeddings_npy(npy_path, num_items),
-        else: nil
+      if items_path in [:db, "db"] do
+        nil
+      else
+        if npy_path = resolve_embeddings_npy(items_path, opts),
+          do: load_embeddings_npy(npy_path, num_items),
+          else: nil
+      end
 
     {token_id_list, _cleared} =
       ids
@@ -109,17 +113,20 @@ defmodule RecGPT.FixtureBuild do
         {acc ++ batch_tokens, true}
       end)
 
-    base = Path.dirname(items_path)
+    # Sequences: skip JSON sync when loading items from DB (data already in DB from Convert)
+    unless items_path in [:db, "db"] do
+      base = Path.dirname(items_path)
 
-    Sync.sync_sequences_from_json(
-      Path.join(base, "train_sequences.json"),
-      Path.join(base, "cold_train_sequences.json")
-    )
+      Sync.sync_sequences_from_json(
+        Path.join(base, "train_sequences.json"),
+        Path.join(base, "cold_train_sequences.json")
+      )
 
-    Sync.sync_test_from_json(
-      Path.join(base, "test_sequences.json"),
-      Path.join(base, "cold_test_sequences.json")
-    )
+      Sync.sync_test_from_json(
+        Path.join(base, "test_sequences.json"),
+        Path.join(base, "cold_test_sequences.json")
+      )
+    end
 
     %{"num_items" => num_items, "token_id_list" => token_id_list}
   end
@@ -168,6 +175,27 @@ defmodule RecGPT.FixtureBuild do
     list
     |> Enum.with_index(0)
     |> Map.new(fn {text, idx} -> {idx, text} end)
+  end
+
+  defp load_item_text_dict_from_db(limit) do
+    import Ecto.Query
+    alias RecGPT.Catalog.Item
+    alias RecGPT.Catalog.ItemEmbeddingText
+
+    query = from(i in Item, order_by: [asc: i.item_id])
+    query = if limit, do: limit(query, ^limit), else: query
+    items = Repo.all(query)
+
+    embed_map =
+      from(e in ItemEmbeddingText, where: e.item_id in ^Enum.map(items, & &1.item_id))
+      |> Repo.all()
+      |> Map.new(&{&1.item_id, &1.embedding_text})
+
+    items
+    |> Map.new(fn item ->
+      text = Map.get(embed_map, item.item_id) || item.title
+      {item.item_id, Embedding.recgpt_item_text(%{title: text})}
+    end)
   end
 
   defp load_item_text_dict(path, limit) do

@@ -11,9 +11,9 @@ This doc lists **bulk data** that lives locally, is **gitignored**, and should b
 | `data/steam/` | Steam dataset: items, sequences, embeddings (.npy), fixture (from build) | ~100s MB | `mix recgpt.fetch_steam data/steam` | Optional; refetchable from HuggingFace |
 | `data/fuxi_ckpt_export/` | FuXi-Linear checkpoint (manifest + *.npy) for eval/serve | ~100s MB | `mix recgpt.export_fuxi_ckpt --out data/fuxi_ckpt_export` | Optional; refetchable |
 | `thirdparty/checkpoints/vae/` | VAE checkpoint for FSQ | ~10 MB | `mix recgpt.fetch_vae_ckpt` | Optional; refetchable |
-| `thirdparty/prediction-market-analysis/data/` | Jon-Becker Polymarket Parquet (markets, trades, blocks) | ~36 GiB | `git submodule update --init` then `cd thirdparty/prediction-market-analysis && make setup` | Optional; for Becker convert only |
+| KuaiRand-Pure (any path) | log_*.csv, video_features (for convert) | varies | Download from kuairand.com; use `--from` with path | Optional |
 
-**Total under `data/`:** ~2+ GB (depends on what you have). Add ~36 GiB if using Jon-Becker.
+**Total under `data/`:** ~2+ GB (depends on what you have).
 
 ---
 

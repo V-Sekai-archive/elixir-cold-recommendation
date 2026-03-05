@@ -2,7 +2,7 @@
 
 FuXi-Linear uses **real interaction timestamps** in the Temporal Retention Channel, not position indices. Our implementation currently falls back to `[0,1,2,...]` when `all_timestamps` is nil. To match the paper, we must pass real timestamps through the pipeline.
 
-**Primary use case: Prediction market trading** ([80 Prediction market trading system](80_prediction_market_trading_system.md)). Scout is trained on leader wallet sequences; leader context → Scout inference → top-k item_ids → catalog → Polymarket outcomes. Item embedding text uses stable JCS canonical JSON-LD per [92 Polymarket semantic source](92_polymarket_semantic_source.md). Timestamps are critical for leader trade timing, market lifecycle, and trajectory shape. See [§Prediction Market Rationale](#prediction-market-rationale) below.
+**Primary use case: Prediction market trading** ([80 Prediction market trading system](80_prediction_market_trading_system.md)). Scout is trained on leader wallet sequences; leader context → Scout inference → top-k item_ids → catalog. Timestamps are critical for trade timing and trajectory shape. See [§Prediction Market Rationale](#prediction-market-rationale) below.
 
 ---
 

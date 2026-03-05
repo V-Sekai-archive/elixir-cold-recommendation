@@ -96,56 +96,136 @@ defmodule RecGPT.FuxiLinearInferenceDefn do
 
   defnp block_0(hidden, seq_len, all_timestamps, invalid_attn_mask, params) do
     block_impl(
-      hidden, seq_len, all_timestamps, invalid_attn_mask,
-      params[:block_0_ln_w], params[:block_0_ln_b], params[:block_0_uvqk],
-      params[:block_0_ret_gamma], params[:block_0_ret_ln_w], params[:block_0_ret_ln_b],
-      params[:block_0_ct_proj_v], params[:block_0_ct_gamma], params[:block_0_ct_alpha], params[:block_0_ct_beta],
-      params[:block_0_cp_proj], params[:block_0_cp_emb], params[:block_0_cp_alpha], params[:block_0_cp_beta],
-      params[:block_0_mffn_lin0], params[:block_0_mffn_lin1], params[:block_0_mffn_lin2], params[:block_0_mffn_lin3]
+      hidden,
+      seq_len,
+      all_timestamps,
+      invalid_attn_mask,
+      params[:block_0_ln_w],
+      params[:block_0_ln_b],
+      params[:block_0_uvqk],
+      params[:block_0_ret_gamma],
+      params[:block_0_ret_ln_w],
+      params[:block_0_ret_ln_b],
+      params[:block_0_ct_proj_v],
+      params[:block_0_ct_gamma],
+      params[:block_0_ct_alpha],
+      params[:block_0_ct_beta],
+      params[:block_0_cp_proj],
+      params[:block_0_cp_emb],
+      params[:block_0_cp_alpha],
+      params[:block_0_cp_beta],
+      params[:block_0_mffn_lin0],
+      params[:block_0_mffn_lin1],
+      params[:block_0_mffn_lin2],
+      params[:block_0_mffn_lin3]
     )
   end
 
   defnp block_1(hidden, seq_len, all_timestamps, invalid_attn_mask, params) do
     block_impl(
-      hidden, seq_len, all_timestamps, invalid_attn_mask,
-      params[:block_1_ln_w], params[:block_1_ln_b], params[:block_1_uvqk],
-      params[:block_1_ret_gamma], params[:block_1_ret_ln_w], params[:block_1_ret_ln_b],
-      params[:block_1_ct_proj_v], params[:block_1_ct_gamma], params[:block_1_ct_alpha], params[:block_1_ct_beta],
-      params[:block_1_cp_proj], params[:block_1_cp_emb], params[:block_1_cp_alpha], params[:block_1_cp_beta],
-      params[:block_1_mffn_lin0], params[:block_1_mffn_lin1], params[:block_1_mffn_lin2], params[:block_1_mffn_lin3]
+      hidden,
+      seq_len,
+      all_timestamps,
+      invalid_attn_mask,
+      params[:block_1_ln_w],
+      params[:block_1_ln_b],
+      params[:block_1_uvqk],
+      params[:block_1_ret_gamma],
+      params[:block_1_ret_ln_w],
+      params[:block_1_ret_ln_b],
+      params[:block_1_ct_proj_v],
+      params[:block_1_ct_gamma],
+      params[:block_1_ct_alpha],
+      params[:block_1_ct_beta],
+      params[:block_1_cp_proj],
+      params[:block_1_cp_emb],
+      params[:block_1_cp_alpha],
+      params[:block_1_cp_beta],
+      params[:block_1_mffn_lin0],
+      params[:block_1_mffn_lin1],
+      params[:block_1_mffn_lin2],
+      params[:block_1_mffn_lin3]
     )
   end
 
   defnp block_2(hidden, seq_len, all_timestamps, invalid_attn_mask, params) do
     block_impl(
-      hidden, seq_len, all_timestamps, invalid_attn_mask,
-      params[:block_2_ln_w], params[:block_2_ln_b], params[:block_2_uvqk],
-      params[:block_2_ret_gamma], params[:block_2_ret_ln_w], params[:block_2_ret_ln_b],
-      params[:block_2_ct_proj_v], params[:block_2_ct_gamma], params[:block_2_ct_alpha], params[:block_2_ct_beta],
-      params[:block_2_cp_proj], params[:block_2_cp_emb], params[:block_2_cp_alpha], params[:block_2_cp_beta],
-      params[:block_2_mffn_lin0], params[:block_2_mffn_lin1], params[:block_2_mffn_lin2], params[:block_2_mffn_lin3]
+      hidden,
+      seq_len,
+      all_timestamps,
+      invalid_attn_mask,
+      params[:block_2_ln_w],
+      params[:block_2_ln_b],
+      params[:block_2_uvqk],
+      params[:block_2_ret_gamma],
+      params[:block_2_ret_ln_w],
+      params[:block_2_ret_ln_b],
+      params[:block_2_ct_proj_v],
+      params[:block_2_ct_gamma],
+      params[:block_2_ct_alpha],
+      params[:block_2_ct_beta],
+      params[:block_2_cp_proj],
+      params[:block_2_cp_emb],
+      params[:block_2_cp_alpha],
+      params[:block_2_cp_beta],
+      params[:block_2_mffn_lin0],
+      params[:block_2_mffn_lin1],
+      params[:block_2_mffn_lin2],
+      params[:block_2_mffn_lin3]
     )
   end
 
   defnp block_3(hidden, seq_len, all_timestamps, invalid_attn_mask, params) do
     block_impl(
-      hidden, seq_len, all_timestamps, invalid_attn_mask,
-      params[:block_3_ln_w], params[:block_3_ln_b], params[:block_3_uvqk],
-      params[:block_3_ret_gamma], params[:block_3_ret_ln_w], params[:block_3_ret_ln_b],
-      params[:block_3_ct_proj_v], params[:block_3_ct_gamma], params[:block_3_ct_alpha], params[:block_3_ct_beta],
-      params[:block_3_cp_proj], params[:block_3_cp_emb], params[:block_3_cp_alpha], params[:block_3_cp_beta],
-      params[:block_3_mffn_lin0], params[:block_3_mffn_lin1], params[:block_3_mffn_lin2], params[:block_3_mffn_lin3]
+      hidden,
+      seq_len,
+      all_timestamps,
+      invalid_attn_mask,
+      params[:block_3_ln_w],
+      params[:block_3_ln_b],
+      params[:block_3_uvqk],
+      params[:block_3_ret_gamma],
+      params[:block_3_ret_ln_w],
+      params[:block_3_ret_ln_b],
+      params[:block_3_ct_proj_v],
+      params[:block_3_ct_gamma],
+      params[:block_3_ct_alpha],
+      params[:block_3_ct_beta],
+      params[:block_3_cp_proj],
+      params[:block_3_cp_emb],
+      params[:block_3_cp_alpha],
+      params[:block_3_cp_beta],
+      params[:block_3_mffn_lin0],
+      params[:block_3_mffn_lin1],
+      params[:block_3_mffn_lin2],
+      params[:block_3_mffn_lin3]
     )
   end
 
   defnp block_impl(
-         hidden, seq_len, all_timestamps, invalid_attn_mask,
-         ln_w, ln_b, uvqk,
-         ret_gamma, ret_ln_w, ret_ln_b,
-         ct_proj_v, ct_gamma, ct_alpha, ct_beta,
-         cp_proj, cp_emb, cp_alpha, cp_beta,
-         mffn_lin0, mffn_lin1, mffn_lin2, mffn_lin3
-       ) do
+          hidden,
+          seq_len,
+          all_timestamps,
+          invalid_attn_mask,
+          ln_w,
+          ln_b,
+          uvqk,
+          ret_gamma,
+          ret_ln_w,
+          ret_ln_b,
+          ct_proj_v,
+          ct_gamma,
+          ct_alpha,
+          ct_beta,
+          cp_proj,
+          cp_emb,
+          cp_alpha,
+          cp_beta,
+          mffn_lin0,
+          mffn_lin1,
+          mffn_lin2,
+          mffn_lin3
+        ) do
     normed = layer_norm(hidden, ln_w, ln_b)
     mm = Nx.dot(normed, [2], uvqk, [0])
     mm = silu(mm)
@@ -155,9 +235,23 @@ defmodule RecGPT.FuxiLinearInferenceDefn do
     k = Nx.slice_along_axis(mm, @attn_dim + @value_dim, @value_dim, axis: 2)
     v = Nx.slice_along_axis(mm, @attn_dim + 2 * @value_dim, @value_dim, axis: 2)
 
-    ret_out = retention_forward(q, k, v, seq_len, invalid_attn_mask, ret_gamma, ret_ln_w, ret_ln_b)
-    ct_out = channel_t_forward(normed, seq_len, all_timestamps, invalid_attn_mask, ct_proj_v, ct_gamma, ct_alpha, ct_beta)
-    cp_out = channel_p_forward(normed, seq_len, invalid_attn_mask, cp_proj, cp_emb, cp_alpha, cp_beta)
+    ret_out =
+      retention_forward(q, k, v, seq_len, invalid_attn_mask, ret_gamma, ret_ln_w, ret_ln_b)
+
+    ct_out =
+      channel_t_forward(
+        normed,
+        seq_len,
+        all_timestamps,
+        invalid_attn_mask,
+        ct_proj_v,
+        ct_gamma,
+        ct_alpha,
+        ct_beta
+      )
+
+    cp_out =
+      channel_p_forward(normed, seq_len, invalid_attn_mask, cp_proj, cp_emb, cp_alpha, cp_beta)
 
     combined = Nx.concatenate([ret_out, ct_out, cp_out], axis: 2)
     attn_out = Nx.multiply(u, combined)
@@ -165,7 +259,7 @@ defmodule RecGPT.FuxiLinearInferenceDefn do
     Nx.add(hidden, mffn_out)
   end
 
-  defnp silu(x), do: Nx.multiply(x, Nx.sigmoid(x))
+  defnp(silu(x), do: Nx.multiply(x, Nx.sigmoid(x)))
 
   defnp retention_forward(q, k, v, seq_len, invalid_attn_mask, gamma_raw, ret_ln_w, ret_ln_b) do
     {batch, _n, _} = Nx.shape(q)
@@ -198,7 +292,16 @@ defmodule RecGPT.FuxiLinearInferenceDefn do
     layer_norm(out, ret_ln_w, ret_ln_b)
   end
 
-  defnp channel_t_forward(normed_x, seq_len, all_timestamps, invalid_attn_mask, proj_v, gamma_t, alpha, beta) do
+  defnp channel_t_forward(
+          normed_x,
+          seq_len,
+          all_timestamps,
+          invalid_attn_mask,
+          proj_v,
+          gamma_t,
+          alpha,
+          beta
+        ) do
     {batch, _n, _} = Nx.shape(normed_x)
     v = Nx.dot(normed_x, [2], proj_v, [0])
 
@@ -207,36 +310,52 @@ defmodule RecGPT.FuxiLinearInferenceDefn do
     scale_factor = Nx.multiply(6.283185307179586, Nx.pow(0.5, Nx.as_type(idx, {:f, 32})))
     gamma = Nx.sigmoid(gamma_t)
 
-    theta = Nx.multiply(
-      Nx.remainder(all_timestamps, Nx.reshape(intervals, {1, 1, @channel_t_heads})),
-      Nx.reshape(scale_factor, {1, 1, @channel_t_heads})
-    )
+    theta =
+      Nx.multiply(
+        Nx.remainder(all_timestamps, Nx.reshape(intervals, {1, 1, @channel_t_heads})),
+        Nx.reshape(scale_factor, {1, 1, @channel_t_heads})
+      )
+
     cos_t = Nx.cos(theta)
     sin_t = Nx.sin(theta)
     k = Nx.concatenate([cos_t, cos_t, sin_t, sin_t], axis: 2)
 
-    q_sin = Nx.concatenate([
-      Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-      Nx.negate(Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]))
-    ], axis: 2)
-    q_cos = Nx.concatenate([
-      Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-      Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads])
-    ], axis: 2)
+    q_sin =
+      Nx.concatenate(
+        [
+          Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+          Nx.negate(Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]))
+        ],
+        axis: 2
+      )
+
+    q_cos =
+      Nx.concatenate(
+        [
+          Nx.slice(cos_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+          Nx.slice(sin_t, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads])
+        ],
+        axis: 2
+      )
+
     q_part = Nx.concatenate([q_sin, q_cos], axis: 2)
     q_last_idx = max(0, seq_len - 2)
     q_last = Nx.slice(q_part, [0, q_last_idx, 0], [batch, 1, @channel_t_heads * 4])
     q = Nx.concatenate([q_part, q_last], axis: 1)
 
-    interval_diff = Nx.clip(
-      Nx.subtract(
-        Nx.slice(all_timestamps, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
-        Nx.slice(all_timestamps, [0, 0, 0], [batch, seq_len - 1, @channel_t_heads])
-      ),
-      0,
-      1.0e9
-    )
-    interval_diff = Nx.concatenate([Nx.broadcast(0.0, {batch, 1, @channel_t_heads}), interval_diff], axis: 1)
+    interval_diff =
+      Nx.clip(
+        Nx.subtract(
+          Nx.slice(all_timestamps, [0, 1, 0], [batch, seq_len - 1, @channel_t_heads]),
+          Nx.slice(all_timestamps, [0, 0, 0], [batch, seq_len - 1, @channel_t_heads])
+        ),
+        0,
+        1.0e9
+      )
+
+    interval_diff =
+      Nx.concatenate([Nx.broadcast(0.0, {batch, 1, @channel_t_heads}), interval_diff], axis: 1)
+
     hinterval = Nx.multiply(interval_diff, Nx.reshape(scale_factor, {1, 1, @channel_t_heads}))
     log_decay_pos = Nx.multiply(hinterval, Nx.negate(Nx.log(gamma)))
     log_decay_pos = Nx.concatenate([log_decay_pos, log_decay_pos], axis: 2)

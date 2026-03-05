@@ -35,17 +35,21 @@ defmodule RecGPT.Steam.Fetch do
 
   defp ensure_item_text_embeddings(dir) do
     path = Path.join(dir, @embeddings_npy)
+
     if File.regular?(path) do
       :ok
     else
       url = "#{@base_url}/#{@embeddings_npy}"
       Mix.shell().info("Downloading #{@embeddings_npy} (~92 MB)...")
+
       case Req.get(url) do
         {:ok, %{status: 200, body: body}} ->
           File.write!(path, body)
           :ok
+
         {:ok, %{status: code}} ->
           {:error, "HTTP #{code} for #{url}"}
+
         {:error, reason} ->
           {:error, reason}
       end

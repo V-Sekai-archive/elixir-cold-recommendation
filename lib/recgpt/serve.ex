@@ -405,28 +405,56 @@ defmodule RecGPT.Serve do
     else
       top_k = min(top_k, 20)
 
-      if !state.trie_tensors || !state.item_id_to_tokens_tensor || !state.get_logits_4_fn do
-        {:error,
-         "SPMD decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_4_fn must be set"}
-      else
-        opts = [beam_width_override: state.beam_width_override, constants: state.decode_constants]
+      decode_strategy = Application.get_env(:recgpt, :decode_strategy, :beam_search)
 
-        result =
-          Decode.beam_search_top_k_spmd(
-            state.trie_tensors,
-            state.item_id_to_tokens_tensor,
-            item_ids,
-            top_k,
-            state.get_logits_4_fn,
-            state.inference_backend,
-            state.trie,
-            opts
-          )
+      use_mtp = decode_strategy in [:mtp, :lookahead, :direct_score]
+      needs_beam = not use_mtp
+      has_beam = state.trie_tensors && state.item_id_to_tokens_tensor && state.get_logits_4_fn
+      has_mtp = state.item_id_to_tokens_tensor && state.get_logits_4_fn
 
-        case result do
-          {:ok, list} -> {:ok, list}
-          :not_found -> {:ok, []}
-        end
+      cond do
+        needs_beam and !has_beam ->
+          {:error,
+           "Beam decode required: trie_tensors, item_id_to_tokens_tensor, and get_logits_4_fn must be set"}
+
+        use_mtp and !has_mtp ->
+          {:error,
+           "MTP decode required: item_id_to_tokens_tensor and get_logits_4_fn must be set"}
+
+        use_mtp ->
+          result =
+            Decode.lookahead_top_k(
+              state.item_id_to_tokens_tensor,
+              item_ids,
+              top_k,
+              state.get_logits_4_fn,
+              state.inference_backend
+            )
+
+          case result do
+            {:ok, list} -> {:ok, list}
+            :not_found -> {:ok, []}
+          end
+
+        true ->
+          opts = [beam_width_override: state.beam_width_override, constants: state.decode_constants]
+
+          result =
+            Decode.beam_search_top_k_spmd(
+              state.trie_tensors,
+              state.item_id_to_tokens_tensor,
+              item_ids,
+              top_k,
+              state.get_logits_4_fn,
+              state.inference_backend,
+              state.trie,
+              opts
+            )
+
+          case result do
+            {:ok, list} -> {:ok, list}
+            :not_found -> {:ok, []}
+          end
       end
     end
   end

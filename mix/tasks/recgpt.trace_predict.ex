@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
   ## Options
     * `--fixture` - Path to fixture JSON (default: data/steam/fixture.json)
-    * `--ckpt` - Checkpoint export dir (default: data/recgpt_ckpt_export)
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--catalog` - Optional path to items JSON
     * `--context` - Comma-separated context item IDs (default: 0)
     * `--top-k` - Max recommendations (default: 10)
@@ -178,7 +178,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     ckpt_dir =
       opts[:ckpt] ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        Path.expand(Path.join(File.cwd!(), "data/recgpt_ckpt_export"), File.cwd!())
+        Path.expand(Path.join(File.cwd!(), "data/fuxi_ckpt_export"), File.cwd!())
 
     catalog_path =
       (opts[:catalog] && Path.expand(opts[:catalog], File.cwd!())) ||
@@ -230,9 +230,17 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     Mix.shell().info("=== Recommendation result (last run) ===")
     Mix.shell().info("  item_ids: #{inspect(item_ids)}")
     Mix.shell().info("")
+    decode_label =
+      case Application.get_env(:recgpt, :decode_strategy, :beam_search) do
+        :mtp -> "mtp_decode"
+        :lookahead -> "mtp_decode"
+        :direct_score -> "mtp_decode"
+        _ -> "beam_search_total"
+      end
+
     Mix.shell().info("=== Timing breakdown (last run) ===")
     Mix.shell().info("  context_to_tokens:  #{last.context_us} μs")
-    Mix.shell().info("  beam_search_total:   #{last.beam_search_us} μs")
+    Mix.shell().info("  #{decode_label}:   #{last.beam_search_us} μs")
 
     if last.inference_calls > 0 do
       Mix.shell().info(
@@ -290,20 +298,32 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
 
       context_us = 0
 
-      opts = RecGPT.Serve.decode_opts(state, context_ids)
+      decode_strategy = Application.get_env(:recgpt, :decode_strategy, :beam_search)
 
       {beam_search_us, result} =
         :timer.tc(fn ->
-          RecGPT.Decode.beam_search_top_k_spmd(
-            state.trie_tensors,
-            state.item_id_to_tokens_tensor,
-            context_ids,
-            top_k,
-            traced_get_logits_4_fn,
-            state.inference_backend,
-            state.trie,
-            opts
-          )
+          if decode_strategy in [:mtp, :lookahead, :direct_score] do
+            RecGPT.Decode.lookahead_top_k(
+              state.item_id_to_tokens_tensor,
+              context_ids,
+              top_k,
+              traced_get_logits_4_fn,
+              state.inference_backend
+            )
+          else
+            opts = RecGPT.Serve.decode_opts(state, context_ids)
+
+            RecGPT.Decode.beam_search_top_k_spmd(
+              state.trie_tensors,
+              state.item_id_to_tokens_tensor,
+              context_ids,
+              top_k,
+              traced_get_logits_4_fn,
+              state.inference_backend,
+              state.trie,
+              opts
+            )
+          end
         end)
 
       {inference_us, inference_calls} = Agent.get(agent, fn {t, n} -> {t, n} end)

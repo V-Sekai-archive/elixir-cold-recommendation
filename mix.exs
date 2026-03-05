@@ -58,6 +58,7 @@ defmodule RecGPT.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.2", only: [:dev, :test]},
       {:nimble_csv, "~> 1.2"},
+      {:explorer, "~> 0.9"},
       {:elixir_make, "~> 0.8", runtime: false}
     ]
   end

@@ -48,7 +48,6 @@ defmodule RecGPT.Trajectories.Convert do
     case format do
       :movielens -> convert_movielens(from_dir, out_dir, convert_opts)
       :kuairand -> convert_kuairand(from_dir, out_dir, convert_opts)
-      :jon_becker -> convert_jon_becker(from_dir, out_dir, opts)
       other -> {:error, "unsupported format: #{inspect(other)}"}
     end
   end
@@ -110,22 +109,6 @@ defmodule RecGPT.Trajectories.Convert do
 
         :ok
       end
-    end
-  end
-
-  defp convert_jon_becker(from_dir, out_dir, opts) do
-    data_root = find_jon_becker_data_root(from_dir)
-    RecGPT.Trajectories.ConvertJonBecker.run(data_root, out_dir, opts)
-  end
-
-  defp find_jon_becker_data_root(from_dir) do
-    polymarket = Path.join(from_dir, "polymarket")
-    data_poly = Path.join(from_dir, "data/polymarket")
-
-    cond do
-      File.dir?(polymarket) -> from_dir
-      File.dir?(data_poly) -> Path.join(from_dir, "data")
-      true -> from_dir
     end
   end
 

@@ -8,7 +8,7 @@ defmodule RecGPT.TrainingTest do
   @seq_cap 1024
   @max_length 256
 
-  describe "build_train_batch/4" do
+  describe "build_train_batch/5" do
     test "returns correct tensor shapes" do
       num_items = 10
       seqs = [[0, 1, 2], [3, 4, 5]]
@@ -16,7 +16,7 @@ defmodule RecGPT.TrainingTest do
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
       batch_indices = [0, 1]
 
-      {batch_seq, batch_labels, batch_aux_embeds, embed_mask} =
+      {batch_seq, batch_labels, batch_aux_embeds, embed_mask, _all_timestamps} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
 
       assert Nx.shape(batch_seq) == {2, @seq_cap}
@@ -32,7 +32,7 @@ defmodule RecGPT.TrainingTest do
       token_id_list = for _ <- 1..num_items, do: [1, 2, 3, 4]
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
 
-      {batch_seq, _labels, batch_aux, _mask} =
+      {batch_seq, _labels, batch_aux, _mask, _} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
 
       # Effective tokens = 256 * 4 = 1024 (seq_token_capacity)
@@ -50,7 +50,7 @@ defmodule RecGPT.TrainingTest do
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
       batch_indices = [0]
 
-      {batch_seq, _labels, _aux, _mask} =
+      {batch_seq, _labels, _aux, _mask, _} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
 
       # First 4 tokens = item 0 -> [1,2,3,4]; next 4 = item 5 (missing) -> [0,0,0,0]; next 4 = item 1 -> [10,20,30,40]
@@ -80,11 +80,31 @@ defmodule RecGPT.TrainingTest do
 
       item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
 
-      {batch_seq, _labels, batch_aux, _mask} =
+      {batch_seq, _labels, batch_aux, _mask, _} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
 
       assert Nx.shape(batch_seq) == {1, @seq_cap}
       assert Nx.shape(batch_aux) == {1, @max_length * 4, 192}
+    end
+
+    test "with timestamps returns all_timestamps tensor (batch, seq_len, 8)" do
+      seqs = [[0, 1, 2]]
+      timestamps = [[1000, 2000, 3000]]
+      token_id_list = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
+      num_items = 3
+      item_embeddings = Nx.iota({num_items, 768}) |> Nx.divide(768 * num_items)
+
+      {_batch_seq, _labels, _aux, _mask, all_timestamps} =
+        Training.build_train_batch(seqs, token_id_list, item_embeddings, [0], timestamps)
+
+      assert not is_nil(all_timestamps)
+      assert Nx.shape(all_timestamps) == {1, @seq_cap, 8}
+      # First item ts=1000, normalized to 0; second 2000->1000; third 3000->2000
+      first_row = Nx.slice(all_timestamps, [0, 0, 0], [1, 12, 1]) |> Nx.squeeze(axes: [0, 2])
+      vals = Nx.to_flat_list(first_row)
+      assert Enum.take(vals, 4) == [0.0, 0.0, 0.0, 0.0]
+      assert Enum.slice(vals, 4, 4) == [1000.0, 1000.0, 1000.0, 1000.0]
+      assert Enum.slice(vals, 8, 4) == [2000.0, 2000.0, 2000.0, 2000.0]
     end
 
     test "right-pads batch_seq with padding_id and labels with -100" do
@@ -93,7 +113,7 @@ defmodule RecGPT.TrainingTest do
       item_embeddings = Nx.iota({1, 768}) |> Nx.divide(768)
       batch_indices = [0]
 
-      {batch_seq, batch_labels, _aux, _mask} =
+      {batch_seq, batch_labels, _aux, _mask, _} =
         Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
 
       first_row = Nx.slice(batch_seq, [0, 0], [1, @seq_cap]) |> Nx.squeeze(axes: [0])

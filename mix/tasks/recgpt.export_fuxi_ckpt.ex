@@ -21,7 +21,9 @@ defmodule Mix.Tasks.Recgpt.ExportFuxiCkpt do
   @impl true
   def run(args) do
     {opts, _, _} =
-      OptionParser.parse(args, switches: [out: :string, n_blocks: :integer, max_seq_len: :integer])
+      OptionParser.parse(args,
+        switches: [out: :string, n_blocks: :integer, max_seq_len: :integer]
+      )
 
     out_dir = opts[:out]
     n_blocks = opts[:n_blocks] || 4
@@ -39,8 +41,12 @@ defmodule Mix.Tasks.Recgpt.ExportFuxiCkpt do
     prev = Nx.default_backend()
     Nx.default_backend(Nx.BinaryBackend)
 
-    Mix.shell().info("Initializing FuXi-Linear params (n_blocks: #{n_blocks}, max_seq_len: #{max_seq_len})...")
-    params = RecGPT.FuxiLinearInference.init_full_params(n_blocks: n_blocks, max_seq_len: max_seq_len)
+    Mix.shell().info(
+      "Initializing FuXi-Linear params (n_blocks: #{n_blocks}, max_seq_len: #{max_seq_len})..."
+    )
+
+    params =
+      RecGPT.FuxiLinearInference.init_full_params(n_blocks: n_blocks, max_seq_len: max_seq_len)
 
     Nx.default_backend(prev)
 

@@ -7,5 +7,6 @@ defmodule RecGPT.Catalog.ColdTrainSequenceRow do
     field(:seq_id, :integer)
     field(:pos, :integer)
     field(:item_id, :integer)
+    field(:time_ms, :integer)
   end
 end

@@ -22,7 +22,7 @@ defmodule Mix.Tasks.Recgpt.EvalGrpc do
 
   ## Example
       mix recgpt.eval_grpc --data-dir data/steam
-      mix recgpt.eval_grpc --fixture data/steam/fixture.json --ckpt data/recgpt_ckpt_export --test data/steam/test_sequences.json --catalog data/steam/items.json
+      mix recgpt.eval_grpc --fixture data/steam/fixture.json --ckpt data/fuxi_ckpt_export --test data/steam/test_sequences.json --catalog data/steam/items.json
   """
   use Mix.Task
 
@@ -59,7 +59,7 @@ defmodule Mix.Tasks.Recgpt.EvalGrpc do
       opts[:ckpt] ||
         System.get_env("RECGPT_CKPT_PATH") ||
         RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        Path.join(File.cwd!(), "data/recgpt_ckpt_export")
+        Path.join(File.cwd!(), "data/fuxi_ckpt_export")
 
     ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 

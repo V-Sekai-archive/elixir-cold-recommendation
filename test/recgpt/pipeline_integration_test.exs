@@ -40,7 +40,7 @@ defmodule RecGPT.PipelineIntegrationTest do
     seqs = [[0, 1, 2], [1, 2, 3], [0, 3, 4]]
     batch_indices = [0, 1, 2]
 
-    {batch_seq, batch_labels, batch_aux, embed_mask} =
+    {batch_seq, batch_labels, batch_aux, embed_mask, _} =
       Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices)
 
     assert Nx.shape(batch_seq) == {3, 1024}
@@ -67,7 +67,7 @@ defmodule RecGPT.PipelineIntegrationTest do
 
     seqs = [[0]]
 
-    {batch_seq, batch_labels, batch_aux, _mask} =
+    {batch_seq, batch_labels, batch_aux, _mask, _} =
       Training.build_train_batch(seqs, token_id_list, item_embeddings, [0])
 
     assert Nx.shape(batch_seq) == {1, 1024}
