@@ -116,35 +116,15 @@ flowchart LR
 
 When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total instead of the documented warm **~150–200 ms** (beam) or **~50–80 ms** (MTP) for the whole recommend. Main reasons:
 
-1. **Fresh process every time** — `mix recgpt.trace_predict` starts a new Elixir/EXLA process. There is no long-lived in-memory JIT state. The “setup” run compiles and runs once; the _timed_ run is still the first “real” use of those compilations in this process, and can pay one-time costs (see below). For warm 200–400 ms, use a long-lived server: `mix recgpt.serve` and call the gRPC Predict API repeatedly.
-
-2. **EXLA cache shape mismatch** — The JIT disk cache is keyed by (exla, nx, ckpt, dtype, max_cache_len), not by input shapes. If the cached binary was built for different batch/sequence shapes (e.g. from another beam_width or context length), EXLA reports “disk cache does not match configuration” and **recompiles** for the current shapes. Beam decode uses **one** forward (`forward_last_4_logits`) per recommend; the first run in a process may trigger that one compilation. Compilation dominates the first run.
-
-3. **First execution after compile** — The first time each compiled graph actually runs, the GPU may do lazy allocation, cuDNN workspace setup, and other one-off work. So even after “setup”, the first timed run can be slower than run 2, 3, … Use `--runs 5` or more to see warm timings (run 1 = cold, runs 2+ = warm).
-
-4. **Small batch sizes** — The single forward uses batch size **1** (one context sequence). Small batches underutilize the GPU (low occupancy, kernel launch overhead). That can add ~2× vs ideal; BF16 and larger effective batches (e.g. multi-request batching) help.
-
-5. **BF16** — Default inference is BF16 on Tensor Cores (typically 1.3–2× faster than FP32). Use `config :recgpt, :inference_dtype, {:f, 32}` for FP32 if needed.
-
-**Takeaway:** For a single `trace_predict` run, expect ~2–3 s (cold). For warm latency, use `--runs 10` or more and look at P50 of runs 2–10, or run the gRPC server and hit it repeatedly.
-
-**Tombstones:**
-
-- **Double warm-up** — Two setup recommends before the timed run in `trace_predict` was tried and reverted; no improvement to the single timed run (~2.7 s).
-- **EXLA JIT disk cache** — With cache enabled, the timed run was ~2.6–3.2 s (~600–750 ms/forward). Without disk cache, the same run was **~371 ms** (~65 ms/forward). Caching code removed; in-process JIT only.
-- **Shorter context** — Using fewer context items (e.g. `[11]` vs `[1,2,3,4]`) considered for speed. Rejected: keep full context for quality.
-- **Context cache** — ETS cache of logits_4 by context_item_ids. Implemented then removed: no measurable improvement in hyperfine benchmark with repeated `[1,2,3,4]`.
-- **Binary** — Need P99 &lt; 80 ms; RecGPT ≈ 200 ms. Competition binds. RecGPT bypassed for Binary; use reflex + bs-p only.
-- **Bundle** — Need P99 &lt; 150 ms; RecGPT ≈ 200 ms. Competition binds. RecGPT bypassed for Bundle; use reflex + bs-p only.
+1. **Fresh process every time** — `mix recgpt.trace_predict` starts a new Elixir/EXLA process.
 
 ---
 
 ## Optimizations to reach 20 ms P50
 
-**Implemented (hot path):** Config and constants are read once at load: `beam_width_override` and decode constants (`root_state`, `neg_inf`, `vocab_t`) live in Serve state and are passed to Decode via opts, so no `Application.get_env` or repeated tensor create+transfer per request. Pre-alloc aux/mask on device for full (1×256×192) and incremental (20×1×192); closure slices when shape fits. KV cache padding uses a zero scalar on the target backend before broadcast so padding stays on device.
+**Implemented (hot path):** Config and constants are read once at load: `beam_width_override` and decode constants (`root_state`, `neg_inf`, `vocab_t`) live in Serve state and are passed to Decode via opts, so no `Application.get_env` or repeated tensor create+transfer per request. Aux/mask are cached by `{batch_size, seq_len}` in the get_logits closure (up to 8 shapes); repeat same-context-length requests skip build+transfer. KV cache padding uses a zero scalar on the target backend before broadcast so padding stays on device.
 
-**One forward, then beam steps:** Beam search does **one** model forward (`get_logits_4_fn` / `forward_last_4_logits`) that returns logits for the last 4 positions (1, 4, vocab_size). Steps 0–3 then slice that tensor and run trie gather + top_k on device—no additional model forwards. So there is **one** graph launch per recommend for beam. There is no “inlining” 
-- **Obsolete (was: Increasing inlining — fused Defn).** Beam now uses one forward; removed. — **Fusing** the four forwards into a **single** `Nx.Defn` (one graph that runs step 0 → trie/top_k → step 1 → … → step 3 and returns item_ids) would **reduce kernel launch overhead** and let XLA optimize across steps. That is the “fused Defn for beam search” idea: one launch instead of four, often **~10–25%** gain. **Implemented:** `InferenceDefn.beam_search_fused/14` runs step 0 + steps 1–3 in one JIT graph. Fused is **on for all paths** when no context-cache hit: one JIT compiled at max beam width (`config :recgpt, :fused_beam_width`, default 20); Decode slices the fused result to the request’s beam_width before sync (masks out the rest). **Estimated e2e gain:** ~10–25% of beam-search GPU time → **~15–50 ms** end-to-end if four forwards are ~150–200 ms of a 300 ms recommend (e.g. 300 ms → ~250–285 ms).
+**One forward, then beam steps:** Beam search does **one** model forward (`get_logits_4_fn` / `forward_last_4_logits`) that returns logits for the last 4 positions (1, 4, vocab_size). Steps 0–3 then slice that tensor and run trie gather + top_k on device—no additional model forwards. So there is **one** graph launch per recommend for beam.
 
 **Multi-Token Prediction (MTP):** The model predicts K tokens at once (e.g. 4 for one item); acceleration is embedded in the model weights during training, so no auxiliary draft model or N-gram cache is needed. One forward produces logits for the full 4-token window; we score all catalog items and take top-k. Can significantly reduce inference cost (e.g. ~3×) vs sequential decoding. Set `RECGPT_DECODE_STRATEGY=mtp` (or `lookahead` / `direct_score`). Best when catalog is small/medium; beam can give better diversity at scale. `mix recgpt.trace_predict` reports `mtp_decode` or `beam_search_total`.
 
@@ -166,7 +146,7 @@ When you run `mix recgpt.trace_predict --runs 1`, you can see **~2–3 s** total
 
 1. **BF16** — Default. Largest single gain (1.3–2×) on the one forward per recommend.
 2. **Minimize host round-trips** — Single sync only; no extra `backend_transfer` or `to_flat_list` in the loop. All index tensors for `gather_2d` already on same backend as the tensor they index.
-3. **Aux/mask construction** — In `build_get_logits_batch_tensor_fn`, aux and mask are built every call; if shapes are fixed, consider reusing or caching on device (minor).
+3. **Aux/mask construction** — Cached by `{batch_size, seq_len}` in the get_logits closure (up to 8 shapes); repeat same-context-length requests skip aux/mask build and transfer.
 4. **Cache replicate/pad** — `maybe_replicate_cache` and `pad_cache_to_fixed` run when cache is not nil; ensure they don’t add unnecessary transfers; pad once to `max_cache_len` and keep on device.
 5. **Trie gather** — Steps do `Nx.gather(next_state, row_indices)` and `gather_2d` with multiple `backend_transfer` for indices; already aligned; if profiling shows gather cost, consider batching or a single fused index op (advanced).
 6. **Beam width** — `max(4, min(top_k + 2, 20))` for expected top_k 1–20; only reduce cap if profiling shows beam as dominant and quality allows.

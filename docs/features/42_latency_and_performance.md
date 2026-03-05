@@ -14,9 +14,9 @@ Industry-grade recommendation APIs typically target **single-digit to low double
 
 ### 1. **No batched inference in beam search** (fixed)
 
-- **Was:** We called the model once per beam candidate per step (31 forward passes for top_k=10). That path is no longer allowed: `beam_search_top_k/5` requires a 2-arity `batch_fn`.
-- **Industry:** One forward pass **per step** with **batch size = beam_width**. Same 4 steps → **4 forward passes** with batch size 10. GPU/NX is much more efficient on batched ops.
-- **Fix:** Batched beam search: in each step we form one batch of all beam candidates, run `Inference.forward(batch, ...)` once, then compute scores and prune to top-k in memory. See `Decode.expand_beam_batched` and `Serve.get_logits_batch_fn`.
+- **Was:** We called the model once per beam candidate per step (31 forward passes for top_k=10). That path is no longer used.
+- **Industry:** One forward pass for the last 4 positions; beam steps slice precomputed logits (trie gather + top_k on device). Alternatively, MTP: one forward then score all catalog items.
+- **Fix:** Single forward: `get_logits_4_fn` returns logits for the last 4 positions (1, 4, vocab_size); beam steps 0–3 slice that tensor and run trie + top_k—no extra model forwards. See `Decode.beam_search_top_k_spmd`, `Decode.lookahead_top_k` (MTP), `Serve.build_get_logits_4_fn`.
 
 ### 2. **Full-sequence forward every time (no KV-cache)** (fixed)
 
@@ -42,7 +42,7 @@ Industry-grade recommendation APIs typically target **single-digit to low double
 | Per-token Nx.to_number sync | Extra latency            | Mitigated by batching                        |
 | Backend / GPU               | 10×+ if on CPU           | Config + check_gpu                           |
 
-After batching, expect **roughly 4–8× lower latency** per request (e.g. 4 forwards instead of 31). For further gains, add KV-cache and ensure GPU/EXLA is used when available.
+With one forward per recommend (beam or MTP), latency is dominated by that single graph launch and one sync. MTP (`RECGPT_DECODE_STRATEGY=mtp`) typically gives ~2–3× lower latency than beam. For further gains, see [65_latency_flow](65_latency_flow.md) (aux/mask cache, BF16, batching).
 
 ---
 

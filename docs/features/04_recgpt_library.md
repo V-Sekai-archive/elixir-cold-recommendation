@@ -48,7 +48,7 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. Opts: `all_timestamps`, `chunk_size`. See [85](85_fuxi_linear_status.md). |
 | **RecGPT.FuxiLinearInferenceDefn** | Defn JIT `forward_last_4_logits/4` for Serve when FuXi checkpoint. |
 | **RecGPT.FuxiLinearInferenceParams** | Build defn params from FuXi checkpoint keys. |
-| **RecGPT.Decode**          | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
+| **RecGPT.Decode**          | `beam_search_top_k_spmd/8` (beam) and `lookahead_top_k/5` (MTP) → `{:ok, item_ids}` or `:not_found`. Strategy via `RECGPT_DECODE_STRATEGY`. |
 | **RecGPT.Trie**      | Build trie from token_id_list for beam search.                                                                                |
 | **RecGPT.Serve**     | `load_state/3`, `recommend/3`, `item_ids_to_context_token_ids/3`.                                                             |
 

@@ -320,20 +320,35 @@ defmodule RecGPT.Serve do
 
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
     jit_single = build_jit_single(fuxi?)
+    cache_ref = :ets.new(:recgpt_aux_mask_cache, [:set, :private])
 
     fn context_tokens ->
       {batch_size, seq_len} = Nx.shape(context_tokens)
+      shape = {batch_size, seq_len}
       dtype = Application.get_env(:recgpt, :inference_dtype, {:bf, 16})
 
-      aux =
-        Nx.broadcast(0.0, {batch_size, seq_len, 192})
-        |> Nx.as_type(dtype)
-        |> Nx.backend_transfer(inference_backend)
+      {aux, mask} =
+        case :ets.lookup(cache_ref, shape) do
+          [{^shape, a, m}] ->
+            {a, m}
 
-      mask =
-        Nx.broadcast(1.0, {batch_size, seq_len, 1})
-        |> Nx.as_type(dtype)
-        |> Nx.backend_transfer(inference_backend)
+          [] ->
+            a =
+              Nx.broadcast(0.0, {batch_size, seq_len, 192})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+
+            m =
+              Nx.broadcast(1.0, {batch_size, seq_len, 1})
+              |> Nx.as_type(dtype)
+              |> Nx.backend_transfer(inference_backend)
+
+            # Cache up to 8 shapes; drop oldest by clearing when over limit
+            n = length(:ets.match_object(cache_ref, {:"$1", :_, :_}))
+            if n >= 8, do: :ets.delete_all_objects(cache_ref)
+            :ets.insert(cache_ref, {shape, a, m})
+            {a, m}
+        end
 
       jit_single.(context_tokens, aux, mask, defn_params)
     end

@@ -52,16 +52,11 @@ defmodule RecGPT.Decode do
     # logits_4: (1, 4, vocab_size) -> (4, vocab_size)
     logits_4 = logits_4 |> Nx.squeeze(axes: [0])
 
-    # Score each item by sum of logits at its 4-token semantic ID (parallel verify)
+    # Score each item by sum of logits at its 4-token semantic ID. Tokens (num_items, 4) once.
+    tokens = Nx.as_type(item_id_to_tokens, {:s, 64})
     score_list =
       for p <- 0..3 do
-        token_ids_p =
-          item_id_to_tokens
-          |> Nx.slice_along_axis(p, 1, axis: 1)
-          |> Nx.squeeze(axes: [1])
-          |> Nx.as_type({:s, 64})
-          |> Nx.new_axis(-1)
-
+        token_ids_p = Nx.slice_along_axis(tokens, p, 1, axis: 1) |> Nx.new_axis(-1)
         Nx.gather(logits_4[p], token_ids_p) |> Nx.reshape({:auto})
       end
 

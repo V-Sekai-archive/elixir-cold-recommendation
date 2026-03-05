@@ -71,5 +71,5 @@ A list-based decode that walks the trie on the CPU and calls the model per candi
 - [04 RecGPT library](04_recgpt_library.md) — Module reference.
 - `lib/recgpt/trie.ex` — `to_tensors/2`, `collect_trie_transitions/2`.
 - `lib/recgpt/decode.ex` — `beam_search_top_k_spmd/7`, `spmd_step/13`, `gather_2d/3`.
-- `lib/recgpt/serve.ex` — `load_state/3`, `recommend/3`, `build_get_logits_batch_tensor_fn/2`.
+- `lib/recgpt/serve.ex` — `load_state/3`, `recommend/3`, `build_get_logits_4_fn/2`.
 - `test/recgpt/decode_spmd_test.exs` — Trie tensor verification, SPMD behavior tests.

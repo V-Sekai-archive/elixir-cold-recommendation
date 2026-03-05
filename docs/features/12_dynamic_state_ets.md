@@ -19,7 +19,7 @@ Use a **prefix trie** over fixture token sequences and **catalog-aware beam sear
 ## Trie and beam search in the codebase
 
 - **Trie:** `RecGPT.Trie.build/1` builds a trie from `token_id_list` (4 tokens per item). It supports `lookup/2` (sequence → item_id) and `valid_next_tokens/2` (prefix → valid next tokens).
-- **Decode:** `RecGPT.Decode.beam_search/4` and `beam_search_top_k/4` take a logits function (from `RecGPT.Inference`), the trie, context token IDs, and beam width; they return best item_id(s) constrained to the catalog.
+- **Decode:** `RecGPT.Decode.beam_search_top_k_spmd/8` (beam) and `lookahead_top_k/5` (MTP) take a logits function (`get_logits_4_fn`), trie tensors or item_id_to_tokens, context, and top_k; they return best item_id(s) constrained to the catalog. Strategy is set by `RECGPT_DECODE_STRATEGY` (beam_search or mtp).
 
 The trie is built once at startup and held in `RecGPT.Serve` state. Beam search keeps multiple hypotheses; the trie avoids work on invalid paths.
 
@@ -38,7 +38,7 @@ The codebase does not use ETS today; this is the recommended path from “load f
 
 ## Sub-proposals
 
-- **Trie and beam search** (above) — `Trie.build/1`, `lookup/2`, `valid_next_tokens/2`; `Decode.beam_search/4`, `beam_search_top_k/4`.
+- **Trie and beam search** (above) — `Trie.build/1`, `lookup/2`, `valid_next_tokens/2`; `Decode.beam_search_top_k_spmd/8`, `lookahead_top_k/5` (MTP).
 - **Future ETS scaling** (above) — Optional path for high concurrency and live catalog updates.
 
 ---
