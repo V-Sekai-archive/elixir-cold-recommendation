@@ -1,13 +1,13 @@
 defmodule Mix.Tasks.Recgpt.FirstStep do
   @shortdoc "Run the first step (Steam baseline): fetch → build_fixture → eval"
   @moduledoc """
-  Runs the full first step from [docs/proposals/24_first_step_plan.md](docs/proposals/24_first_step_plan.md):
+  Runs the full first step:
   1. Fetch Steam data to steam dir.
   2. Build fixture with canonical texts (Elixir Bumblebee + VAE FSQ; semantic IDs match released model).
   3. Run eval in **Elixir** (RecGPT.Serve + RecGPT.Eval) and print metrics.
 
   **Prerequisites:** Checkpoint export (manifest + .npy), VAE checkpoint, canonical_item_texts in SQLite.
-  See docs/proposals/24_first_step_plan.md. Run `mix recgpt.refetch` for FuXi (default) or `mix recgpt.refetch --gpt2` for GPT-2.
+  Run `mix recgpt.refetch` for FuXi (default) or `mix recgpt.refetch --gpt2` for GPT-2.
 
   ## Options
 

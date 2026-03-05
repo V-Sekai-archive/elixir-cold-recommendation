@@ -5,7 +5,7 @@ defmodule RecGPT.Trajectories.Convert do
   Produces: items.json, train_sequences.json, test_sequences.json,
   cold_test_sequences.json, cold_train_sequences.json.
 
-  See docs/features/05_eval_data_shapes.md and docs/proposals/86_training_signal_test_dataset_plan.md.
+  See docs/features/05_eval_data_shapes.md.
   """
 
   @max_context 64

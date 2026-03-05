@@ -66,6 +66,7 @@ fdb_build/
 foundationdb-*.msi
 foundationdb7-*/
 data/recgpt_ckpt_export/*
+data/fuxi_ckpt_export/*
 
 # Torchx (no disk cache by default)
 
@@ -88,3 +89,9 @@ thirdparty/checkpoints/vae/*.pt
 thirdparty/checkpoints/recgpt/*.pt
 thirdparty/checkpoints/recgpt/*.npy
 thirdparty/checkpoints/recgpt/manifest.json
+
+# KuaiRand-Pure (bulk CSVs; fetch from Zenodo / kuairand.com)
+thirdparty/KuaiRand-Pure/*.csv
+
+# Temp / scratch
+tmp/

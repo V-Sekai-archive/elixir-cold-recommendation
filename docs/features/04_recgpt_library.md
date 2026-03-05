@@ -45,7 +45,7 @@ Maintain one **module reference** (this document) with overview tables by area, 
 | Module                     | Purpose                                                                                                                       |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **RecGPT.Inference**       | `forward/4` (logits at last position), `forward_full_sequence/4` (all positions, for training). Params from CheckpointLoader. |
-| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. Opts: `all_timestamps`, `chunk_size`. See [84](84_fuxi_linear_implementation_plan.md), [85](85_fuxi_linear_status.md). |
+| **RecGPT.FuxiLinearInference** | FuXi-Linear backbone (Retention + LinearTemporalChannel + LinearPositionalChannel). Same interface as Inference. Opts: `all_timestamps`, `chunk_size`. See [85](85_fuxi_linear_status.md). |
 | **RecGPT.FuxiLinearInferenceDefn** | Defn JIT `forward_last_4_logits/4` for Serve when FuXi checkpoint. |
 | **RecGPT.FuxiLinearInferenceParams** | Build defn params from FuXi checkpoint keys. |
 | **RecGPT.Decode**          | `beam_search_top_k/4` → `{:ok, item_ids}` or `:not_found`.                                                                    |
@@ -86,7 +86,7 @@ API: gRPC only. Contract: [recommendation.proto](../priv/proto/recgpt/v1/recomme
 | Module                                 | Purpose                                                                   |
 | -------------------------------------- | ------------------------------------------------------------------------- |
 | **RecGPT.GRPCEndpoint**                | gRPC endpoint; runs `Recgpt.V1.PredictionService.Server`.                 |
-| **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; uses `RecGPT.PythonShim.predict/2` (Python). |
+| **Recgpt.V1.PredictionService.Server** | gRPC server for Predict RPC; uses `RecGPT.PredictBatchCollector` → `RecGPT.Serve.recommend`. |
 
 ---
 

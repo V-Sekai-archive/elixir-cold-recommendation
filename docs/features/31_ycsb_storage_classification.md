@@ -119,7 +119,4 @@ The **item relationship mapper** supports Scout→butterfly: it maps `item_id` �
 
 - [13 Infrastructure and serving](13_infrastructure_serving.md) — Catalog storage, object-store options, run serve.
 - [30 waffle_ecto usage](30_waffle_ecto_usage.md) — Blob/artifact storage with Ecto and optional S3/GCS.
-- [60 Rope bridge](60_rope_bridge_market_analytics_plan.md) — Implication graph, Scout→butterfly, catalog extension.
-- [thirdparty polymarket_sportradar_arb_reference](../thirdparty/polymarket_sportradar_arb_reference.md) — YCSB tables and RecGPT mapping (source for this technique).
 - [YCSB](https://github.com/brianfrankcooper/YCSB) — Yahoo! Cloud Serving Benchmark (workload definitions).
-- [Documentation index](README.md).

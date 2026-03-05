@@ -30,7 +30,7 @@ defmodule Mix.Tasks.Recgpt.FetchSteam do
         )
 
         Mix.shell().info(
-          "Or run the full first-step baseline (fetch + build fixture with dataset embeddings + eval): mix recgpt.first_step (requires checkpoint; see docs/proposals/24_first_step_plan.md)."
+          "Or run the full first-step baseline (fetch + build fixture with dataset embeddings + eval): mix recgpt.first_step (requires checkpoint)."
         )
 
       {:error, reason} ->

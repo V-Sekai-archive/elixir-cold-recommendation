@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Checkpoint SHA256 validation:** `mix recgpt.ckpt_sha256`; config `ckpt_expected_sha256` for integrity checks.
 - **trace_predict:** `--runs` and `--jitter-ms` for statistical significance when profiling.
 - **Devcontainer:** `.devcontainer/` with EXLA/CUDA 12.9 for reproducible builds.
-- **Performance plans:** `docs/proposals/plans/` with plan status, estimates, and implementation order.
+- **Docs:** Reorganized into features/ and archived/; proposals (planning docs) removed from codebase.
 
 ### Changed
 

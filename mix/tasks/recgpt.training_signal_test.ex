@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Recgpt.TrainingSignalTest do
   @shortdoc "Run training signal test: convert (optional) → build_fixture → pretrain → eval (compare zero-shot vs pretrained)"
   @moduledoc """
-  Orchestrates the full training signal test pipeline from [86 Training signal test dataset plan](docs/proposals/86_training_signal_test_dataset_plan.md) and [88 Training domain recommendation](docs/proposals/88_training_domain_recommendation.md):
+  Orchestrates the full training signal test pipeline:
 
   1. Optionally convert raw data (`--convert-from`)
   2. Build fixture

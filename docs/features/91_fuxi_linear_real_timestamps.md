@@ -101,4 +101,4 @@ Scout must be trained on leader/prediction-market data; off-domain RecGPT has ze
 - FuXi-Linear paper: arXiv:2602.23671, §3 (problem), §4.4 (Temporal Retention Channel)
 - Upstream preprocess: `preprocess_kuairand27k_data.py` — `sequence_timestamps` in output
 - Our `FuxiLinearInference`: `all_timestamps` opts already supported; LinearTemporalChannel consumes them
-- Prediction market: [80 Prediction market trading system](80_prediction_market_trading_system.md), [60 Rope bridge](60_rope_bridge_market_analytics_plan.md), [68 Wallet longitudinal](68_wallet_longitudinal_adversary_research.md), [69 Sniper longitudinal leaders](69_sniper_longitudinal_leaders.md), [75 Implication graph](75_implication_graph_ycsb_smart_money.md)
+- Prediction market: Jon-Becker Polymarket subset (Phase 1); see [93 Pretraining plan](93_pretraining_plan.md)
