@@ -61,8 +61,8 @@ params = RecGPT.FuxiLinearInference.init_params(n_blocks: 4, max_seq_len: 1024)
 
 ## Params / Checkpoint
 
-FuXi-Linear uses different param layout than GPT-2.
+FuXi-Linear uses different param layout than GPT-2. **No pre-trained checkpoint exists** — see [85 FuXi-Linear status](85_fuxi_linear_status.md#checkpoint).
 
-- **A (implemented):** `FuxiLinearInferenceParams` maps FuXi keys (`fuxi.block.*`) to defn params. `mix recgpt.export_fuxi_ckpt --out DIR` exports init params. Serve auto-detects FuXi checkpoints.
+- **A (implemented):** `FuxiLinearInferenceParams` maps FuXi keys (`fuxi.block.*`) to defn params. `mix recgpt.export_fuxi_ckpt --out DIR` exports **init params** (random). Serve auto-detects FuXi checkpoints.
 - **B:** Train from scratch with Axon; export to our format.
-- **C:** Convert PyTorch checkpoint from fuxi-linear (script).
+- **C:** Convert PyTorch checkpoint from fuxi-linear (script) — upstream does not publish trained weights.

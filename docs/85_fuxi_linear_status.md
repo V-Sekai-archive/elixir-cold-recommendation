@@ -30,6 +30,27 @@ Implementation status of `RecGPT.FuxiLinearInference`: what is done and what rem
 
 ---
 
+## Checkpoint
+
+**No pre-trained FuXi-Linear checkpoint exists.** Unlike RecGPT (GPT-2), which has trained weights at `hkuds/RecGPT_model`, FuXi has no published trained checkpoint.
+
+| Source | What it provides |
+|--------|------------------|
+| `mix recgpt.export_fuxi_ckpt --out DIR` | **Init params** — random initialization via `init_full_params/1`. Good for serve smoke tests and training from scratch. |
+| Upstream [USTC-StarTeam/fuxi-linear](https://github.com/USTC-StarTeam/fuxi-linear) | Training code only; no released .pt or .npy weights. |
+
+**To get a trained FuXi checkpoint:** pretrain from init on your dataset:
+
+```bash
+mix recgpt.export_fuxi_ckpt --out data/fuxi_init
+mix recgpt.pretrain --ckpt data/fuxi_init --fixture <fixture> --train <train_sequences> --items <items> --out data/fuxi_trained
+mix recgpt.serve --fixture <fixture> --ckpt data/fuxi_trained
+```
+
+**One-shot training signal test:** `mix recgpt.training_signal_test --fuxi` runs the full FuXi pipeline (export_fuxi_ckpt → convert → build_fixture → pretrain → eval) and saves checkpoints to `ckpt_fuxi_pretrained`, `ckpt_fuxi_10min`, or `ckpt_fuxi_5epochs` depending on `--regime`.
+
+---
+
 ## Not Implemented
 
 None. Chunk processing and real timestamps are implemented as opts.

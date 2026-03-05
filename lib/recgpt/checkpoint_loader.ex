@@ -84,7 +84,7 @@ defmodule RecGPT.CheckpointLoader do
 
     expected = expected_ckpt_sha256()
 
-    if expected do
+    if expected && expected != "" do
       actual = compute_sha256(export_dir, manifest)
 
       if actual != expected do
