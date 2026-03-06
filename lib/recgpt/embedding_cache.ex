@@ -1,11 +1,11 @@
 defmodule RecGPT.EmbeddingCache do
   @moduledoc """
   ETS-based cache for precomputed item embeddings and FSQ tokens.
-  
+
   Loads item embeddings and tokens from Ecto tables into ETS tables at startup
   for O(1) lookup during inference. This avoids recomputing embeddings (MPNet)
   and FSQ quantization on every inference request.
-  
+
   Tables:
   - `:recgpt_item_embeddings`: {item_id, embedding_tensor (768-dim)}
   - `:recgpt_item_tokens`: {item_id, [t0, t1, t2, t3]}
@@ -13,7 +13,7 @@ defmodule RecGPT.EmbeddingCache do
 
   @doc """
   Create and populate ETS tables for item embeddings and tokens.
-  
+
   Returns {:ok, {embeddings_table, tokens_table}} where each is an ETS table reference.
   Returns {:error, reason} if DB query fails.
   """

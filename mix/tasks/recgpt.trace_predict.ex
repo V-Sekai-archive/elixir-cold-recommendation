@@ -230,6 +230,7 @@ defmodule Mix.Tasks.Recgpt.TracePredict do
     Mix.shell().info("=== Recommendation result (last run) ===")
     Mix.shell().info("  item_ids: #{inspect(item_ids)}")
     Mix.shell().info("")
+
     decode_label =
       case Application.get_env(:recgpt, :decode_strategy, :beam_search) do
         :mtp -> "mtp_decode"

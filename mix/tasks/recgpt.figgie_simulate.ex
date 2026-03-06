@@ -15,10 +15,11 @@ defmodule Mix.Tasks.Recgpt.FiggieSimulate do
 
   @impl Mix.Task
   def run(args) do
-    {opts, _} = OptionParser.parse!(args,
-      aliases: [g: :games, o: :output],
-      switches: [games: :integer, output: :string]
-    )
+    {opts, _} =
+      OptionParser.parse!(args,
+        aliases: [g: :games, o: :output],
+        switches: [games: :integer, output: :string]
+      )
 
     games = opts[:games] || 1000
     output = opts[:output] || "priv/figgie_fixture.json"

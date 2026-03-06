@@ -49,7 +49,11 @@ defmodule Mix.Tasks.Recgpt.KuairandCanonicalTexts do
 
         File.mkdir_p!(Path.dirname(out_path))
         File.write!(out_path, Jason.encode!(out, pretty: true))
-        Mix.shell().info("Wrote #{length(by_item_id)} item canonical JSON-LD texts to #{out_path}")
+
+        Mix.shell().info(
+          "Wrote #{length(by_item_id)} item canonical JSON-LD texts to #{out_path}"
+        )
+
         :ok
 
       {:error, reason} ->

@@ -214,16 +214,20 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
       )
     end
 
-    canonical_texts_from = opts[:canonical_texts_from] && Path.expand(opts[:canonical_texts_from], File.cwd!())
+    canonical_texts_from =
+      opts[:canonical_texts_from] && Path.expand(opts[:canonical_texts_from], File.cwd!())
+
     canonical_texts? = !opts[:no_canonical_texts] and Keyword.get(opts, :canonical_texts, true)
     Application.ensure_all_started(:nx)
     if canonical_texts? or canonical_texts_from, do: Application.ensure_all_started(:recgpt)
     unless opts[:embeddings_npy], do: Application.ensure_all_started(:bumblebee)
 
     npy_note = if opts[:embeddings_npy], do: " (using dataset embeddings)", else: ""
+
     canonical_note =
-      if canonical_texts_from, do: " (canonical texts from file)",
-      else: (if canonical_texts?, do: " (canonical texts from DB)", else: "")
+      if canonical_texts_from,
+        do: " (canonical texts from file)",
+        else: if(canonical_texts?, do: " (canonical texts from DB)", else: "")
 
     Mix.shell().info(
       "Building fixture from #{items_path}#{if limit, do: " (limit #{limit})", else: " (all items)"}#{npy_note}#{canonical_note}..."
@@ -232,10 +236,14 @@ defmodule Mix.Tasks.Recgpt.BuildFixture do
     build_opts = [limit: limit]
 
     build_opts =
-      if canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts_from, canonical_texts_from), else: build_opts
+      if canonical_texts_from,
+        do: Keyword.put(build_opts, :canonical_texts_from, canonical_texts_from),
+        else: build_opts
 
     build_opts =
-      if canonical_texts? and !canonical_texts_from, do: Keyword.put(build_opts, :canonical_texts, true), else: build_opts
+      if canonical_texts? and !canonical_texts_from,
+        do: Keyword.put(build_opts, :canonical_texts, true),
+        else: build_opts
 
     build_opts =
       case opts[:embeddings_npy] do

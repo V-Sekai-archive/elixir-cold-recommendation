@@ -58,12 +58,14 @@ defmodule RecGPT.Catalog.Sync do
         |> Enum.map(fn %{"id" => id, "title" => title} = item ->
           base = %{item_id: id, title: to_string(title)}
           embed = Map.get(item, "embedding_text")
+
           embed_entry =
             if embed && String.trim(to_string(embed)) != "" do
               %{item_id: id, embedding_text: to_string(embed)}
             else
               nil
             end
+
           {base, embed_entry}
         end)
         |> Enum.uniq_by(fn {e, _} -> e.item_id end)
@@ -72,8 +74,11 @@ defmodule RecGPT.Catalog.Sync do
       item_entries |> Enum.chunk_every(@insert_chunk) |> Enum.each(&insert_items/1)
 
       embed_entries = entries |> Enum.flat_map(fn {_, e} -> if e, do: [e], else: [] end)
+
       if embed_entries != [] do
-        embed_entries |> Enum.chunk_every(@insert_chunk) |> Enum.each(&insert_item_embedding_texts/1)
+        embed_entries
+        |> Enum.chunk_every(@insert_chunk)
+        |> Enum.each(&insert_item_embedding_texts/1)
       end
     end
 
@@ -93,6 +98,7 @@ defmodule RecGPT.Catalog.Sync do
         train_sequences
         |> parse_sequence_rows_from_list()
         |> Enum.uniq_by(fn r -> {r.seq_id, r.pos} end)
+
       insert_all_in_chunks(TrainSequenceRow, rows)
     end
 
@@ -101,6 +107,7 @@ defmodule RecGPT.Catalog.Sync do
         cold_train_sequences
         |> parse_sequence_rows_from_list()
         |> Enum.uniq_by(fn r -> {r.seq_id, r.pos} end)
+
       insert_all_in_chunks(ColdTrainSequenceRow, rows)
     end
 
@@ -118,7 +125,9 @@ defmodule RecGPT.Catalog.Sync do
     Repo.delete_all(TestCase)
 
     if test_cases != [] do
-      sequences = Enum.map(test_cases, fn tc -> (tc["context"] || []) ++ [tc["next_item"] || 0] end)
+      sequences =
+        Enum.map(test_cases, fn tc -> (tc["context"] || []) ++ [tc["next_item"] || 0] end)
+
       {cases, context} = parse_test_data(sequences)
       insert_all_in_chunks(TestCase, cases)
       context = context |> Enum.uniq_by(fn r -> {r.case_id, r.pos} end)
@@ -126,7 +135,9 @@ defmodule RecGPT.Catalog.Sync do
     end
 
     if cold_test_cases != [] do
-      sequences = Enum.map(cold_test_cases, fn tc -> (tc["context"] || []) ++ [tc["next_item"] || 0] end)
+      sequences =
+        Enum.map(cold_test_cases, fn tc -> (tc["context"] || []) ++ [tc["next_item"] || 0] end)
+
       {cases, context} = parse_test_data(sequences)
       insert_all_in_chunks(ColdTestCase, cases)
       context = context |> Enum.uniq_by(fn r -> {r.case_id, r.pos} end)
@@ -144,15 +155,21 @@ defmodule RecGPT.Catalog.Sync do
 
       Enum.with_index(seq, fn item_id, pos ->
         row = %{seq_id: seq_id, pos: pos, item_id: item_id}
-        time_ms = if timestamps && length(timestamps) > pos, do: Enum.at(timestamps, pos), else: nil
+
+        time_ms =
+          if timestamps && length(timestamps) > pos, do: Enum.at(timestamps, pos), else: nil
+
         if time_ms != nil, do: Map.put(row, :time_ms, time_ms), else: row
       end)
     end)
   end
 
   defp extract_sequence_and_timestamps(s) when is_list(s), do: {s, nil}
-  defp extract_sequence_and_timestamps(%{"sequence" => s, "timestamps" => t}) when is_list(s) and is_list(t),
-    do: {s, t}
+
+  defp extract_sequence_and_timestamps(%{"sequence" => s, "timestamps" => t})
+       when is_list(s) and is_list(t),
+       do: {s, t}
+
   defp extract_sequence_and_timestamps(%{"sequence" => s}) when is_list(s), do: {s, nil}
   defp extract_sequence_and_timestamps(_), do: {[], nil}
 
@@ -163,17 +180,21 @@ defmodule RecGPT.Catalog.Sync do
 
     if train_path && File.regular?(train_path) do
       data = File.read!(train_path) |> Jason.decode!()
+
       rows =
         parse_sequence_rows(data["sequences"] || [], "train_sequence_rows")
         |> Enum.uniq_by(fn r -> {r.seq_id, r.pos} end)
+
       insert_all_in_chunks(TrainSequenceRow, rows)
     end
 
     if cold_train_path && File.regular?(cold_train_path) do
       data = File.read!(cold_train_path) |> Jason.decode!()
+
       rows =
         parse_sequence_rows(data["sequences"] || [], "cold_train_sequence_rows")
         |> Enum.uniq_by(fn r -> {r.seq_id, r.pos} end)
+
       insert_all_in_chunks(ColdTrainSequenceRow, rows)
     end
 
@@ -234,7 +255,10 @@ defmodule RecGPT.Catalog.Sync do
 
       Enum.with_index(seq, fn item_id, pos ->
         row = %{seq_id: seq_id, pos: pos, item_id: item_id}
-        time_ms = if timestamps && length(timestamps) > pos, do: Enum.at(timestamps, pos), else: nil
+
+        time_ms =
+          if timestamps && length(timestamps) > pos, do: Enum.at(timestamps, pos), else: nil
+
         if time_ms != nil, do: Map.put(row, :time_ms, time_ms), else: row
       end)
     end)

@@ -15,7 +15,11 @@ defmodule RecGPT.Training do
 
   def build_train_batch(seqs, token_id_list, item_embeddings, batch_indices, timestamps \\ nil) do
     batch_seqs = Enum.map(batch_indices, fn idx -> Enum.at(seqs, idx) end)
-    batch_ts = if timestamps, do: Enum.map(batch_indices, fn idx -> Enum.at(timestamps, idx) end), else: nil
+
+    batch_ts =
+      if timestamps,
+        do: Enum.map(batch_indices, fn idx -> Enum.at(timestamps, idx) end),
+        else: nil
 
     {batch_seq, batch_labels, batch_aux_list, embed_mask_list, timestamp_rows} =
       Enum.reduce(
@@ -23,6 +27,7 @@ defmodule RecGPT.Training do
         {[], [], [], [], []},
         fn {seq, ts}, {seq_acc, label_acc, aux_acc, mask_acc, ts_acc} ->
           seq = if length(seq) > @max_length, do: Enum.take(seq, -@max_length), else: seq
+
           ts =
             if ts && length(ts) >= length(seq) do
               if length(seq) < length(ts), do: Enum.take(ts, -length(seq)), else: ts
@@ -48,11 +53,16 @@ defmodule RecGPT.Training do
             if ts && ts != [] do
               t0 = Enum.min(ts)
               normalized = Enum.map(ts, fn t -> (t - t0) / 1.0 end)
+
               expanded =
                 normalized
                 |> Enum.flat_map(fn v -> List.duplicate(v, 4) end)
-                |> then(fn list -> list ++ List.duplicate(List.last(list) || 0.0, @seq_token_capacity - length(list)) end)
+                |> then(fn list ->
+                  list ++
+                    List.duplicate(List.last(list) || 0.0, @seq_token_capacity - length(list))
+                end)
                 |> Enum.take(@seq_token_capacity)
+
               expanded
             else
               nil

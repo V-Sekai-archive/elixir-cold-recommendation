@@ -50,7 +50,13 @@ defmodule RecGPT.AxonTrain do
     fuxi_opts = if all_timestamps, do: [all_timestamps: all_timestamps], else: []
 
     if Inference.fuxi_checkpoint?(params) do
-      FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params, fuxi_opts)
+      FuxiLinearInference.forward_full_sequence(
+        batch_token_ids,
+        batch_aux_embeds,
+        embed_mask,
+        params,
+        fuxi_opts
+      )
     else
       Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
     end
@@ -169,14 +175,18 @@ defmodule RecGPT.AxonTrain do
 
           # Eval test loss every N steps
           {new_best_test, _} =
-            if eval_test_every > 0 and eval_test_fn && rem(i + 1, eval_test_every) == 0 do
+            if (eval_test_every > 0 and eval_test_fn) && rem(i + 1, eval_test_every) == 0 do
               case eval_test_fn.(new_params) do
                 {:ok, test_loss} when is_number(test_loss) and not (test_loss != test_loss) ->
-                  best = if is_nil(best_test) or test_loss < best_test, do: test_loss, else: best_test
+                  best =
+                    if is_nil(best_test) or test_loss < best_test, do: test_loss, else: best_test
+
                   require Logger
+
                   Logger.info(
                     "Step #{i + 1} train_loss=#{safe_round(loss_num, 4)} test_loss=#{safe_round(test_loss, 4)} best_test=#{safe_round(best || test_loss, 4)}"
                   )
+
                   {best, :ok}
 
                 {:ok, _} ->
@@ -193,7 +203,8 @@ defmodule RecGPT.AxonTrain do
               {best_test, :ok}
             end
 
-          if is_integer(save_every) and save_every > 0 and save_fn && rem(i + 1, save_every) == 0 do
+          if (is_integer(save_every) and save_every > 0 and save_fn) &&
+               rem(i + 1, save_every) == 0 do
             save_fn.(i + 1, new_params)
           end
 
@@ -269,7 +280,13 @@ defmodule RecGPT.AxonTrain do
       |> Enum.chunk_every(batch_size)
       |> Stream.map(fn batch_indices ->
         {batch_seq, batch_labels, batch_aux_embeds, embed_mask, all_timestamps} =
-          Training.build_train_batch(seqs, token_id_list, item_embeddings, batch_indices, timestamps)
+          Training.build_train_batch(
+            seqs,
+            token_id_list,
+            item_embeddings,
+            batch_indices,
+            timestamps
+          )
 
         inputs =
           if all_timestamps do
@@ -304,7 +321,7 @@ defmodule RecGPT.AxonTrain do
 
     Stream.flat_map(1..epochs, fn _epoch ->
       chunk_ids =
-        (if shuffle, do: Enum.shuffle(seq_ids), else: seq_ids)
+        if(shuffle, do: Enum.shuffle(seq_ids), else: seq_ids)
         |> Enum.chunk_every(batch_size)
 
       Stream.map(chunk_ids, fn batch_seq_ids ->
@@ -314,7 +331,13 @@ defmodule RecGPT.AxonTrain do
         batch_indices = 0..(length(sequences) - 1)//1 |> Enum.to_list()
 
         {batch_seq, batch_labels, batch_aux_embeds, embed_mask, all_timestamps} =
-          Training.build_train_batch(sequences, token_id_list, item_embeddings, batch_indices, timestamps)
+          Training.build_train_batch(
+            sequences,
+            token_id_list,
+            item_embeddings,
+            batch_indices,
+            timestamps
+          )
 
         inputs =
           if all_timestamps do

@@ -188,11 +188,11 @@ defmodule RecGPT.Serve do
 
   defp load_embedding_caches(inference_backend) do
     alias RecGPT.EmbeddingCache
-    
+
     case EmbeddingCache.load_from_db(inference_backend) do
       {:ok, tables} ->
         {:ok, tables}
-      
+
       {:error, reason} ->
         # Warn but don't fail: embedding cache is optional
         IO.warn("Failed to load embedding cache: #{reason}")
@@ -473,7 +473,10 @@ defmodule RecGPT.Serve do
           end
 
         true ->
-          opts = [beam_width_override: state.beam_width_override, constants: state.decode_constants]
+          opts = [
+            beam_width_override: state.beam_width_override,
+            constants: state.decode_constants
+          ]
 
           result =
             Decode.beam_search_top_k_spmd(

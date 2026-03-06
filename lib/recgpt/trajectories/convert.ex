@@ -417,7 +417,11 @@ defmodule RecGPT.Trajectories.Convert do
       by_user
       |> Enum.map(fn {_user, rows} ->
         sorted = Enum.sort_by(rows, fn {_, _, t} -> t end)
-        ids = Enum.map(sorted, fn {_, video_id, _} -> Map.get(old_to_new, video_id) end) |> Enum.reject(&is_nil/1)
+
+        ids =
+          Enum.map(sorted, fn {_, video_id, _} -> Map.get(old_to_new, video_id) end)
+          |> Enum.reject(&is_nil/1)
+
         time_ms = Enum.map(sorted, fn {_, _, t} -> t || 0 end)
         %{"sequence" => ids, "timestamps" => time_ms}
       end)
@@ -448,6 +452,7 @@ defmodule RecGPT.Trajectories.Convert do
     parsed =
       Enum.reduce(lines, [], fn line, acc ->
         parts = parse_dat_line(line)
+
         if length(parts) >= 4 do
           [user_id, movie_id, _rating, ts] = Enum.take(parts, 4)
           user = parse_int(user_id)
@@ -476,6 +481,7 @@ defmodule RecGPT.Trajectories.Convert do
     map =
       Enum.reduce(lines, %{}, fn line, acc ->
         parts = parse_dat_line(line)
+
         if length(parts) >= 3 do
           [movie_id, title, genres] = Enum.take(parts, 3)
           id = parse_int(movie_id)
@@ -529,7 +535,11 @@ defmodule RecGPT.Trajectories.Convert do
       by_user
       |> Enum.map(fn {_user, rows} ->
         sorted = Enum.sort_by(rows, fn {_, _, t} -> t end)
-        ids = Enum.map(sorted, fn {_, movie_id, _} -> Map.get(old_to_new, movie_id) end) |> Enum.reject(&is_nil/1)
+
+        ids =
+          Enum.map(sorted, fn {_, movie_id, _} -> Map.get(old_to_new, movie_id) end)
+          |> Enum.reject(&is_nil/1)
+
         # FuXi Linear: per-position timestamps in ms (Training.build_train_batch does relative-from-start + 4x expand)
         time_ms = Enum.map(sorted, fn {_, _, t} -> (t || 0) * 1000 end)
         %{"sequence" => ids, "timestamps" => time_ms}

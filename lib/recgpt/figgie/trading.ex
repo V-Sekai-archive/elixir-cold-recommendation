@@ -22,11 +22,12 @@ defmodule RecGPT.Figgie.Trading do
     trade_sequence = build_trade_sequence(game)
 
     # Get model predictions
-    predictions = if model do
-      Inference.predict(model, trade_sequence)
-    else
-      default_predictions()
-    end
+    predictions =
+      if model do
+        Inference.predict(model, trade_sequence)
+      else
+        default_predictions()
+      end
 
     # Analyze current market prices vs predicted values
     current_prices = extract_current_prices(game)

@@ -8,7 +8,7 @@ defmodule PerfBench do
   end
 
   def percentile(sorted_list, p) do
-    idx = round((p / 100.0) * (length(sorted_list) - 1))
+    idx = round(p / 100.0 * (length(sorted_list) - 1))
     Enum.at(sorted_list, idx)
   end
 
@@ -29,7 +29,7 @@ defmodule PerfBench do
 
     trie = RecGPT.Trie.build(token_lists)
     trie_tensors = RecGPT.Trie.to_tensors(trie, 15_361)
-    
+
     # Transfer to GPU
     trie_tensors = %{
       next_state: Nx.backend_transfer(trie_tensors.next_state, backend),
@@ -61,16 +61,18 @@ defmodule PerfBench do
 
     latencies =
       Enum.reduce(1..100, [], fn _i, acc ->
-        {elapsed_us, _result} = :timer.tc(fn ->
-          RecGPT.Decode.beam_search_top_k_spmd(
-            trie_tensors,
-            item_id_to_tokens,
-            [],
-            5,
-            &stub_logits_4/1,
-            backend
-          )
-        end)
+        {elapsed_us, _result} =
+          :timer.tc(fn ->
+            RecGPT.Decode.beam_search_top_k_spmd(
+              trie_tensors,
+              item_id_to_tokens,
+              [],
+              5,
+              &stub_logits_4/1,
+              backend
+            )
+          end)
+
         [elapsed_us / 1000.0 | acc]
       end)
       |> Enum.sort()
@@ -100,16 +102,18 @@ defmodule PerfBench do
 
     latencies_ctx =
       Enum.reduce(1..100, [], fn _i, acc ->
-        {elapsed_us, _result} = :timer.tc(fn ->
-          RecGPT.Decode.beam_search_top_k_spmd(
-            trie_tensors,
-            item_id_to_tokens,
-            [0, 1, 2],
-            5,
-            &stub_logits_4/1,
-            backend
-          )
-        end)
+        {elapsed_us, _result} =
+          :timer.tc(fn ->
+            RecGPT.Decode.beam_search_top_k_spmd(
+              trie_tensors,
+              item_id_to_tokens,
+              [0, 1, 2],
+              5,
+              &stub_logits_4/1,
+              backend
+            )
+          end)
+
         [elapsed_us / 1000.0 | acc]
       end)
       |> Enum.sort()

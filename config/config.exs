@@ -27,13 +27,14 @@ config :recgpt, :inference_dtype, {:bf, 16}
 # Decode strategy: :beam_search (default) or :mtp (Multi-Token Prediction).
 # :mtp = model predicts K tokens at once; acceleration in weights, no draft or N-gram cache.
 # Override via RECGPT_DECODE_STRATEGY (mtp | lookahead | direct_score | beam_search).
-config :recgpt, :decode_strategy,
-  (case System.get_env("RECGPT_DECODE_STRATEGY", "beam_search") do
-     "mtp" -> :mtp
-     "lookahead" -> :mtp
-     "direct_score" -> :mtp
-     _ -> :beam_search
-   end)
+config :recgpt,
+       :decode_strategy,
+       (case System.get_env("RECGPT_DECODE_STRATEGY", "beam_search") do
+          "mtp" -> :mtp
+          "lookahead" -> :mtp
+          "direct_score" -> :mtp
+          _ -> :beam_search
+        end)
 
 # SLO: RecGPT latency targets (combination system; reflex-logic-market + bs-p add <0.1 ms).
 # Primary target P50 = 20 ms; P99 budget from E2E ceiling. Override via RECGPT_TARGET_P50_MS / RECGPT_TARGET_P99_MS.
@@ -60,9 +61,12 @@ config :waffle,
 # Figgie trading configuration
 config :recgpt, :figgie,
   simulation_games: 1000,
-  arbitrage_threshold: 0.05,  # Minimum profit margin for arbitrage
-  max_position_size: 10,       # Max cards to hold per suit
-  trading_timeout_ms: 240_000  # 4 minutes trading phase
+  # Minimum profit margin for arbitrage
+  arbitrage_threshold: 0.05,
+  # Max cards to hold per suit
+  max_position_size: 10,
+  # 4 minutes trading phase
+  trading_timeout_ms: 240_000
 
 # Load env-specific config (config/dev.exs, config/test.exs, etc.)
 import_config "#{config_env()}.exs"

@@ -20,7 +20,8 @@ defmodule RecGPT.KuaiRand.VideoFeaturesJsonld do
     * `:basic_path` - Override path to video_features_basic_pure.csv
     * `:stat_path` - Override path to video_features_statistic_pure.csv
   """
-  @spec load_canonical_texts(String.t(), keyword()) :: {:ok, %{optional(integer()) => String.t()}} | {:error, term()}
+  @spec load_canonical_texts(String.t(), keyword()) ::
+          {:ok, %{optional(integer()) => String.t()}} | {:error, term()}
   def load_canonical_texts(dir, opts \\ []) do
     dir = Path.expand(dir)
     basic_path = opts[:basic_path] || Path.join(dir, "video_features_basic_pure.csv")
@@ -45,7 +46,8 @@ defmodule RecGPT.KuaiRand.VideoFeaturesJsonld do
   Same as load_canonical_texts/2 but returns a list of canonical text strings in
   **item index order** (sorted video_id), so index i matches items.json item id i.
   """
-  @spec load_canonical_texts_ordered(String.t(), keyword()) :: {:ok, [String.t()]} | {:error, term()}
+  @spec load_canonical_texts_ordered(String.t(), keyword()) ::
+          {:ok, [String.t()]} | {:error, term()}
   def load_canonical_texts_ordered(dir, opts \\ []) do
     case load_canonical_texts(dir, opts) do
       {:ok, by_video} ->
@@ -93,7 +95,10 @@ defmodule RecGPT.KuaiRand.VideoFeaturesJsonld do
       |> Enum.filter(fn r -> parse_int(r["video_id"]) != nil end)
       |> Map.new(fn r -> {parse_int(r["video_id"]), r} end)
 
-    video_ids = MapSet.union(MapSet.new(Map.keys(by_video_basic)), MapSet.new(Map.keys(by_video_stat))) |> MapSet.to_list() |> Enum.sort()
+    video_ids =
+      MapSet.union(MapSet.new(Map.keys(by_video_basic)), MapSet.new(Map.keys(by_video_stat)))
+      |> MapSet.to_list()
+      |> Enum.sort()
 
     Enum.map(video_ids, fn vid ->
       b = Map.get(by_video_basic, vid, %{})
@@ -128,24 +133,30 @@ defmodule RecGPT.KuaiRand.VideoFeaturesJsonld do
 
   defp coerce_value(v) when is_binary(v) do
     v = String.trim(v)
+
     case Integer.parse(v) do
-      {n, ""} -> n
-      _ -> case Float.parse(v) do
-             {f, ""} -> f
-             _ -> v
-           end
+      {n, ""} ->
+        n
+
+      _ ->
+        case Float.parse(v) do
+          {f, ""} -> f
+          _ -> v
+        end
     end
   end
 
   defp coerce_value(v), do: v
 
   defp parse_int(nil), do: nil
+
   defp parse_int(s) when is_binary(s) do
     case Integer.parse(String.trim(s)) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(n) when is_integer(n), do: n
   defp parse_int(_), do: nil
 

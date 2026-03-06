@@ -14,7 +14,8 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       batch_aux = Nx.broadcast(0.1, {batch, seq_len, 192}) |> Nx.as_type({:f, 32})
       embed_mask = Nx.broadcast(1.0, {batch, seq_len, 1}) |> Nx.as_type({:f, 32})
 
-      logits = FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
+      logits =
+        FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
 
       assert Nx.shape(logits) == {batch, seq_len, 15_361}
       assert Nx.type(logits) == {:f, 32}
@@ -28,7 +29,8 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
       embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
 
-      {logits, cache} = FuxiLinearInference.forward_with_cache(batch_token_ids, batch_aux, embed_mask, params)
+      {logits, cache} =
+        FuxiLinearInference.forward_with_cache(batch_token_ids, batch_aux, embed_mask, params)
 
       assert Nx.shape(logits) == {1, 15_361}
       assert cache == []
@@ -40,7 +42,14 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       batch_aux = Nx.broadcast(0.0, {1, 1, 192}) |> Nx.as_type({:f, 32})
       embed_mask = Nx.broadcast(1.0, {1, 1, 1}) |> Nx.as_type({:f, 32})
 
-      {logits, cache} = FuxiLinearInference.forward_incremental(batch_token_ids, batch_aux, embed_mask, params, [])
+      {logits, cache} =
+        FuxiLinearInference.forward_incremental(
+          batch_token_ids,
+          batch_aux,
+          embed_mask,
+          params,
+          []
+        )
 
       assert Nx.shape(logits) == {1, 15_361}
       assert cache == []
@@ -168,7 +177,10 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       embed_mask = Nx.broadcast(1.0, {1, 5, 1}) |> Nx.as_type({:f, 32})
 
       logits_last = FuxiLinearInference.forward(batch_token_ids, batch_aux, embed_mask, params)
-      full_logits = FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
+
+      full_logits =
+        FuxiLinearInference.forward_full_sequence(batch_token_ids, batch_aux, embed_mask, params)
+
       last_pos = Nx.slice_along_axis(full_logits, 4, 1, axis: 1) |> Nx.squeeze(axes: [1])
 
       assert Nx.all_close(logits_last, last_pos) |> Nx.to_number() == 1

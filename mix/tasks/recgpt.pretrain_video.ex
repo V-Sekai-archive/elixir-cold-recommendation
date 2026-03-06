@@ -112,22 +112,57 @@ defmodule Mix.Tasks.Recgpt.PretrainVideo do
     eval_test_every = opts[:eval_test_every] || 0
 
     pretrain_args = [
-      "--out", out,
-      "--train", train_path,
-      "--items", items_path,
-      "--fixture", fixture_path,
-      "--epochs", (opts[:epochs] || 5) |> Integer.to_string()
+      "--out",
+      out,
+      "--train",
+      train_path,
+      "--items",
+      items_path,
+      "--fixture",
+      fixture_path,
+      "--epochs",
+      (opts[:epochs] || 5) |> Integer.to_string()
     ]
 
     pretrain_args = if ckpt_dir, do: ["--ckpt", ckpt_dir | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:save_every], do: ["--save-every", to_string(opts[:save_every]) | pretrain_args], else: pretrain_args
-    pretrain_args = if eval_test_every > 0, do: ["--eval-test-every", to_string(eval_test_every), "--test", test_path | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:batch_size], do: ["--batch-size", to_string(opts[:batch_size]) | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:learning_rate], do: ["--learning-rate", to_string(opts[:learning_rate]) | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:log], do: ["--log", to_string(opts[:log]) | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:log_interval_sec], do: ["--log-interval-sec", to_string(opts[:log_interval_sec]) | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:limit], do: ["--limit", to_string(opts[:limit]) | pretrain_args], else: pretrain_args
-    pretrain_args = if opts[:mtp_loss_weight], do: ["--mtp-loss-weight", to_string(opts[:mtp_loss_weight]) | pretrain_args], else: pretrain_args
+
+    pretrain_args =
+      if opts[:save_every],
+        do: ["--save-every", to_string(opts[:save_every]) | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if eval_test_every > 0,
+        do: ["--eval-test-every", to_string(eval_test_every), "--test", test_path | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if opts[:batch_size],
+        do: ["--batch-size", to_string(opts[:batch_size]) | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if opts[:learning_rate],
+        do: ["--learning-rate", to_string(opts[:learning_rate]) | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if opts[:log], do: ["--log", to_string(opts[:log]) | pretrain_args], else: pretrain_args
+
+    pretrain_args =
+      if opts[:log_interval_sec],
+        do: ["--log-interval-sec", to_string(opts[:log_interval_sec]) | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if opts[:limit],
+        do: ["--limit", to_string(opts[:limit]) | pretrain_args],
+        else: pretrain_args
+
+    pretrain_args =
+      if opts[:mtp_loss_weight],
+        do: ["--mtp-loss-weight", to_string(opts[:mtp_loss_weight]) | pretrain_args],
+        else: pretrain_args
 
     Mix.Task.run("recgpt.pretrain", pretrain_args)
   end

@@ -43,14 +43,21 @@ defmodule RecGPT.FixtureBuild do
         cond do
           path = opts[:canonical_texts_from] && is_binary(items_path) && items_path != "db" ->
             load_canonical_texts_from_file(path, items_path, opts[:limit])
-          opts[:canonical_texts] -> load_canonical_texts(opts[:limit])
-          items_path in [:db, "db"] -> load_item_text_dict_from_db(opts[:limit])
-          true -> load_item_text_dict(items_path, opts[:limit])
+
+          opts[:canonical_texts] ->
+            load_canonical_texts(opts[:limit])
+
+          items_path in [:db, "db"] ->
+            load_item_text_dict_from_db(opts[:limit])
+
+          true ->
+            load_item_text_dict(items_path, opts[:limit])
         end
 
       # When canonical_texts was requested but DB returned empty (e.g. video domain), use items file
       item_text_dict =
-        if map_size(item_text_dict) == 0 and is_binary(items_path) and items_path != "" and File.regular?(items_path) do
+        if map_size(item_text_dict) == 0 and is_binary(items_path) and items_path != "" and
+             File.regular?(items_path) do
           load_item_text_dict(items_path, opts[:limit])
         else
           item_text_dict
@@ -87,6 +94,7 @@ defmodule RecGPT.FixtureBuild do
       stream
       |> Enum.reduce(0, fn batch_items, acc ->
         ids = Enum.map(batch_items, & &1.item_id)
+
         embed_texts =
           from(e in ItemEmbeddingText, where: e.item_id in ^ids)
           |> Repo.all()
@@ -103,6 +111,7 @@ defmodule RecGPT.FixtureBuild do
         batch_tokens = FSQEncoder.encode_embeddings_to_token_id_list(embeddings, fsq_params)
 
         entries_items = Enum.map(batch_items, fn i -> %{item_id: i.item_id, title: i.title} end)
+
         entries_embeddings =
           ids
           |> Enum.with_index()
@@ -110,6 +119,7 @@ defmodule RecGPT.FixtureBuild do
             bin = Nx.slice(embeddings, [i, 0], [1, 768]) |> Nx.to_binary()
             %{item_id: id, embedding: bin}
           end)
+
         entries_tokens =
           Enum.zip(ids, batch_tokens)
           |> Enum.map(fn {id, [t0, t1, t2, t3]} ->
@@ -131,6 +141,7 @@ defmodule RecGPT.FixtureBuild do
     fsq_params = load_fsq_params(ckpt_dir, opts)
     ids = item_text_dict |> Map.keys() |> Enum.sort()
     num_items = length(ids)
+
     preloaded =
       if npy_path = resolve_embeddings_npy(items_path, opts),
         do: load_embeddings_npy(npy_path, num_items),
@@ -154,6 +165,7 @@ defmodule RecGPT.FixtureBuild do
 
         entries_items =
           Enum.map(batch_ids, fn id -> %{item_id: id, title: Map.fetch!(item_text_dict, id)} end)
+
         entries_embeddings =
           batch_ids
           |> Enum.with_index()
@@ -161,6 +173,7 @@ defmodule RecGPT.FixtureBuild do
             bin = Nx.slice(embeddings, [i, 0], [1, 768]) |> Nx.to_binary()
             %{item_id: id, embedding: bin}
           end)
+
         entries_tokens =
           Enum.zip(batch_ids, batch_tokens)
           |> Enum.map(fn {id, [t0, t1, t2, t3]} ->
@@ -175,10 +188,12 @@ defmodule RecGPT.FixtureBuild do
 
     unless items_path in [:db, "db"] do
       base = Path.dirname(items_path)
+
       Sync.sync_sequences_from_json(
         Path.join(base, "train_sequences.json"),
         Path.join(base, "cold_train_sequences.json")
       )
+
       Sync.sync_test_from_json(
         Path.join(base, "test_sequences.json"),
         Path.join(base, "cold_test_sequences.json")
@@ -237,7 +252,8 @@ defmodule RecGPT.FixtureBuild do
 
   # Load enriched canonical texts from JSON (e.g. from mix recgpt.kuairand_canonical_texts).
   # File must have "by_item_id": [str0, str1, ...] in same order as items.json.
-  defp load_canonical_texts_from_file(canonical_path, items_path, limit) when is_binary(items_path) do
+  defp load_canonical_texts_from_file(canonical_path, items_path, limit)
+       when is_binary(items_path) do
     raw = File.read!(items_path) |> Jason.decode!()
     items = raw["items"] || []
     num_items = raw["num_items"] || length(items)
@@ -247,7 +263,10 @@ defmodule RecGPT.FixtureBuild do
     texts = canonical["by_item_id"] || []
 
     Enum.map(0..(num_items - 1), fn i ->
-      text = Enum.at(texts, i) || (items |> Enum.at(i) |> then(fn it -> it && (it["title"] || it[:title]) end) || "")
+      text =
+        Enum.at(texts, i) ||
+          (items |> Enum.at(i) |> then(fn it -> it && (it["title"] || it[:title]) end) || "")
+
       {i, Embedding.recgpt_item_text(%{title: text})}
     end)
     |> Map.new()

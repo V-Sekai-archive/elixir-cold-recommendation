@@ -18,16 +18,20 @@ defmodule RecGPT.Figgie.Bayesian do
   def goal_suit_probabilities(hand) do
     # Total possible deck configurations
     # 12-card suit can be any suit, goal is same color (8 or 10 cards)
-    total_configs = 4 * 2  # 4 suits for 12-card, 2 possibilities for goal size
+    # 4 suits for 12-card, 2 possibilities for goal size
+    total_configs = 4 * 2
 
     # For each possible configuration, calculate likelihood given hand
-    probabilities = for config <- all_possible_configs() do
-      {config, likelihood_given_hand(config, hand)}
-    end
+    probabilities =
+      for config <- all_possible_configs() do
+        {config, likelihood_given_hand(config, hand)}
+      end
 
     # Normalize to probabilities
     total_likelihood = Enum.sum(Enum.map(probabilities, fn {_, l} -> l end))
-    normalized = Enum.map(probabilities, fn {config, l} -> {config.goal_suit, l / total_likelihood} end)
+
+    normalized =
+      Enum.map(probabilities, fn {config, l} -> {config.goal_suit, l / total_likelihood} end)
 
     # Sum probabilities for each suit
     Enum.reduce(normalized, %{}, fn {suit, prob}, acc ->
@@ -50,13 +54,15 @@ defmodule RecGPT.Figgie.Bayesian do
     common_color = @colors[likely_common]
 
     # Goal suit is same color, opposite suit
-    opposite_suits = @suits |> Enum.filter(fn s -> @colors[s] == common_color and s != likely_common end)
+    opposite_suits =
+      @suits |> Enum.filter(fn s -> @colors[s] == common_color and s != likely_common end)
 
     %{
       likely_common_suit: likely_common,
       common_count: common_count,
       likely_goal_suits: opposite_suits,
-      confidence: common_count / 10.0  # Based on 10-card hand
+      # Based on 10-card hand
+      confidence: common_count / 10.0
     }
   end
 

@@ -39,14 +39,11 @@ defmodule RecGPT.Figgie do
   def deal_and_start(game) do
     {dealt_cards, remaining_deck} = deal_cards(game.deck, length(game.players))
 
-    players_with_cards = Enum.zip(game.players, dealt_cards)
-    |> Enum.map(fn {player, cards} -> %{player | hand: cards} end)
+    players_with_cards =
+      Enum.zip(game.players, dealt_cards)
+      |> Enum.map(fn {player, cards} -> %{player | hand: cards} end)
 
-    %Game{game |
-      players: players_with_cards,
-      deck: remaining_deck,
-      trading_phase: true
-    }
+    %Game{game | players: players_with_cards, deck: remaining_deck, trading_phase: true}
   end
 
   @doc """
@@ -76,11 +73,7 @@ defmodule RecGPT.Figgie do
 
     updated_players = distribute_payouts(players_with_scores, winners, pot_split, goal_suit)
 
-    %Game{game |
-      players: updated_players,
-      trading_phase: false,
-      goal_suit: goal_suit
-    }
+    %Game{game | players: updated_players, trading_phase: false, goal_suit: goal_suit}
   end
 
   @doc """
@@ -106,9 +99,10 @@ defmodule RecGPT.Figgie do
     suit_sizes = [12, 10, 10, 8] |> Enum.shuffle()
     suit_assignments = Enum.zip(@suits, suit_sizes)
 
-    deck = for {suit, size} <- suit_assignments, _ <- 1..size do
-      suit
-    end
+    deck =
+      for {suit, size} <- suit_assignments, _ <- 1..size do
+        suit
+      end
 
     # Shuffle the deck
     Enum.shuffle(deck)
@@ -120,11 +114,13 @@ defmodule RecGPT.Figgie do
     extra_cards = rem(length(deck), player_count)
 
     {dealt, remaining} = Enum.split(deck, player_count * cards_per_player + extra_cards)
-    dealt_cards = for i <- 0..(player_count - 1) do
-      start_idx = i * cards_per_player + min(i, extra_cards)
-      end_idx = start_idx + cards_per_player + (if i < extra_cards, do: 1, else: 0)
-      Enum.slice(dealt, start_idx, end_idx - start_idx)
-    end
+
+    dealt_cards =
+      for i <- 0..(player_count - 1) do
+        start_idx = i * cards_per_player + min(i, extra_cards)
+        end_idx = start_idx + cards_per_player + if i < extra_cards, do: 1, else: 0
+        Enum.slice(dealt, start_idx, end_idx - start_idx)
+      end
 
     {dealt_cards, remaining}
   end
@@ -150,7 +146,7 @@ defmodule RecGPT.Figgie do
 
   defp find_winners_and_split(players_with_scores, pot) do
     max_goal = Enum.max_by(players_with_scores, & &1.goal_cards).goal_cards
-    winners = Enum.filter(players_with_scores, & &1.goal_cards == max_goal)
+    winners = Enum.filter(players_with_scores, &(&1.goal_cards == max_goal))
     pot_split = div(pot, length(winners))
     {winners, pot_split}
   end

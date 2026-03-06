@@ -25,7 +25,11 @@ defmodule RecGPT.SafeInspect do
   end
 
   def safe_inspect(map, opts) when is_map(map) and not is_struct(map) do
-    pairs = Enum.map_join(map, ", ", fn {k, v} -> "#{safe_inspect(k, opts)} => #{safe_inspect(v, opts)}" end)
+    pairs =
+      Enum.map_join(map, ", ", fn {k, v} ->
+        "#{safe_inspect(k, opts)} => #{safe_inspect(v, opts)}"
+      end)
+
     "%{#{pairs}}"
   end
 

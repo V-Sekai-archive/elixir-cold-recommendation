@@ -54,13 +54,15 @@ defmodule RecGPT.Decode do
 
     # Score each item by sum of logits at its 4-token semantic ID. Tokens (num_items, 4) once.
     tokens = Nx.as_type(item_id_to_tokens, {:s, 64})
+
     score_list =
       for p <- 0..3 do
         token_ids_p = Nx.slice_along_axis(tokens, p, 1, axis: 1) |> Nx.new_axis(-1)
         Nx.gather(logits_4[p], token_ids_p) |> Nx.reshape({:auto})
       end
 
-    scores = Enum.reduce(Enum.drop(score_list, 1), hd(score_list), fn s, acc -> Nx.add(acc, s) end)
+    scores =
+      Enum.reduce(Enum.drop(score_list, 1), hd(score_list), fn s, acc -> Nx.add(acc, s) end)
 
     k = min(top_k, num_items)
     {_top_scores, indices} = Nx.top_k(scores, k: k)
@@ -130,7 +132,8 @@ defmodule RecGPT.Decode do
         opts \\ []
       )
       when is_map(trie_tensors) and top_k >= 1 and is_function(get_logits_4_fn, 1) do
-    {context_tokens, _context_len} = build_context_tokens(item_id_to_tokens, context_item_ids, backend)
+    {context_tokens, _context_len} =
+      build_context_tokens(item_id_to_tokens, context_item_ids, backend)
 
     {_num_states, vocab_size} = Nx.shape(trie_tensors.next_state)
     next_state = trie_tensors.next_state

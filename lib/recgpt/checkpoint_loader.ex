@@ -55,7 +55,7 @@ defmodule RecGPT.CheckpointLoader do
             File.read!(path)
           rescue
             e in [File.Error] ->
-              raise "Failed to load #{path}: #{Exception.message(e)}"
+              reraise "Failed to load #{path}: #{Exception.message(e)}", __STACKTRACE__
           end
 
         acc <> :crypto.hash(:sha256, blob)

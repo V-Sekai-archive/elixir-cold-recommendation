@@ -60,14 +60,26 @@ defmodule RecGPT.TestLoss do
           losses =
             Enum.map(batch_indices_list, fn batch_indices ->
               {batch_seq, batch_labels, batch_aux_embeds, embed_mask, _all_timestamps} =
-                Training.build_train_batch(sequences, token_id_list, item_embeddings, batch_indices)
+                Training.build_train_batch(
+                  sequences,
+                  token_id_list,
+                  item_embeddings,
+                  batch_indices
+                )
 
               input = {batch_seq, batch_aux_embeds, embed_mask}
               eval_fn.(params, input, batch_labels) |> Nx.to_number()
             end)
 
-          valid_losses = Enum.reject(losses, &(not is_number(&1) or &1 != &1 or &1 == :infinity or &1 == :neg_infinity))
-          mean_loss = if valid_losses == [], do: :nan, else: Enum.sum(valid_losses) / length(valid_losses)
+          valid_losses =
+            Enum.reject(
+              losses,
+              &(not is_number(&1) or &1 != &1 or &1 == :infinity or &1 == :neg_infinity)
+            )
+
+          mean_loss =
+            if valid_losses == [], do: :nan, else: Enum.sum(valid_losses) / length(valid_losses)
+
           {:ok, mean_loss}
         end
 

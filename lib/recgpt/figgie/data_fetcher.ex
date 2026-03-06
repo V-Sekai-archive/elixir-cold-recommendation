@@ -90,31 +90,37 @@ defmodule RecGPT.Figgie.DataFetcher do
     # Simulate random trades for the duration
     # Generate trades with incremental timestamps
     start_time = DateTime.utc_now()
-    trades = for i <- 1..10 do
-      %RecGPT.Figgie.Trade{
-        buyer: Enum.random(0..3),
-        seller: Enum.random(0..3),
-        suit: Enum.random([:spades, :clubs, :hearts, :diamonds]),
-        price: Enum.random(10..100),
-        timestamp: DateTime.add(start_time, i * 1000, :millisecond)  # 1 second apart
-      }
-    end
+
+    trades =
+      for i <- 1..10 do
+        %RecGPT.Figgie.Trade{
+          buyer: Enum.random(0..3),
+          seller: Enum.random(0..3),
+          suit: Enum.random([:spades, :clubs, :hearts, :diamonds]),
+          price: Enum.random(10..100),
+          # 1 second apart
+          timestamp: DateTime.add(start_time, i * 1000, :millisecond)
+        }
+      end
 
     %{game | trades: trades}
   end
 
   defp build_labeled_sequence(game) do
     # Build sequence of trades with time_ms
-    sequence = Enum.map(game.trades, fn trade ->
-      suit_index = case trade.suit do
-        :spades -> 0
-        :clubs -> 1
-        :hearts -> 2
-        :diamonds -> 3
-      end
-      time_ms = DateTime.to_unix(trade.timestamp, :millisecond)
-      [suit_index, time_ms]
-    end)
+    sequence =
+      Enum.map(game.trades, fn trade ->
+        suit_index =
+          case trade.suit do
+            :spades -> 0
+            :clubs -> 1
+            :hearts -> 2
+            :diamonds -> 3
+          end
+
+        time_ms = DateTime.to_unix(trade.timestamp, :millisecond)
+        [suit_index, time_ms]
+      end)
 
     # Label arbitrage opportunities (simplified - mark all trades as potential arbitrage)
     labels = Enum.map(sequence, fn _ -> 1 end)

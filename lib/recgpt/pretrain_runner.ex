@@ -62,6 +62,7 @@ defmodule RecGPT.PretrainRunner do
          {:ok, fixture} <- load_fixture(fixture_path),
          {:ok, train_data} <- load_train_data(train_path) do
       empty? = train_data_empty?(train_data)
+
       if empty? do
         File.mkdir_p!(out_dir)
         CheckpointExport.write_export(params, out_dir)
@@ -74,6 +75,7 @@ defmodule RecGPT.PretrainRunner do
                load_item_embeddings(items_path, fixture_num_items, opts) do
           epochs = epochs || 1
           steps_per_epoch = steps_per_epoch_from_train_data(train_data, batch_size)
+
           iterations =
             if Keyword.get(opts, :epochs),
               do: epochs * steps_per_epoch,
@@ -110,7 +112,7 @@ defmodule RecGPT.PretrainRunner do
           test_path = opts[:test_path]
 
           eval_test_fn =
-            if eval_test_every > 0 and test_path && File.regular?(test_path) do
+            if (eval_test_every > 0 and test_path) && File.regular?(test_path) do
               fn params ->
                 TestLoss.compute(params, token_id_list, item_embeddings, test_path,
                   batch_size: batch_size,
@@ -160,6 +162,7 @@ defmodule RecGPT.PretrainRunner do
   defp require_items_source!(nil), do: {:error, :items_source_required_for_pretrain}
   defp require_items_source!(:db), do: :ok
   defp require_items_source!("db"), do: :ok
+
   defp require_items_source!(path) when is_binary(path) do
     if File.regular?(path), do: :ok, else: {:error, {:missing_file, path}}
   end
@@ -210,6 +213,7 @@ defmodule RecGPT.PretrainRunner do
 
   defp steps_per_epoch_from_train_data({:db, seq_ids}, batch_size),
     do: div(length(seq_ids) + batch_size - 1, batch_size)
+
   defp steps_per_epoch_from_train_data({:file, sequences, _}, batch_size),
     do: div(length(sequences) + batch_size - 1, batch_size)
 
@@ -218,12 +222,16 @@ defmodule RecGPT.PretrainRunner do
   end
 
   defp build_train_stream({:file, sequences, timestamps}, token_id_list, item_embeddings, opts) do
-    AxonTrain.stream_batches(sequences, token_id_list, item_embeddings,
+    AxonTrain.stream_batches(
+      sequences,
+      token_id_list,
+      item_embeddings,
       Keyword.put(opts, :timestamps, timestamps)
     )
   end
 
-  defp maybe_token_list_from_db(token_id_list, _num_items) when is_list(token_id_list) and token_id_list != [] do
+  defp maybe_token_list_from_db(token_id_list, _num_items)
+       when is_list(token_id_list) and token_id_list != [] do
     {:ok, token_id_list}
   end
 
@@ -240,11 +248,13 @@ defmodule RecGPT.PretrainRunner do
     raw = File.read!(path) |> Jason.decode!()
     raw_seqs = raw["sequences"] || []
     sequences = Enum.map(raw_seqs, &normalize_sequence/1)
+
     timestamps =
       Enum.map(raw_seqs, fn
         %{"timestamps" => t} when is_list(t) -> t
         _ -> nil
       end)
+
     timestamps = if Enum.any?(timestamps, & &1), do: timestamps, else: nil
     {:ok, sequences, timestamps}
   rescue
@@ -288,8 +298,11 @@ defmodule RecGPT.PretrainRunner do
     {:ok, token_id_list, num_items}
   end
 
-  defp load_item_embeddings(:db, fixture_num_items, opts), do: load_item_embeddings_from_db(fixture_num_items, opts)
-  defp load_item_embeddings("db", fixture_num_items, opts), do: load_item_embeddings_from_db(fixture_num_items, opts)
+  defp load_item_embeddings(:db, fixture_num_items, opts),
+    do: load_item_embeddings_from_db(fixture_num_items, opts)
+
+  defp load_item_embeddings("db", fixture_num_items, opts),
+    do: load_item_embeddings_from_db(fixture_num_items, opts)
 
   defp load_item_embeddings(items_path, fixture_num_items, opts) when is_binary(items_path) do
     raw = File.read!(items_path) |> Jason.decode!()
