@@ -38,6 +38,20 @@ The **text** embedding pipeline already exists: MPNet (`sentence-transformers/al
 
 ---
 
+## Vision vs video (DINO and Bumblebee)
+
+**Does DINO do video?** DINOv2 is **image-only**. It has no built-in temporal or video input. Video is handled in research by using DINOv2 as a **frozen frame encoder** and adding separate temporal modules (e.g. DINO-world: future predictor in latent space). So for “video items” you can: (1) treat each **frame** as an image and run DINOv2, then pool or aggregate frame embeddings; or (2) use a **video-native** model (e.g. VideoMAE, TimeSformer) if/when available in your stack.
+
+**What does Bumblebee have?** In Elixir, **Bumblebee.Vision** provides:
+
+- **Bumblebee.Vision.DinoV2** — image encoder (`:base`, `:for_image_classification`, `:backbone`); input is pixel values per image, output is hidden states or classification logits. Image-only; no video API.
+- **Bumblebee.Vision** tasks — image classification, **image embedding** (vector from image), image-to-text. Image embedding pipelines can use DINOv2 or other backbones.
+- **Video** — Bumblebee has no dedicated video encoder. Video is typically done **frame-by-frame**: extract frames (e.g. with Evision/OpenCV or ffmpeg), convert each frame to an image tensor, run the image model (e.g. DinoV2 or an object-detection model) on each frame, then aggregate or sequence the outputs. So “video embedding” in Bumblebee today = run the same image model on sampled frames and pool or concatenate.
+
+For this track (avatar/asset catalogs), **image** (DINOv2 + projector) is sufficient; video can be added later by frame sampling + the same image encoder if you need video items.
+
+---
+
 ## Technical references (this repo)
 
 - **Text (existing):** `RecGPT.Embedding` — MPNet, 768-d, L2 norm; `encode_item_text_dict/1`; used in fixture build and pretrain. See [46_modality_text](../archived/46_modality_text.md).
