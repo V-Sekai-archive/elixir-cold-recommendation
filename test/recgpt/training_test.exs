@@ -5,7 +5,7 @@ defmodule RecGPT.TrainingTest do
   alias RecGPT.Training
 
   @padding_id FSQ.padding_id()
-  @seq_cap 1024
+  @seq_cap 2048
   @max_length 256
 
   describe "build_train_batch/5" do

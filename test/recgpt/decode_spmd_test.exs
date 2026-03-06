@@ -107,6 +107,7 @@ defmodule RecGPT.DecodeSPMDTest do
       assert_tensors_match_trie(trie, token_id_list, tensors.next_state, tensors.item_at_leaf)
     end
 
+    @tag :integration
     test "trie tensors with fixture (first 20 items)" do
       fixture_path = Path.expand("data/steam/fixture.json", File.cwd!())
       unless File.regular?(fixture_path), do: raise("Fixture not found: #{fixture_path}")

@@ -15,8 +15,8 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
     * `--from` - Input directory (e.g. path to KuaiRand-Pure or movielens-20m). Required.
     * `--out` - Output directory (default: data/training_signal_test)
     * `--format` - kuairand (default), movielens, ml1m
-    * `--train-limit` - Max train sequences (default: 10000). Use 0 for no cap.
-    * `--test-limit` - Max test cases (default: 2000). Use 0 for no cap.
+    * `--train-limit` - Max train sequences (default: 0 = no cap). Set to limit subset.
+    * `--test-limit` - Max test cases (default: 0 = no cap). Set to limit subset.
     * `--seed` - Random seed for reproducible split (default: 42)
     * `--sync-to-db` - Sync items and sequences to SQLite (ETNF tables). Requires RECGPT_SQLITE_PATH. Run mix ecto.migrate first.
 
@@ -58,8 +58,8 @@ defmodule Mix.Tasks.Recgpt.ConvertTrajectories do
     from_dir = opts[:from]
     out_dir = opts[:out] || "data/training_signal_test"
     format = parse_format(opts[:format])
-    train_limit = opts[:train_limit] || 10_000
-    test_limit = opts[:test_limit] || 2_000
+    train_limit = opts[:train_limit] || 0
+    test_limit = opts[:test_limit] || 0
     seed = opts[:seed] || 42
     sync_to_db = opts[:sync_to_db] || false
 

@@ -23,8 +23,8 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
     * `--from` - Input directory (e.g. path to movielens-20m). Default: ../recgpt-trajectories/movielens-20m when present.
     * `--out` - Output/data directory (default: data/movielens). Receives items, sequences, fixture.json, and ckpt/.
     * `--format` - movielens (default), ml1m, kuairand
-    * `--train-limit` - Max train sequences (default: 10000). Use 0 for no cap.
-    * `--test-limit` - Max test cases (default: 2000). Use 0 for no cap.
+    * `--train-limit` - Max train sequences (default: 0 = no cap). Set to limit subset.
+    * `--test-limit` - Max test cases (default: 0 = no cap). Set to limit subset.
     * `--epochs` - Pretrain epochs (default: 5)
     * `--sync-to-db` - Sync convert output to SQLite; use db for items/train in build_fixture and pretrain.
     * `--ckpt` - Base checkpoint dir for build_fixture and pretrain (default: data/fuxi_ckpt_export)
@@ -59,8 +59,8 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
     from_dir = opts[:from]
     out_dir = opts[:out] || "data/movielens"
     format = opts[:format] || "movielens"
-    train_limit = opts[:train_limit] || 10_000
-    test_limit = opts[:test_limit] || 2_000
+    train_limit = opts[:train_limit] || 0
+    test_limit = opts[:test_limit] || 0
     epochs = opts[:epochs] || 5
     sync_to_db = opts[:sync_to_db] || false
     ckpt_dir = opts[:ckpt] || "data/fuxi_ckpt_export"

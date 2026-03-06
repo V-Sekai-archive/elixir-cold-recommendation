@@ -9,7 +9,6 @@ defmodule RecGPT.Steam.Fetch do
 
   @base_url "https://huggingface.co/datasets/hkuds/RecGPT_dataset/resolve/main/test/steam"
   @embeddings_npy "item_text_embeddings.npy"
-  @max_context 64
 
   @doc """
   Downloads pkl files, unpickles them, and writes JSON to `out_dir`.
@@ -215,7 +214,7 @@ defmodule RecGPT.Steam.Fetch do
   defp seq_to_test_case([single]), do: %{"context" => [], "next_item" => single}
 
   defp seq_to_test_case(seq) do
-    context = seq |> Enum.drop(-1) |> Enum.take(-@max_context)
+    context = seq |> Enum.drop(-1)
     next_item = List.last(seq)
     %{"context" => context, "next_item" => next_item}
   end

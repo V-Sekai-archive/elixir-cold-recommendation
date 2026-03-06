@@ -78,8 +78,8 @@ defmodule RecGPT.AxonTrainTest do
     [first_batch | _] = Enum.take(stream, 1)
 
     {{batch_seq, batch_aux, embed_mask}, batch_labels} = first_batch
-    assert Nx.shape(batch_seq) == {2, 1024}
-    assert Nx.shape(batch_labels) == {2, 1024}
+    assert Nx.shape(batch_seq) == {2, 2048}
+    assert Nx.shape(batch_labels) == {2, 2048}
     assert Nx.shape(batch_aux) == {2, 256 * 4, 192}
     assert Nx.shape(embed_mask) == {2, 256 * 4, 1}
   end

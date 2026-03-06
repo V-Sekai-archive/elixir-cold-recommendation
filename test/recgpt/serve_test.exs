@@ -6,13 +6,13 @@ defmodule RecGPT.ServeTest do
   alias RecGPT.TestSupport.FrozenHelpers
 
   describe "item_ids_to_context_token_ids/3" do
-    test "left-pads to seq_token_capacity 1024" do
+    test "left-pads to seq_token_capacity 2048" do
       token_id_list = for _ <- 1..10, do: [1, 2, 3, 4]
       ids = [0, 1]
       context = Serve.item_ids_to_context_token_ids(ids, token_id_list)
-      assert length(context) == 1024
+      assert length(context) == 2048
       # First tokens should be padding (15360), then 8 tokens from 2 items
-      padding_count = 1024 - 8
+      padding_count = 2048 - 8
       assert Enum.take(context, padding_count) == List.duplicate(15_360, padding_count)
       assert Enum.drop(context, padding_count) == [1, 2, 3, 4, 1, 2, 3, 4]
     end
@@ -21,7 +21,7 @@ defmodule RecGPT.ServeTest do
       token_id_list = for _ <- 1..300, do: [0, 0, 0, 0]
       ids = Enum.to_list(0..299)
       context = Serve.item_ids_to_context_token_ids(ids, token_id_list)
-      assert length(context) == 1024
+      assert length(context) == 2048
     end
   end
 

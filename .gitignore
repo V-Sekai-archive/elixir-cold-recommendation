@@ -98,3 +98,8 @@ thirdparty/KuaiRand-Pure/*.csv
 
 # Temp / scratch
 tmp/
+
+# Test DB (created by test_helper; do not commit)
+priv/recgpt_test.sqlite3
+priv/recgpt_test.sqlite3-shm
+priv/recgpt_test.sqlite3-wal

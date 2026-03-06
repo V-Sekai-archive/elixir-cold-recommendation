@@ -8,18 +8,17 @@ defmodule RecGPT.Trajectories.Convert do
   See docs/features/05_eval_data_shapes.md.
   """
 
-  @max_context 64
   @cold_k 2
-  @default_train_limit 10_000
-  @default_test_limit 2_000
+  @default_train_limit 0
+  @default_test_limit 0
 
   @doc """
   Converts a dataset to RecGPT canonical format.
 
   Options:
     * `:format` - `:movielens` (default), `:ml1m` (MovieLens 1M .dat with title+genres), `:kuairand`
-    * `:train_limit` - Max train sequences (default: 10_000). Use 0 for no cap.
-    * `:test_limit` - Max test cases (default: 2_000). Use 0 for no cap.
+    * `:train_limit` - Max train sequences (default: 0 = no cap). Set to limit subset.
+    * `:test_limit` - Max test cases (default: 0 = no cap). Set to limit subset.
     * `:seed` - Random seed for reproducible subset (default: 42)
     * `:sync_to_db` - When true, sync items and sequences to SQLite (ETNF tables).
       Requires RECGPT_SQLITE_PATH. Skips writing sequence JSON files. Always writes items.json.
@@ -586,8 +585,7 @@ defmodule RecGPT.Trajectories.Convert do
 
   defp split_train_test(sequences, seed) do
     :rand.seed(:exs1024, {seed, 0, 0})
-    capped = Enum.take(sequences, 100_000)
-    shuffled = Enum.shuffle(capped)
+    shuffled = Enum.shuffle(sequences)
     n = length(shuffled)
     split = max(1, min(n - 1, round(n * 0.8)))
     train = Enum.take(shuffled, split)
@@ -605,7 +603,7 @@ defmodule RecGPT.Trajectories.Convert do
   defp seq_to_test_case([single]), do: %{"context" => [], "next_item" => single}
 
   defp seq_to_test_case(seq) do
-    context = seq |> Enum.drop(-1) |> Enum.take(-@max_context)
+    context = seq |> Enum.drop(-1)
     next_item = List.last(seq)
     %{"context" => context, "next_item" => next_item}
   end

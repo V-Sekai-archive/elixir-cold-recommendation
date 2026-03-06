@@ -36,7 +36,7 @@ defmodule RecGPT.Figgie do
   @doc """
   Deals cards evenly to all players and starts the trading phase.
   """
-  def deal_and_start(game) do
+  def deal_and_start(%Game{} = game) do
     {dealt_cards, remaining_deck} = deal_cards(game.deck, length(game.players))
 
     players_with_cards =
@@ -49,7 +49,7 @@ defmodule RecGPT.Figgie do
   @doc """
   Executes a trade between two players.
   """
-  def execute_trade(game, %Trade{} = trade) do
+  def execute_trade(game, %Trade{} = _trade) do
     # Validate trade
     # Update player hands and chip counts
     # Clear all quotes
@@ -61,7 +61,7 @@ defmodule RecGPT.Figgie do
   @doc """
   Ends trading and calculates payouts.
   """
-  def end_round(game) do
+  def end_round(%Game{} = game) do
     # Reveal goal suit
     goal_suit = determine_goal_suit(game)
 

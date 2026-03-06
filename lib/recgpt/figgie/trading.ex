@@ -6,7 +6,6 @@ defmodule RecGPT.Figgie.Trading do
   mispriced contracts for arbitrage opportunities.
   """
 
-  alias RecGPT.Figgie.{Game, Trade}
   alias RecGPT.Inference
 
   @doc """
@@ -21,10 +20,10 @@ defmodule RecGPT.Figgie.Trading do
     # Build sequence of trades for model input
     trade_sequence = build_trade_sequence(game)
 
-    # Get model predictions
+    # Get model predictions (use Inference.predict/2 when available)
     predictions =
-      if model do
-        Inference.predict(model, trade_sequence)
+      if model && function_exported?(Inference, :predict, 2) do
+        apply(Inference, :predict, [model, trade_sequence])
       else
         default_predictions()
       end
@@ -39,7 +38,7 @@ defmodule RecGPT.Figgie.Trading do
   @doc """
   Executes an arbitrage trade if profitable.
   """
-  def execute_arbitrage_trade(game, opportunity) do
+  def execute_arbitrage_trade(game, _opportunity) do
     # Validate opportunity
     # Execute trade
     # Update game state
@@ -73,13 +72,13 @@ defmodule RecGPT.Figgie.Trading do
     }
   end
 
-  defp extract_current_prices(game) do
+  defp extract_current_prices(_game) do
     # Extract current bid/ask prices for each suit
     # This would come from game.bids_offers
     %{}
   end
 
-  defp identify_mispricings(predictions, prices) do
+  defp identify_mispricings(_predictions, _prices) do
     # Compare predicted values with market prices
     # Return list of {suit, action, expected_profit}
     []

@@ -99,6 +99,25 @@ mix recgpt.check_gpu
 
 ## Running tests
 
+Tests use EXLA with **GPU (CUDA)** by default (`config :exla, :default_client, :cuda`). The EXLA NIF needs NVSHMEM/CUDA libs when built with `XLA_TARGET=cuda12`. Use one of:
+
+- **Devcontainer (recommended):** Open the project in the devcontainer (see [.devcontainer/](.devcontainer/)). It has CUDA 12.9, NVSHMEM, and the right `LD_LIBRARY_PATH`. In the devcontainer terminal, run:
+  ```bash
+  mix test
+  ```
+  Or explicitly with the GPU env script: `./scripts/run_with_exla_env.sh mix test`.
+- **Host with GPU:** Install CUDA/NVSHMEM per [Building with CUDA](#building-with-cuda). Run the setup script **once** (no arguments; as root if needed). The script supports **Fedora (dnf)** and **Debian/Ubuntu (apt-get)** and uses the correct paths for each:
+  ```bash
+  cd /path/to/elixir-recgpt
+  sudo bash scripts/setup_exla_libs.sh
+  ```
+  If you get `command not found` with `sudo ./scripts/setup_exla_libs.sh`, use `sudo bash scripts/setup_exla_libs.sh` from the repo root, or the full path: `sudo bash /FIRE202602/Experiments/elixir-recgpt/scripts/setup_exla_libs.sh`. Then run tests (no sudo):
+  ```bash
+  ./scripts/run_with_exla_env.sh mix test
+  ```
+  Or source [.env.example](.env.example) and run `mix test`.
+- **CPU-only (no GPU):** Build EXLA for host: `export XLA_TARGET=host`, `mix deps.compile exla --force && mix compile`. Set `config :exla, :default_client, :host` (e.g. in config/test.exs) so tests run without CUDA libs.
+
 ```bash
 mix test
 ```

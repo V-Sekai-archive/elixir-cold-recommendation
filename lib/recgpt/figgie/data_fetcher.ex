@@ -8,7 +8,6 @@ defmodule RecGPT.Figgie.DataFetcher do
   - Provides arbitrage-labeled data for supervised learning
   """
 
-  alias RecGPT.Figgie
 
   @doc """
   Generates training data by simulating Figgie games.
@@ -55,7 +54,7 @@ defmodule RecGPT.Figgie.DataFetcher do
   Converts labeled Figgie game data into enhanced fixture format with pattern labels.
   """
   def to_labeled_fixture_data(games_data) do
-    sequences = Enum.map(games_data, fn {sequence, labels} -> sequence end)
+    sequences = Enum.map(games_data, fn {sequence, _labels} -> sequence end)
     pattern_labels = Enum.map(games_data, fn {_sequence, labels} -> labels end)
 
     %{
@@ -86,7 +85,6 @@ defmodule RecGPT.Figgie.DataFetcher do
 
   defp simulate_trading_phase(game, _time_remaining \\ 240) do
     # TODO: Implement strategic trading phase
-    game
     # Simulate random trades for the duration
     # Generate trades with incremental timestamps
     start_time = DateTime.utc_now()

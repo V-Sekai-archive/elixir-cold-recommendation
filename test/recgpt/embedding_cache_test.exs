@@ -27,8 +27,8 @@ defmodule RecGPT.EmbeddingCacheTest do
       %{item_id: 2, t0: 11, t1: 21, t2: 31, t3: 41}
     ])
 
-    # Load caches
-    {:ok, embeddings_table, tokens_table} = EmbeddingCache.load_from_db({CPU, []})
+    # Load caches (use BinaryBackend so test runs without EXLA/CUDA)
+    {:ok, {embeddings_table, tokens_table}} = EmbeddingCache.load_from_db({Nx.BinaryBackend, []})
 
     assert is_reference(embeddings_table)
     assert is_reference(tokens_table)
@@ -63,7 +63,7 @@ defmodule RecGPT.EmbeddingCacheTest do
       %{item_id: 5, t0: 100, t1: 101, t2: 102, t3: 103}
     ])
 
-    {:ok, _embeddings_table, tokens_table} = EmbeddingCache.load_from_db({CPU, []})
+    {:ok, {_embeddings_table, tokens_table}} = EmbeddingCache.load_from_db({Nx.BinaryBackend, []})
 
     # Verify token lookup on missing item
     assert EmbeddingCache.get_tokens(tokens_table, 5) == {:ok, [100, 101, 102, 103]}

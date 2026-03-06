@@ -11,7 +11,6 @@ defmodule Mix.Tasks.Recgpt.FiggieSimulate do
   """
 
   use Mix.Task
-  alias RecGPT.Figgie.DataFetcher
 
   @impl Mix.Task
   def run(args) do

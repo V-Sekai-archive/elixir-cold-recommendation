@@ -19,7 +19,7 @@ defmodule RecGPT.Figgie.Bayesian do
     # Total possible deck configurations
     # 12-card suit can be any suit, goal is same color (8 or 10 cards)
     # 4 suits for 12-card, 2 possibilities for goal size
-    total_configs = 4 * 2
+    _total_configs = 4 * 2
 
     # For each possible configuration, calculate likelihood given hand
     probabilities =
