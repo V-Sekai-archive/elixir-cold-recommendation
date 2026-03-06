@@ -102,11 +102,13 @@ defmodule RecGPT.FuxiLinearInference do
     invalid_attn_mask = causal_mask(seq_len)
 
     # FuXi-Linear: N blocks (chunked when chunk_size set and seq_len > chunk_size)
+    n_blocks = count_blocks(params)
+
     h =
       if chunk_size && seq_len > chunk_size do
-        forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size)
+        forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size, n_blocks)
       else
-        for i <- 0..(@n_blocks - 1), reduce: x do
+        for i <- 0..(n_blocks - 1), reduce: x do
           acc -> fuxi_block(acc, i, seq_len, all_timestamps, invalid_attn_mask, params)
         end
       end
@@ -114,7 +116,16 @@ defmodule RecGPT.FuxiLinearInference do
     apply_ln_f(h, params)
   end
 
-  defp forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size) do
+  defp count_blocks(params) do
+    n =
+      Stream.iterate(0, &(&1 + 1))
+      |> Stream.take_while(fn i -> Map.has_key?(params, "fuxi.block.#{i}.uvqk") end)
+      |> Enum.count()
+
+    if n == 0, do: @n_blocks, else: n
+  end
+
+  defp forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size, n_blocks) do
     n_chunks = div(seq_len + chunk_size - 1, chunk_size)
 
     Enum.reduce(0..(n_chunks - 1), x, fn chunk_idx, acc ->
@@ -135,7 +146,7 @@ defmodule RecGPT.FuxiLinearInference do
       mask_slice = Nx.slice(invalid_attn_mask, [0, 0], [end_pos, end_pos])
 
       chunk_out =
-        for i <- 0..(@n_blocks - 1), reduce: h_slice do
+        for i <- 0..(n_blocks - 1), reduce: h_slice do
           block_in ->
             fuxi_block(block_in, i, end_pos, ts_slice, mask_slice, params)
         end
@@ -500,7 +511,18 @@ defmodule RecGPT.FuxiLinearInference do
     # RecGPT semantic ID components
     base =
       %{}
-      |> Map.put("wte", init.({@vocab_size, @n_embd}, 0.02))
+      |> Map.put(
+        "wte",
+        Nx.add(
+          Nx.iota({@vocab_size, 1}, type: {:s, 32}),
+          Nx.iota({1, @n_embd}, type: {:s, 32})
+        )
+        |> Nx.remainder(@n_embd)
+        |> Nx.as_type({:f, 32})
+        |> Nx.divide(@n_embd - 1)
+        |> Nx.multiply(0.02 * 4)
+        |> Nx.subtract(0.02 * 2)
+      )
       |> Map.put("ae.linear.weight", init.({192, @n_embd}, 0.02))
       |> Map.put("ae.linear.bias", Nx.broadcast(0, {@n_embd}) |> Nx.as_type({:f, 32}))
       |> Map.put("ae.norm.weight", Nx.iota({@n_embd}, type: {:f, 32}) |> Nx.add(1))

@@ -121,8 +121,9 @@ defmodule RecGPT.FuxiLinearInferenceTest do
       logits_a = FuxiLinearInference.forward(ids_a, batch_aux, embed_mask, params)
       logits_b = FuxiLinearInference.forward(ids_b, batch_aux, embed_mask, params)
 
-      # wte row 0 vs row 1 differ with iota init
-      assert Nx.all_close(logits_a, logits_b) |> Nx.to_number() == 0
+      # wte row 0 vs row 1 differ with iota init; use exact inequality since
+      # logit scale (~1000s) makes all_close rtol swallow small absolute diffs
+      assert Nx.any(Nx.not_equal(logits_a, logits_b)) |> Nx.to_number() == 1
     end
 
     test "all_timestamps opts: accepts real timestamps (batch, seq_len, channel_t_heads)" do
