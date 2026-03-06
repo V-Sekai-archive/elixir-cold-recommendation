@@ -41,7 +41,47 @@ To use the GPU backend (e.g. for faster inference):
    - **Linux:** Ensure CUDA toolkit is installed and `nvcc` is on `PATH` (or set `CUDAToolkit_ROOT` / `CUDA_PATH`). The devcontainer uses CUDA 12.9.
    - **Windows:** Set `CUDA_PATH` to your toolkit root if needed.
 
-3. **Compile:**
+3. **Install CUDA runtime libraries** (NCCL, cuDNN, NVSHMEM — required by EXLA):
+
+   These are not in default Fedora/RHEL repos. Add the NVIDIA CUDA and HPC SDK repos first:
+
+   **Fedora 41+ / DNF5:**
+   ```bash
+   # Add CUDA repo (provides NCCL, cuDNN)
+   sudo dnf config-manager addrepo --from-repofile=https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+
+   # Add HPC SDK repo (provides NVSHMEM transports)
+   sudo dnf config-manager addrepo --from-repofile=https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo
+
+   # Install libraries
+   sudo dnf install libnccl libnccl-devel libcudnn9-cuda-12 libcudnn9-devel-cuda-12 nvshmem
+   sudo ldconfig
+
+   # NVSHMEM installs to a non-standard path; add it to the linker search path
+   echo "/usr/lib64/nvshmem/12" | sudo tee /etc/ld.so.conf.d/nvshmem.conf
+   # EXLA expects .so.3 but nvshmem 3.5+ ships .so.4; create a compatibility symlink
+   sudo ln -sf /usr/lib64/nvshmem/12/nvshmem_transport_ibrc.so.4 /usr/lib64/nvshmem/12/nvshmem_transport_ibrc.so.3
+   sudo ldconfig
+
+   # CUDA also installs some libs (e.g. libnvrtc-builtins) with mismatched SONAME versions.
+   # ldconfig won't cache them by the expected name, so add the path to LD_LIBRARY_PATH:
+   echo 'export LD_LIBRARY_PATH=/usr/lib64/nvshmem/12:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH' \
+     | sudo tee /etc/profile.d/nvshmem.sh
+   source /etc/profile.d/nvshmem.sh
+   ```
+
+   **Ubuntu/Debian:**
+   ```bash
+   sudo apt-get install libnccl2 libnccl-dev libcudnn9-cuda-12 libcudnn9-dev
+   ```
+
+   > Note: Fedora 43 has no official NVIDIA packages; the `rhel9` repo RPMs are compatible.
+   > DNF5 (Fedora 41+) uses `addrepo --from-repofile=` instead of the old `--add-repo` flag.
+   > The `nvshmem` package (~700 MiB) pulls in `libnvshmem3-cuda-12` and its transports.
+   > The `LD_LIBRARY_PATH` export is needed because some CUDA 13 libs have SONAME mismatches
+   > that prevent `ldconfig` from caching them under the expected filename.
+
+4. **Compile:**
    ```bash
    mix deps.get
    mix compile --force
