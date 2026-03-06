@@ -6,8 +6,8 @@ ENV LANG=C.UTF-8
 
 # Build tools + XLA-from-source deps (Bazel 7.7.0, Clang, Python3+NumPy, xxd for embed_gpu_specs_gen). See https://hexdocs.pm/xla/0.10.0/XLA.html
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake curl gnupg git ca-certificates dos2unix wget xxd \
-    python3 python3-pip python3-venv \
+    build-essential cmake curl gnupg git ca-certificates apt-util dos2unix wget xxd \
+    python3 python3-pip python3-venv sudo \
     clang-14 \
     unzip zip \
     && rm -rf /var/lib/apt/lists/* \
@@ -17,15 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         && /tmp/bazel-installer.sh \
         && rm /tmp/bazel-installer.sh) || true
 
-# Install Homebrew (Linuxbrew) for lazygit and other dev tools
+# Install lazygit from GitHub releases (no linuxbrew)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    file linuxbrew-wrapper \
+    wget ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
-    && echo 'eval "$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /root/.bashrc \
-    && eval "$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
-    && brew install lazygit \
-    && rm -rf /root/.cache/Homebrew
+    && LAZYGIT_VERSION=$(wget -qO- "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -oP '"tag_name": "v\K(.*)(?=")') \
+    && wget -q "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" -O /tmp/lazygit.tar.gz \
+    && tar -C /usr/local/bin -xzf /tmp/lazygit.tar.gz lazygit \
+    && rm /tmp/lazygit.tar.gz \
+    && chmod +x /usr/local/bin/lazygit
 
 # CUDA 12.9 keyring + toolkit (nvcc) + NCCL + NVSHMEM + cuDNN 9 for EXLA. Use 12.x so container runtime matches host driver (e.g. 576.x supports 12.9; cuda13 needs r580+).
 RUN wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb -O /tmp/cuda-keyring.deb \
