@@ -44,6 +44,9 @@ defmodule RecGPT.Trajectories.ConvertTest do
       assert items["num_items"] == 4
       assert length(items["items"]) == 4
       assert Enum.at(items["items"], 0)["title"] == "Movie A"
+      # Prose-enriched embedding_text for MPNet (plan: use-recgpt-trajectories-movielens)
+      first_item = Enum.at(items["items"], 0)
+      assert first_item["embedding_text"] == "The film Movie A is in the genres Action."
 
       train = File.read!(Path.join(@out_dir, "train_sequences.json")) |> Jason.decode!()
       assert train["num_items"] == 4
@@ -119,6 +122,10 @@ defmodule RecGPT.Trajectories.ConvertTest do
       items = File.read!(Path.join(@kuairand_out, "items.json")) |> Jason.decode!()
       assert items["num_items"] == 3
       assert length(items["items"]) == 3
+      # KuaiRand items get prose embedding_text (plan: use-recgpt-trajectories-movielens)
+      first_item = Enum.at(items["items"], 0)
+      assert Map.has_key?(first_item, "embedding_text")
+      assert String.starts_with?(first_item["embedding_text"], "Video: ")
 
       train = File.read!(Path.join(@kuairand_out, "train_sequences.json")) |> Jason.decode!()
       assert train["num_items"] == 3

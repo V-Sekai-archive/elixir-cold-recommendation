@@ -542,7 +542,7 @@ defmodule RecGPT.FuxiLinearInference do
   @spec init_params(Keyword.t()) :: map()
   def init_params(opts \\ []) do
     n_blocks = Keyword.get(opts, :n_blocks, @n_blocks)
-    max_seq_len = Keyword.get(opts, :max_seq_len, 1024)
+    max_seq_len = Keyword.get(opts, :max_seq_len, 2048)
 
     init = fn shape, std ->
       n = shape |> Tuple.to_list() |> Enum.reduce(1, &Kernel.*/2)
@@ -557,7 +557,7 @@ defmodule RecGPT.FuxiLinearInference do
       base = "fuxi.block.#{i}."
       half = div(@channel_p_dim, 2)
       theta = Nx.pow(10_000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
-      pos = Nx.iota({min(max_seq_len, 2048)}, type: {:f, 32}) |> Nx.new_axis(-1)
+      pos = Nx.iota({max_seq_len}, type: {:f, 32}) |> Nx.new_axis(-1)
 
       emb =
         Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))],

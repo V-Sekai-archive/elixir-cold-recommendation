@@ -20,7 +20,7 @@ defmodule RecGPT.Serve do
 
   @padding_id 15_360
   @max_length 255
-  @seq_token_capacity 1024
+  @seq_token_capacity 2048
   @vocab_size 15_361
 
   defstruct [

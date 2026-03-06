@@ -125,7 +125,7 @@ defmodule RecGPT.FuxiLinearInferenceParams do
         (params[base <> "channel_p.proj_p.weight"] || zeros({@n_embd, @value_dim}, dtype))
         |> as_dtype(dtype),
       :"block_#{i}_cp_emb" =>
-        (params[base <> "channel_p.emb"] || build_sinusoidal_emb(1024)) |> as_dtype(dtype),
+        (params[base <> "channel_p.emb"] || build_sinusoidal_emb(2048)) |> as_dtype(dtype),
       :"block_#{i}_cp_alpha" =>
         (params[base <> "channel_p.alpha"] || ones({1}, dtype)) |> as_dtype(dtype),
       :"block_#{i}_cp_beta" =>
@@ -146,7 +146,7 @@ defmodule RecGPT.FuxiLinearInferenceParams do
   defp build_sinusoidal_emb(max_len) do
     half = div(@channel_p_dim, 2)
     theta = Nx.pow(10_000, Nx.negate(Nx.divide(Nx.iota({half}), half)))
-    pos = Nx.iota({min(max_len, 2048)}, type: {:f, 32}) |> Nx.new_axis(-1)
+    pos = Nx.iota({max_len}, type: {:f, 32}) |> Nx.new_axis(-1)
     Nx.concatenate([Nx.sin(Nx.multiply(pos, theta)), Nx.cos(Nx.multiply(pos, theta))], axis: 1)
   end
 

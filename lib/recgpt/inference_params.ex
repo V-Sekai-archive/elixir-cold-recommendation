@@ -8,7 +8,7 @@ defmodule RecGPT.InferenceParams do
 
   @n_embd 768
   @vocab_size 15_361
-  @max_pos 1024
+  @max_pos 2048
 
   @doc """
   Build full params for Defn from checkpoint string-key map.

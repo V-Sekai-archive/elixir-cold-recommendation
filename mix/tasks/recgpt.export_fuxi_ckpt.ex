@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Recgpt.ExportFuxiCkpt do
 
     * `--out` - Output export directory (required)
     * `--n-blocks` - Number of FuXi blocks (default 4)
-    * `--max-seq-len` - Max sequence length for positional emb (default 1024)
+    * `--max-seq-len` - Max sequence length for positional emb (default 2048)
   """
   use Mix.Task
 
@@ -27,7 +27,7 @@ defmodule Mix.Tasks.Recgpt.ExportFuxiCkpt do
 
     out_dir = opts[:out]
     n_blocks = opts[:n_blocks] || 4
-    max_seq_len = opts[:max_seq_len] || 1024
+    max_seq_len = opts[:max_seq_len] || 2048
 
     unless out_dir do
       Mix.raise("--out DIR is required")

@@ -122,7 +122,7 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
   @doc "Writes a FuXi-Linear init checkpoint to dir for load_state + FuXi path tests."
   def write_fuxi_stub_ckpt!(dir) do
     File.mkdir_p!(dir)
-    params = RecGPT.FuxiLinearInference.init_full_params(n_blocks: 4, max_seq_len: 1024)
+    params = RecGPT.FuxiLinearInference.init_full_params(n_blocks: 4, max_seq_len: 2048)
     CheckpointExport.write_export(params, dir)
   end
 

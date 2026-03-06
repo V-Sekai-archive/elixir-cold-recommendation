@@ -94,7 +94,9 @@ defmodule RecGPT.Trajectories.Convert do
 
         items =
           Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
-            %{"id" => i, "title" => Map.get(titles, old_id, "")}
+            title = Map.get(titles, old_id, "")
+            embedding_text = "Video: " <> title <> "."
+            %{"id" => i, "title" => title, "embedding_text" => embedding_text}
           end)
 
         emit_output(
@@ -134,8 +136,8 @@ defmodule RecGPT.Trajectories.Convert do
     end
 
     with {:ok, ratings} <- parse_movielens_ratings(ratings_path),
-         {:ok, titles} <- parse_movielens_movies(movies_path),
-         {:ok, item_ids, old_to_new} <- build_item_map(ratings, titles),
+         {:ok, movie_info} <- parse_movielens_movies(movies_path),
+         {:ok, item_ids, old_to_new} <- build_item_map(ratings, movie_info),
          {:ok, sequences} <- build_sequences(ratings, old_to_new),
          {:ok, train_seqs, test_cases} <- split_train_test(sequences, seed),
          train_seqs <- maybe_take(train_seqs, train_limit),
@@ -147,7 +149,12 @@ defmodule RecGPT.Trajectories.Convert do
 
       items =
         Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
-          %{"id" => i, "title" => Map.get(titles, old_id, "")}
+          info = Map.get(movie_info, old_id, %{title: "", embedding_text: ""})
+          title = Map.get(info, :title, "") || info["title"] || ""
+          embedding_text = Map.get(info, :embedding_text, "") || info["embedding_text"] || ""
+          item = %{"id" => i, "title" => title}
+          item = if embedding_text != "", do: Map.put(item, "embedding_text", embedding_text), else: item
+          item
         end)
 
       emit_output(
@@ -201,9 +208,12 @@ defmodule RecGPT.Trajectories.Convert do
 
       items =
         Enum.map(Enum.with_index(item_ids), fn {old_id, i} ->
-          # Title + genres from README so categories are filled
-          title = Map.get(item_descriptions, old_id, "")
-          %{"id" => i, "title" => title}
+          info = Map.get(item_descriptions, old_id, %{title: "", embedding_text: ""})
+          title = Map.get(info, :title, "") || info["title"] || ""
+          embedding_text = Map.get(info, :embedding_text, "") || info["embedding_text"] || ""
+          item = %{"id" => i, "title" => title}
+          item = if embedding_text != "", do: Map.put(item, "embedding_text", embedding_text), else: item
+          item
         end)
 
       emit_output(
@@ -314,7 +324,8 @@ defmodule RecGPT.Trajectories.Convert do
     e -> {:error, e}
   end
 
-  # movies.csv: movieId, title, genres (pipe-separated). Join title + genres so categories are filled.
+  # movies.csv: movieId, title, genres (pipe-separated).
+  # Returns map movie_id => %{title: display_title, embedding_text: prose} for normal prose embedding input.
   defp parse_movielens_movies(path) do
     content = File.read!(path)
     rows = parse_csv(content)
@@ -325,19 +336,39 @@ defmodule RecGPT.Trajectories.Convert do
       if idx, do: Enum.at(row, idx), else: nil
     end
 
-    titles =
+    map =
       Enum.reduce(data, %{}, fn row, acc ->
         movie_id = parse_int(col.(row, "movieid"))
-        title = col.(row, "title") || ""
+        title = String.trim(col.(row, "title") || "")
         genres = col.(row, "genres") || ""
-        genres_clean = String.replace(genres, "|", ", ")
-        desc = if genres_clean == "", do: title, else: "#{title} | #{genres_clean}"
-        if movie_id, do: Map.put(acc, movie_id, desc), else: acc
+        genres_clean = String.replace(genres, "|", ", ") |> String.trim()
+        embedding_text = movielens_prose(title, genres_clean)
+        if movie_id, do: Map.put(acc, movie_id, %{title: title, embedding_text: embedding_text}), else: acc
       end)
 
-    {:ok, titles}
+    {:ok, map}
   rescue
     e -> {:error, e}
+  end
+
+  defp movielens_prose(title, "") when title != "", do: "The film #{title}."
+  defp movielens_prose(title, _) when title == "", do: ""
+  defp movielens_prose(title, genres_clean) do
+    genres_prose = genres_list_to_prose(genres_clean)
+    "The film #{title} is in the genres #{genres_prose}."
+  end
+
+  defp genres_list_to_prose(genres_clean) do
+    list = genres_clean |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+    case list do
+      [] -> ""
+      [one] -> one
+      [a, b] -> "#{a} and #{b}"
+      _ ->
+        last = List.last(list)
+        rest = list |> Enum.drop(-1) |> Enum.join(", ")
+        "#{rest}, and #{last}"
+    end
   end
 
   defp parse_kuairand_logs(log_paths) do
@@ -470,7 +501,7 @@ defmodule RecGPT.Trajectories.Convert do
     e -> {:error, e}
   end
 
-  # movies.dat: MovieID::Title::Genres (pipe-separated). Joins so item title has categories.
+  # movies.dat: MovieID::Title::Genres (pipe-separated). Returns map id => %{title, embedding_text} (prose).
   # README: Title from IMDB, Genres pipe-separated (Action, Comedy, etc.)
   defp parse_ml1m_movies(path) do
     content = File.read!(path)
@@ -485,10 +516,10 @@ defmodule RecGPT.Trajectories.Convert do
         if length(parts) >= 3 do
           [movie_id, title, genres] = Enum.take(parts, 3)
           id = parse_int(movie_id)
-          title = title || ""
-          genres = (genres || "") |> String.replace("|", ", ")
-          desc = if genres == "", do: title, else: "#{title} | #{genres}"
-          if id, do: Map.put(acc, id, desc), else: acc
+          title = String.trim(title || "")
+          genres_clean = (genres || "") |> String.replace("|", ", ") |> String.trim()
+          embedding_text = movielens_prose(title, genres_clean)
+          if id, do: Map.put(acc, id, %{title: title, embedding_text: embedding_text}), else: acc
         else
           acc
         end

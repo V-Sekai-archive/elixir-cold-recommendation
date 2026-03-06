@@ -10,7 +10,7 @@ defmodule RecGPT.Training do
   @padding_id FSQ.padding_id()
   @label_ignore -100
   @max_length 256
-  @seq_token_capacity 1024
+  @seq_token_capacity 2048
   @channel_t_heads 8
 
   def build_train_batch(seqs, token_id_list, item_embeddings, batch_indices, timestamps \\ nil) do
