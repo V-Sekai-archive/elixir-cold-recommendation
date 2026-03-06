@@ -17,6 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         && /tmp/bazel-installer.sh \
         && rm /tmp/bazel-installer.sh) || true
 
+# Install Homebrew (Linuxbrew) for lazygit and other dev tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    file linuxbrew-wrapper \
+    && rm -rf /var/lib/apt/lists/* \
+    && /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    && echo 'eval "$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /root/.bashrc \
+    && eval "$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install lazygit \
+    && rm -rf /root/.cache/Homebrew
+
 # CUDA 12.9 keyring + toolkit (nvcc) + NCCL + NVSHMEM + cuDNN 9 for EXLA. Use 12.x so container runtime matches host driver (e.g. 576.x supports 12.9; cuda13 needs r580+).
 RUN wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb -O /tmp/cuda-keyring.deb \
     && dpkg -i /tmp/cuda-keyring.deb \
