@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Set LD_LIBRARY_PATH so EXLA NIF finds NVSHMEM and CUDA libs (e.g. nvshmem_transport_ibrc.so.3).
-# Run from repo root: ./scripts/run_with_exla_env.sh mix recgpt.serve ...
 #
-# As root, once per machine (if not using rebuilt devcontainer):
-#   sudo bash scripts/setup_exla_libs.sh   # Fedora and Debian/Ubuntu supported
+# Usage (from repo root):
+#   ./scripts/run_with_exla_env.sh mix test              # run command with EXLA env
+#   ./scripts/run_with_exla_env.sh                       # start subshell with EXLA env
+#   source scripts/run_with_exla_env.sh                  # export in current shell, then run mix test etc.
+#
+# One-time system setup (as root): sudo bash scripts/setup_exla_libs.sh
 set -e
 
 # Detect Fedora vs Debian for lib paths
@@ -33,4 +36,13 @@ if [ -z "$NVRTC_LIB" ]; then
   echo "Warning: libnvrtc-builtins.so.12* not found. On Fedora see CONTRIBUTING.md (CUDA repo)." >&2
   echo "  On Debian: apt-get install -y cuda-nvrtc-12-9" >&2
 fi
-exec "$@"
+
+# If executed (not sourced): run command or start subshell. If sourced, env is set in current shell.
+if [ "${BASH_SOURCE[0]:-}" = "${0:-}" ]; then
+  if [ $# -gt 0 ]; then
+    exec "$@"
+  else
+    echo "EXLA/GPU environment loaded. Run 'mix test' or other commands; exit to leave this shell."
+    exec "${SHELL:-bash}"
+  fi
+fi
