@@ -84,7 +84,7 @@ defmodule RecGPT.Figgie do
   - Selling overvalued suits
   - Statistical edges based on observed trades
   """
-  def detect_arbitrage(game, model_predictions \\ nil) do
+  def detect_arbitrage(_game, _model_predictions \\ nil) do
     # Analyze current bids/offers
     # Compare with model predictions of goal suit probability
     # Identify mispricings
@@ -151,7 +151,7 @@ defmodule RecGPT.Figgie do
     {winners, pot_split}
   end
 
-  defp distribute_payouts(players, winners, pot_split, goal_suit) do
+  defp distribute_payouts(players, winners, pot_split, _goal_suit) do
     Enum.map(players, fn player ->
       bonus = player.bonus
       pot_share = if Enum.member?(winners, player), do: pot_split, else: 0

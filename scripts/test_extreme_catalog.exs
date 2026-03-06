@@ -92,12 +92,16 @@ defmodule ExtremeCatalogTest do
         item_tokens_mem_mb = (size * 4 * 4) / (1024 * 1024)
         IO.puts("  Item tokens memory: #{Float.round(item_tokens_mem_mb, 0)} MB")
 
-        # Test single recommendation
-        IO.puts("  Running recommendation...")
+        item_id_to_tokens =
+          token_lists
+          |> Nx.tensor(type: {:s, 32})
+          |> Nx.backend_transfer(backend)
+
+        # Test single recommendation with MTP
+        IO.puts("  Running MTP recommendation...")
         {elapsed_us, result} = :timer.tc(fn ->
-          Decode.beam_search_top_k_spmd(
-            trie_tensors_gpu,
-            nil,  # Will use trie_tensors directly
+          Decode.lookahead_top_k(
+            item_id_to_tokens,
             [],
             5,
             stub_logits_fn,
