@@ -1,6 +1,6 @@
 # Modality: Text
 
-Part of [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **text**.
+Part of [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **text**. *(Archived.)*
 
 ---
 
@@ -37,5 +37,5 @@ Text items use MPNet to get one 768-d vector per item. No extra projector is nee
 
 ## See also
 
-- [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
+- [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
 - `lib/recgpt/embedding.ex` — MPNet text embedder.

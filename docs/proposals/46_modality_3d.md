@@ -56,5 +56,5 @@ The many-token path (per-token project → FuXi → collapse to one vector) is n
 ## See also
 
 - [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
-- [46_modality_text](46_modality_text.md) — text encoder (MPNet).
+- [46_modality_text](../archived/46_modality_text.md) — text encoder (MPNet).
 - [TRELLIS.2](https://github.com/microsoft/TRELLIS.2) — 3D structured latent (O-Voxel, SC-VAE).

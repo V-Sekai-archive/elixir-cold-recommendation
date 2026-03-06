@@ -1,6 +1,6 @@
 # Modality: Audio
 
-Part of [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **audio**.
+Part of [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **audio**. *(Archived.)*
 
 ---
 
@@ -37,5 +37,5 @@ Audio items use WavLM base to get one 768-d vector per item (frame-level or pool
 
 ## See also
 
-- [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
+- [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
 - [FUXI_LINEAR_NANOCHAT_INVESTIGATION](FUXI_LINEAR_NANOCHAT_INVESTIGATION.md) §7.5 — multimodal strategy.

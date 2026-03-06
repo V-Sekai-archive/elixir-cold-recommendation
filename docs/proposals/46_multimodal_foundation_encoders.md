@@ -6,12 +6,14 @@ Sub-proposal of the [documentation index](../README.md). One encoder per modalit
 
 ## Per-modality docs (divide and conquer)
 
+Active proposal docs (in `docs/proposals/`): **Vision** and **3D** (encoders, training data, pipeline). Text, audio, and body are summarized below and detailed in archived docs.
+
 | Modality | Doc |
 |----------|-----|
-| **Text** | [46_modality_text](46_modality_text.md) — MPNet, 768-d, already in use. |
-| **Vision** | [46_modality_vision](46_modality_vision.md) — DINOv2 ViT-B, 768-d. |
-| **Audio** | [46_modality_audio](46_modality_audio.md) — WavLM base, 768-d. |
-| **Body** | [46_modality_body](46_modality_body.md) — Anny params → 768-d. |
+| **Text** | [46_modality_text](../archived/46_modality_text.md) — MPNet, 768-d, already in use. *(archived)* |
+| **Vision** | [46_modality_vision](46_modality_vision.md) — DINOv2 ViT-B, 768-d; preferred datasets (image + caption): AniGamePersonaCaps, flickr30k. |
+| **Audio** | [46_modality_audio](../archived/46_modality_audio.md) — WavLM base, 768-d. *(archived)* |
+| **Body** | [46_modality_body](../archived/46_modality_body.md) — Anny params → 768-d. *(archived)* |
 | **3D** | [46_modality_3d](46_modality_3d.md) — TRELLIS.2 latent as-is, one map → 768-d (the output we want), contrastive vs text. |
 
 ---
@@ -64,7 +66,7 @@ FSQ already **encodes** the text embedder (MPNet 768-d) into 192-d. We can do th
 1. **Common 768-d space.** Modality projectors (768→768) map each modality’s 768-d into one shared space.
 2. **Align the projectors.** Contrastive (or joint) loss: same item in different modalities → close; different items → far.
 3. **One FSQ on the common 768-d.** One codebook quantizes common 768-d → 192-d → aux. Segment ID still per position.
-4. **Body and 3D:** Add body projector and 3D map output to common space; same FSQ. See [46_modality_body](46_modality_body.md) and [46_modality_3d](46_modality_3d.md).
+4. **Body and 3D:** Add body projector and 3D map output to common space; same FSQ. See [46_modality_body](../archived/46_modality_body.md) and [46_modality_3d](46_modality_3d.md).
 
 **Summary:** Modality encoders → 768-d → modality projectors → common 768-d → one FSQ → 192-d → aux.
 
@@ -101,7 +103,7 @@ Aux: `aux_dim` input (192 or 768), projected to 768 inside FuXi (`apply_aux_enco
 
 ## Recommended improvements
 
-- [ ] **Per modality:** See [46_modality_text](46_modality_text.md), [46_modality_vision](46_modality_vision.md), [46_modality_audio](46_modality_audio.md), [46_modality_body](46_modality_body.md), [46_modality_3d](46_modality_3d.md).
+- [ ] **Per modality:** [Vision](46_modality_vision.md), [3D](46_modality_3d.md) (active); [Text](../archived/46_modality_text.md), [Audio](../archived/46_modality_audio.md), [Body](../archived/46_modality_body.md) (archived).
 - [ ] **Aux path (choose one):** (a) Upgrade aux to 768; or (b) Encode like FSQ (768→192 per modality); or (c) One codebook (projectors → common space → one FSQ → 192-d).
 - [ ] **Sequence builder:** Single function: per position, token_id + aux = item embedding (192-d or 768-d); produces `(batch, seq_len, 768)` hidden and `(batch, seq_len, aux_dim)` aux.
 - [ ] **Segment IDs (optional):** Learned modality embeddings; add to hidden per position. ~1–3% gain.

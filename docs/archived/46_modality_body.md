@@ -1,6 +1,6 @@
 # Modality: Body
 
-Part of [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **body**.
+Part of [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md). One encoder per modality; this doc is **body**. *(Archived.)*
 
 ---
 
@@ -37,5 +37,5 @@ Body items (e.g. avatar, character, try-on, user shape) use [Anny](https://githu
 
 ## See also
 
-- [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
+- [46_multimodal_foundation_encoders](../proposals/46_multimodal_foundation_encoders.md) — overview, aux, one codebook, segment IDs.
 - [Anny](https://github.com/naver/anny) — human body model (shape + pose params).

@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Python scripts for RecGPT embedding sanity check (sentence-transformers)"
 requires-python = ">=3.10"
 dependencies = [
+    "datasets>=2.14",
     "numpy>=1.24",
+    "Pillow>=9.0",
     "sentence-transformers>=2.2.0",
     "transformers>=4.30",
     "torch>=2.0",
