@@ -80,10 +80,10 @@ data/fuxi_ckpt_export/*
 # Pipeline / runtime data (Steam, checkpoints, fixture, exports)
 data/
 
-# Vision contrastive (mix recgpt.download_vision_data → data/vision_contrastive/*.npy)
+# Vision contrastive (see sibling repo multimodal-avatar-asset-recommendation)
 data/vision_contrastive/
 
-# Trained vision projector checkpoint (mix recgpt.train_vision_contrastive --out)
+# Trained vision projector checkpoint (see sibling repo multimodal-avatar-asset-recommendation)
 priv/vision_proj_ckpt/
 
 # Embedding sanity-check dumps (mix recgpt.compare_embeddings --dump-row N, scripts/embed_one.py)

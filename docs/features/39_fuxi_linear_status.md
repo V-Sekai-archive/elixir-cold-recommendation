@@ -14,8 +14,6 @@ Implementation status of `RecGPT.FuxiLinearInference`: what is done and what rem
 | **Multistage FFN** | lin0 + residual; lin1/silu×lin3 + lin2 (gated) |
 | **forward/4** | Same interface as `Inference`: (batch_token_ids, batch_aux, embed_mask, params) → logits (batch, 15_361) |
 | **forward_full_sequence/4** | Full-sequence logits for training (AxonTrain) |
-| **forward_with_cache/4** | Returns {logits, []}; FuXi uses single-forward decode |
-| **forward_incremental/5** | Runs full forward on single token; returns {logits, []} |
 | **init_full_params/1** | Full model params for unit tests or training from scratch |
 | **init_params/1** | Block params only; use with existing RecGPT wte/ae/pred_head |
 | **FuxiLinearInferenceDefn** | Defn JIT `forward_last_4_logits/4` for Serve/Decode |
@@ -56,6 +54,8 @@ mix recgpt.serve --fixture <fixture> --ckpt data/fuxi_trained
 ## Not Implemented
 
 None. Chunk processing and real timestamps are implemented as opts.
+
+**Incremental decode (cache path):** Removed. Decode uses a single full forward for the last 4 positions (`FuxiLinearInferenceDefn.forward_last_4_logits/4`). See [FUXI_INCREMENTAL_DECODE_TOMBSTONE](../archived/FUXI_INCREMENTAL_DECODE_TOMBSTONE.md).
 
 ---
 

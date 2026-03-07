@@ -29,6 +29,7 @@ defmodule RecGPT.ReleaseTasks do
   """
   def serve do
     Application.ensure_all_started(:recgpt)
+    Application.ensure_all_started(:multimodal_avatar_asset)
     Application.ensure_all_started(:nx)
 
     fixture_path =

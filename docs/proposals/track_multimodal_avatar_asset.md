@@ -58,7 +58,7 @@ For this track (avatar/asset catalogs), **image** (DINOv2 + projector) is suffic
 - **Vision:** [46_modality_vision](46_modality_vision.md) — DINOv2, preferred datasets (AniGamePersonaCaps, flickr30k), contrastive training.
 - **3D:** [46_modality_3d](46_modality_3d.md) — TRELLIS.2 latent, pool + project to 768-d, contrastive against text.
 - **Overview:** [46_multimodal_foundation_encoders](46_multimodal_foundation_encoders.md) — one encoder per modality, single pipeline, segment IDs.
-- **Implementation:** `RecGPT.VisionProjector`, `RecGPT.VisionContrastive`, `mix recgpt.train_vision_contrastive`, `scripts/download_vision_contrastive_data.py`.
+- **Implementation:** Vision projector, contrastive training, and download script live in the sibling repo **multimodal-avatar-asset-recommendation** (`MultimodalAvatarAsset.VisionProjector`, `mix multimodal_avatar_asset.train_vision_contrastive`, `mix multimodal_avatar_asset.download_vision_data`, `scripts/download_vision_contrastive_data.py`).
 
 ---
 

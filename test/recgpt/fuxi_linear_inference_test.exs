@@ -22,68 +22,6 @@ defmodule RecGPT.FuxiLinearInferenceTest do
     end
   end
 
-  describe "forward_with_cache/4 and forward_incremental/5" do
-    test "forward_with_cache returns {logits, fuxi_cache} with seq_len and blocks" do
-      params = FuxiLinearInference.init_full_params()
-      batch_token_ids = Nx.tensor([[1, 2, 3, 4]], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
-
-      {logits, cache} =
-        FuxiLinearInference.forward_with_cache(batch_token_ids, batch_aux, embed_mask, params)
-
-      assert Nx.shape(logits) == {1, 15_361}
-      assert is_map(cache)
-      assert cache.seq_len == 4
-      assert is_list(cache.blocks)
-      assert length(cache.blocks) == 4
-    end
-
-    test "forward_incremental with nil/[] cache returns {logits, nil} (full forward on single token)" do
-      params = FuxiLinearInference.init_full_params()
-      batch_token_ids = Nx.tensor([[42]], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, 1, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, 1, 1}) |> Nx.as_type({:f, 32})
-
-      {logits, cache} =
-        FuxiLinearInference.forward_incremental(
-          batch_token_ids,
-          batch_aux,
-          embed_mask,
-          params,
-          []
-        )
-
-      assert Nx.shape(logits) == {1, 15_361}
-      assert cache == nil
-    end
-
-    test "forward_with_cache then forward_incremental matches full forward on last position" do
-      params = FuxiLinearInference.init_full_params()
-      prefix_ids = Nx.tensor([[1, 2, 3]], type: {:s, 32})
-      last_id = Nx.tensor([[4]], type: {:s, 32})
-      full_ids = Nx.tensor([[1, 2, 3, 4]], type: {:s, 32})
-      batch_aux = Nx.broadcast(0.0, {1, 4, 192}) |> Nx.as_type({:f, 32})
-      embed_mask = Nx.broadcast(1.0, {1, 4, 1}) |> Nx.as_type({:f, 32})
-      prefix_aux = Nx.slice(batch_aux, [0, 0, 0], [1, 3, 192])
-      prefix_mask = Nx.slice(embed_mask, [0, 0, 0], [1, 3, 1])
-      last_aux = Nx.slice(batch_aux, [0, 3, 0], [1, 1, 192])
-      last_mask = Nx.slice(embed_mask, [0, 3, 0], [1, 1, 1])
-
-      logits_full = FuxiLinearInference.forward(full_ids, batch_aux, embed_mask, params)
-
-      {_logits_prefix, cache} =
-        FuxiLinearInference.forward_with_cache(prefix_ids, prefix_aux, prefix_mask, params)
-
-      {logits_inc, _new_cache} =
-        FuxiLinearInference.forward_incremental(last_id, last_aux, last_mask, params, cache)
-
-      assert Nx.shape(logits_inc) == Nx.shape(logits_full)
-      assert Nx.all_close(logits_full, logits_inc, rtol: 1.0e-4, atol: 1.0e-4) |> Nx.to_number() == 1,
-             "incremental decode logits should match full forward on last position"
-    end
-  end
-
   describe "forward/4 with full params" do
     test "returns logits (batch, 15_361) for last position" do
       params = FuxiLinearInference.init_full_params()
