@@ -8,7 +8,6 @@ defmodule RecGPT.Figgie.DataFetcher do
   - Provides arbitrage-labeled data for supervised learning
   """
 
-
   @doc """
   Generates training data by simulating Figgie games.
 

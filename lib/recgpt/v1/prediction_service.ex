@@ -2,7 +2,7 @@ defmodule Recgpt.V1.PredictionService.Service do
   @moduledoc false
   use GRPC.Service, name: "recgpt.v1.PredictionService"
 
-  rpc :Predict, Recgpt.V1.PredictRequest, Recgpt.V1.PredictResponse
+  rpc(:Predict, Recgpt.V1.PredictRequest, Recgpt.V1.PredictResponse)
 end
 
 defmodule Recgpt.V1.PredictionService.Server do
@@ -32,7 +32,9 @@ defmodule Recgpt.V1.PredictionService.Server do
         raise GRPC.RPCError, status: :deadline_exceeded, message: "recommendation timeout"
 
       {:error, reason} ->
-        raise GRPC.RPCError, status: :internal, message: "recommendation failed: #{inspect(reason)}"
+        raise GRPC.RPCError,
+          status: :internal,
+          message: "recommendation failed: #{inspect(reason)}"
     end
   end
 end

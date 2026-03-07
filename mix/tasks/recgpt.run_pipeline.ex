@@ -91,29 +91,43 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
 
     # 0. Ensure checkpoint exists (required for build_fixture and pretrain)
     manifest_path = Path.join(ckpt_dir, "manifest.json")
+
     unless File.regular?(manifest_path) do
-      Mix.shell().info("Step 0/3: Checkpoint missing at #{ckpt_dir}. Exporting FuXi-Linear init...")
+      Mix.shell().info(
+        "Step 0/3: Checkpoint missing at #{ckpt_dir}. Exporting FuXi-Linear init..."
+      )
+
       Mix.Task.reenable("recgpt.export_fuxi_ckpt")
       Mix.Task.run("recgpt.export_fuxi_ckpt", ["--out", ckpt_dir])
+
       unless File.regular?(manifest_path) do
         Mix.raise(
           "Checkpoint export failed: #{manifest_path} not created. " <>
             "Run manually: mix recgpt.export_fuxi_ckpt --out #{ckpt_dir}"
         )
       end
+
       Mix.shell().info("Checkpoint ready.")
     end
 
     # 1. Convert
     Mix.shell().info("Step 1/3: Convert trajectories...")
+
     convert_args = [
-      "--from", from_dir,
-      "--out", out_dir,
-      "--format", format,
-      "--train-limit", to_string(train_limit),
-      "--test-limit", to_string(test_limit),
-      "--seed", to_string(seed)
+      "--from",
+      from_dir,
+      "--out",
+      out_dir,
+      "--format",
+      format,
+      "--train-limit",
+      to_string(train_limit),
+      "--test-limit",
+      to_string(test_limit),
+      "--seed",
+      to_string(seed)
     ]
+
     convert_args = if sync_to_db, do: convert_args ++ ["--sync-to-db"], else: convert_args
 
     Mix.Task.reenable("recgpt.convert_trajectories")
@@ -125,9 +139,12 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
     fixture_path = Path.join(out_dir, "fixture.json")
 
     build_args = [
-      "--items", items_arg,
-      "--out", fixture_path,
-      "--ckpt", ckpt_dir
+      "--items",
+      items_arg,
+      "--out",
+      fixture_path,
+      "--ckpt",
+      ckpt_dir
     ]
 
     Mix.Task.reenable("recgpt.build_fixture")
@@ -138,12 +155,18 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
     train_arg = if sync_to_db, do: "db", else: Path.join(out_dir, "train_sequences.json")
 
     pretrain_args = [
-      "--ckpt", ckpt_dir,
-      "--fixture", fixture_path,
-      "--train", train_arg,
-      "--items", items_arg,
-      "--out", Path.join(out_dir, "ckpt"),
-      "--epochs", to_string(epochs)
+      "--ckpt",
+      ckpt_dir,
+      "--fixture",
+      fixture_path,
+      "--train",
+      train_arg,
+      "--items",
+      items_arg,
+      "--out",
+      Path.join(out_dir, "ckpt"),
+      "--epochs",
+      to_string(epochs)
     ]
 
     Mix.Task.reenable("recgpt.pretrain")

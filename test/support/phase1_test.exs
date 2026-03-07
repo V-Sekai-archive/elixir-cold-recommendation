@@ -66,8 +66,11 @@ defmodule RecGPT.Phase1Test do
 
       {:error, reason} ->
         msg = "Failed to load cache: #{reason}"
+
         if String.contains?(to_string(reason), "no such table") do
-          IO.puts("⏭ Skipping Phase 1 (#{msg}; run mix ecto.migrate and build fixture with --sqlite for full test).")
+          IO.puts(
+            "⏭ Skipping Phase 1 (#{msg}; run mix ecto.migrate and build fixture with --sqlite for full test)."
+          )
         else
           IO.puts("❌ #{msg}")
           System.halt(1)
