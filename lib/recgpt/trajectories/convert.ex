@@ -152,7 +152,12 @@ defmodule RecGPT.Trajectories.Convert do
           title = Map.get(info, :title, "") || info["title"] || ""
           embedding_text = Map.get(info, :embedding_text, "") || info["embedding_text"] || ""
           item = %{"id" => i, "title" => title}
-          item = if embedding_text != "", do: Map.put(item, "embedding_text", embedding_text), else: item
+
+          item =
+            if embedding_text != "",
+              do: Map.put(item, "embedding_text", embedding_text),
+              else: item
+
           item
         end)
 
@@ -211,7 +216,12 @@ defmodule RecGPT.Trajectories.Convert do
           title = Map.get(info, :title, "") || info["title"] || ""
           embedding_text = Map.get(info, :embedding_text, "") || info["embedding_text"] || ""
           item = %{"id" => i, "title" => title}
-          item = if embedding_text != "", do: Map.put(item, "embedding_text", embedding_text), else: item
+
+          item =
+            if embedding_text != "",
+              do: Map.put(item, "embedding_text", embedding_text),
+              else: item
+
           item
         end)
 
@@ -342,7 +352,10 @@ defmodule RecGPT.Trajectories.Convert do
         genres = col.(row, "genres") || ""
         genres_clean = String.replace(genres, "|", ", ") |> String.trim()
         embedding_text = movielens_prose(title, genres_clean)
-        if movie_id, do: Map.put(acc, movie_id, %{title: title, embedding_text: embedding_text}), else: acc
+
+        if movie_id,
+          do: Map.put(acc, movie_id, %{title: title, embedding_text: embedding_text}),
+          else: acc
       end)
 
     {:ok, map}
@@ -352,6 +365,7 @@ defmodule RecGPT.Trajectories.Convert do
 
   defp movielens_prose(title, "") when title != "", do: "The film #{title}."
   defp movielens_prose(title, _) when title == "", do: ""
+
   defp movielens_prose(title, genres_clean) do
     genres_prose = genres_list_to_prose(genres_clean)
     "The film #{title} is in the genres #{genres_prose}."
@@ -359,10 +373,17 @@ defmodule RecGPT.Trajectories.Convert do
 
   defp genres_list_to_prose(genres_clean) do
     list = genres_clean |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+
     case list do
-      [] -> ""
-      [one] -> one
-      [a, b] -> "#{a} and #{b}"
+      [] ->
+        ""
+
+      [one] ->
+        one
+
+      [a, b] ->
+        "#{a} and #{b}"
+
       _ ->
         last = List.last(list)
         rest = list |> Enum.drop(-1) |> Enum.join(", ")

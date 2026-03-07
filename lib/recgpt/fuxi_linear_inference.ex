@@ -84,7 +84,15 @@ defmodule RecGPT.FuxiLinearInference do
 
     h =
       if chunk_size && seq_len > chunk_size do
-        forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size, n_blocks)
+        forward_hidden_chunked(
+          x,
+          all_timestamps,
+          invalid_attn_mask,
+          params,
+          seq_len,
+          chunk_size,
+          n_blocks
+        )
       else
         for i <- 0..(n_blocks - 1), reduce: x do
           acc -> fuxi_block(acc, i, seq_len, all_timestamps, invalid_attn_mask, params)
@@ -103,7 +111,15 @@ defmodule RecGPT.FuxiLinearInference do
     if n == 0, do: @n_blocks, else: n
   end
 
-  defp forward_hidden_chunked(x, all_timestamps, invalid_attn_mask, params, seq_len, chunk_size, n_blocks) do
+  defp forward_hidden_chunked(
+         x,
+         all_timestamps,
+         invalid_attn_mask,
+         params,
+         seq_len,
+         chunk_size,
+         n_blocks
+       ) do
     n_chunks = div(seq_len + chunk_size - 1, chunk_size)
 
     Enum.reduce(0..(n_chunks - 1), x, fn chunk_idx, acc ->
@@ -229,16 +245,21 @@ defmodule RecGPT.FuxiLinearInference do
 
     out = Enum.reverse(out_list) |> Nx.stack(axis: 1)
     out = Nx.reshape(out, {batch, seq_len, @value_dim})
-    out = layer_norm(out, params[base <> "retention.ln.weight"], params[base <> "retention.ln.bias"])
+
+    out =
+      layer_norm(out, params[base <> "retention.ln.weight"], params[base <> "retention.ln.bias"])
+
     {out, s_final}
   end
 
   defp retention_decay_per_step(base, params) do
     gamma_raw = params[base <> "retention.gamma"] || params[:"#{base}retention_gamma"]
+
     if gamma_raw do
       g = Nx.log(Nx.add(1, Nx.exp(gamma_raw)))
       g = Nx.cumulative_sum(g, axis: 0)
       gamma = Nx.exp(Nx.negate(g))
+
       # Per-step decay: from position t-1 to t we multiply by exp(-gamma[h]); use last cumulative as scale
       Nx.exp(Nx.negate(gamma))
     else
