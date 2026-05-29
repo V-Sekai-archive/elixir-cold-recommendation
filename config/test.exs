@@ -4,11 +4,6 @@ import Config
 
 config :recgpt, :ckpt_expected_sha256, nil
 
-# Ecto: use Sandbox for tests and a dedicated test DB
-config :recgpt, RecGPT.Repo,
-  database: "priv/recgpt_test.sqlite3",
-  pool: Ecto.Adapters.SQL.Sandbox
-
 # Use EXLA.Backend for tests with GPU acceleration
 # NOTE: Changed from BinaryBackend to EXLA for performance testing
 config :nx, default_backend: EXLA.Backend

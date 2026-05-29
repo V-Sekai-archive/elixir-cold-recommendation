@@ -12,18 +12,10 @@ defmodule RecGPT.MixProject do
       app: :recgpt,
       version: @version,
       elixir: "~> 1.18",
-      start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: [:elixir_make] ++ Mix.compilers(),
-      make_cwd: "c_src",
       deps: deps(),
-      dialyzer: [
-        plt_add_apps: [:mix],
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
-        ignore_warnings: ".dialyzer_ignore.exs"
-      ],
       description:
-        "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss. Depends on Bumblebee."
+        "RecGPT library: FSQ, text embeddings (MPNet), training batches and loss."
     ]
   end
 
@@ -39,29 +31,22 @@ defmodule RecGPT.MixProject do
 
   defp deps do
     [
-      {:grpc, "~> 0.11"},
-      {:protobuf, "~> 0.14"},
       {:nx, "~> 0.11", override: true},
       {:exla, "~> 0.11"},
       {:xla, "~> 0.10"},
       {:axon, "~> 0.7"},
       {:bumblebee, github: "elixir-nx/bumblebee", ref: "main"},
       {:jason, "~> 1.4"},
-      {:jcs, "~> 0.2"},
       {:npy, "~> 0.1.2"},
       {:unpickler, "~> 0.1"},
       {:unzip, "~> 0.13"},
       {:req, "~> 0.5"},
-      {:ecto_sqlite3, "~> 0.14"},
-      {:waffle_ecto, "~> 0.0"},
-      {:waffle, "~> 1.1"},
+      {:nimble_csv, "~> 1.2"},
+      {:explorer, "~> 0.9"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.2", only: [:dev, :test]},
-      {:propcheck, "~> 1.5", only: [:test]},
-      {:nimble_csv, "~> 1.2"},
-      {:explorer, "~> 0.9"},
-      {:elixir_make, "~> 0.8", runtime: false}
+      {:propcheck, "~> 1.5", only: [:test]}
     ]
   end
 end

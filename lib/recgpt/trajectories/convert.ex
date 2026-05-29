@@ -31,7 +31,6 @@ defmodule RecGPT.Trajectories.Convert do
     train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
-    sync_to_db = Keyword.get(opts, :sync_to_db, false)
     split_method = Keyword.get(opts, :split_method, :random)
 
     unless split_method in [:random, :chrono] do
@@ -46,7 +45,7 @@ defmodule RecGPT.Trajectories.Convert do
       train_limit: train_limit,
       test_limit: test_limit,
       seed: seed,
-      sync_to_db: sync_to_db,
+      # No DB sync
       split_method: split_method
     ]
 
@@ -62,7 +61,6 @@ defmodule RecGPT.Trajectories.Convert do
     train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
-    sync_to_db = Keyword.get(opts, :sync_to_db, false)
 
     log_candidates = [
       "log_standard_4_08_to_4_21_pure.csv",
@@ -112,7 +110,7 @@ defmodule RecGPT.Trajectories.Convert do
           cold_test,
           cold_train,
           num_items,
-          sync_to_db
+          false
         )
 
         :ok
@@ -124,7 +122,6 @@ defmodule RecGPT.Trajectories.Convert do
     train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
-    sync_to_db = Keyword.get(opts, :sync_to_db, false)
 
     split_method = Keyword.get(opts, :split_method, :random)
 
@@ -182,7 +179,7 @@ defmodule RecGPT.Trajectories.Convert do
         cold_test,
         cold_train,
         num_items,
-        sync_to_db
+        false
       )
 
       :ok
@@ -195,7 +192,6 @@ defmodule RecGPT.Trajectories.Convert do
     train_limit = Keyword.get(opts, :train_limit, @default_train_limit)
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
-    sync_to_db = Keyword.get(opts, :sync_to_db, false)
 
     ratings_path =
       find_file(from_dir, ["ml-1m/ratings.dat", "ratings.dat"])
@@ -246,48 +242,14 @@ defmodule RecGPT.Trajectories.Convert do
         cold_test,
         cold_train,
         num_items,
-        sync_to_db
+        false
       )
 
       :ok
     end
   end
 
-  defp emit_output(out_dir, items, train_seqs, test_cases, cold_test, cold_train, num_items, true) do
-    if System.get_env("RECGPT_SQLITE_PATH") in [nil, ""] do
-      raise "sync_to_db requires RECGPT_SQLITE_PATH to be set"
-    end
-
-    Application.ensure_all_started(:recgpt)
-    alias RecGPT.Catalog.Sync
-
-    Sync.sync_items_from_list(items)
-    Sync.sync_sequences_from_list(train_seqs, cold_train)
-    Sync.sync_test_from_list(test_cases, cold_test)
-
-    n = num_items || length(items)
-    File.mkdir_p!(out_dir)
-    write_items_json_from_list(out_dir, items, n)
-    write_test_json(out_dir, test_cases, "test_sequences.json", n)
-    write_test_json(out_dir, cold_test, "cold_test_sequences.json", n)
-
-    require Logger
-
-    Logger.info(
-      "Synced items and sequences to SQLite. Use --items db for build_fixture and pretrain."
-    )
-  end
-
-  defp emit_output(
-         out_dir,
-         items,
-         train_seqs,
-         test_cases,
-         cold_test,
-         cold_train,
-         num_items,
-         false
-       ) do
+  defp emit_output(out_dir, items, train_seqs, test_cases, cold_test, cold_train, num_items, _sync_to_db) do
     write_items_json_from_list(out_dir, items, num_items)
     write_sequences_json(out_dir, train_seqs, "train_sequences.json", "sequences", num_items)
     write_test_json(out_dir, test_cases, "test_sequences.json", num_items)

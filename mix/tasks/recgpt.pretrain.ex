@@ -1,28 +1,20 @@
 defmodule Mix.Tasks.Recgpt.Pretrain do
   @shortdoc "Pretrain on train_sequences with fixture and checkpoint; write updated export"
   @moduledoc """
-  Loads checkpoint, train_sequences.json, fixture (token_id_list), and item embeddings;
+  Loads checkpoint, train_sequences.json, fixture (token_id_list), and items;
   runs AxonTrain.stream_batches + AxonTrain.run; always writes updated params to --out.
 
-  Pipeline: Fetch → build_fixture → pretrain → eval (with --test and --cold-test).
-
   ## Options
-    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export).
+    * `--ckpt` - Checkpoint export dir (default: data/fuxi_ckpt_export)
     * `--fixture` - Fixture JSON path (default: data/steam/fixture.json)
-    * `--train` - train_sequences.json path (default: data/steam/train_sequences.json). Use `db` to load from SQLite (RECGPT_SQLITE_PATH).
-    * `--items` - items.json for building embeddings (default: data/steam/items.json). Use `db` to load from SQLite.
-    * `--limit` - Max items to encode for training (default: fixture num_items). Prevents loading 30+ GB when items.json is large.
+    * `--train` - train_sequences.json path (default: data/steam/train_sequences.json)
+    * `--items` - items.json for embeddings (default: data/steam/items.json)
     * `--out` - Output export dir (required)
-    * `--iterations` - Max training steps (default: 100; ignored when --epochs is set)
-    * `--epochs` - Number of full passes over the training data (overrides --iterations). Paper uses 5.
-    * `--save-every` - Save checkpoint every N steps to <out>/step_XXXX/ (0 = disable). Step 0 (initial) is saved once before training when > 0. Use for checkpoint selection by eval loss.
-    * `--eval-test-every` - Compute test loss every N steps; prints train_loss, test_loss, best_test. Step 0 (initial) is always evaluated once before training. Requires --test.
-    * `--test` - Path to test_sequences.json (for --eval-test-every).
+    * `--epochs` - Number of full passes (default: 1)
     * `--batch-size` - Batch size (default: 8)
     * `--learning-rate` - Learning rate (default: 1.0e-4)
-    * `--log` - Log every N batches (default: 50; 0 to disable)
-    * `--log-interval-sec` - Log progress at least every N seconds (default: 20; 0 to disable)
-    * `--mtp-loss-weight` - Weight for MTP loss over last 4 positions (default: 1.0). Set 0 for shifted CE only.
+    * `--log` - Log every N batches (default: 50)
+    * `--mtp-loss-weight` - Weight for MTP loss (default: 1.0). Set 0 to use only shifted CE.
   """
   use Mix.Task
 
@@ -35,150 +27,71 @@ defmodule Mix.Tasks.Recgpt.Pretrain do
           fixture: :string,
           train: :string,
           items: :string,
-          test: :string,
-          limit: :integer,
           out: :string,
-          iterations: :integer,
           epochs: :integer,
-          save_every: :integer,
-          eval_test_every: :integer,
           batch_size: :integer,
           learning_rate: :float,
           log: :integer,
-          log_interval_sec: :integer,
           mtp_loss_weight: :float
         ]
       )
 
     Application.ensure_all_started(:recgpt)
+    Application.ensure_all_started(:nx)
 
     ckpt_dir =
-      opts[:ckpt] || RecGPT.Catalog.Artifact.resolve_path("checkpoint") ||
-        resolve("data/fuxi_ckpt_export")
+      opts[:ckpt] || System.get_env("RECGPT_CKPT_PATH") ||
+        Path.join([File.cwd!(), "data", "fuxi_ckpt_export"])
+
+    ckpt_dir = Path.expand(ckpt_dir, File.cwd!())
 
     fixture_path =
-      opts[:fixture] || RecGPT.Catalog.Artifact.resolve_path("fixture") ||
-        resolve("data/steam/fixture.json")
+      opts[:fixture] || System.get_env("RECGPT_FIXTURE") ||
+        Path.join([File.cwd!(), "data", "steam", "fixture.json"])
+
+    fixture_path = Path.expand(fixture_path, File.cwd!())
 
     train_path =
       case opts[:train] do
-        "db" ->
-          :db
-
-        nil ->
-          RecGPT.Catalog.Artifact.resolve_path("train_sequences") ||
-            resolve("data/steam/train_sequences.json")
-
-        "" ->
-          RecGPT.Catalog.Artifact.resolve_path("train_sequences") ||
-            resolve("data/steam/train_sequences.json")
-
-        s ->
-          resolve(s)
+        nil -> Path.join([File.cwd!(), "data", "steam", "train_sequences.json"])
+        s when is_binary(s) -> Path.expand(s, File.cwd!())
       end
 
     items_path =
       case opts[:items] do
-        "db" -> :db
-        nil -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
-        "" -> RecGPT.Catalog.Artifact.resolve_path("items") || resolve("data/steam/items.json")
-        s -> resolve(s)
+        nil -> Path.join([File.cwd!(), "data", "steam", "items.json"])
+        "" -> Path.join([File.cwd!(), "data", "steam", "items.json"])
+        s when is_binary(s) -> Path.expand(s, File.cwd!())
       end
 
-    out_dir =
-      case opts[:out] do
-        nil -> Mix.raise("--out DIR is required")
-        "" -> Mix.raise("--out DIR is required")
-        s -> resolve(s)
-      end
-
-    batch_size = opts[:batch_size] || 8
-
-    iterations =
-      if Keyword.has_key?(opts, :epochs) && opts[:epochs], do: nil, else: opts[:iterations] || 100
-
-    learning_rate = opts[:learning_rate] || 1.0e-4
-    log_every = opts[:log] || 50
-    log_interval_sec = opts[:log_interval_sec]
-    log_interval_sec = if is_integer(log_interval_sec), do: log_interval_sec, else: 20
-    eval_test_every = opts[:eval_test_every] || 0
-    test_path = opts[:test]
-
-    if eval_test_every > 0 and (is_nil(test_path) or test_path == "") do
-      Mix.raise("--eval-test-every requires --test PATH (test_sequences.json)")
-    end
-
-    unless File.dir?(ckpt_dir) and File.regular?(Path.join(ckpt_dir, "manifest.json")) do
-      Mix.raise("checkpoint not found: #{ckpt_dir}")
-    end
+    out_dir = Keyword.fetch!(opts, :out)
+    out_dir = Path.expand(out_dir, File.cwd!())
 
     unless File.regular?(fixture_path) do
-      Mix.raise("fixture not found: #{fixture_path}. Run mix recgpt.build_fixture first.")
+      Mix.raise("Fixture not found: #{fixture_path}")
     end
 
-    unless train_path == :db or File.regular?(train_path) do
-      Mix.raise(
-        "train sequences not found: #{train_path}. Run mix recgpt.fetch_steam or use --train db after convert --sync-to-db."
-      )
+    unless File.regular?(train_path) do
+      Mix.raise("Train sequences not found: #{train_path}")
     end
 
-    if eval_test_every > 0 do
-      test_path_exp = Path.expand(test_path, File.cwd!())
-
-      unless File.regular?(test_path_exp) do
-        Mix.raise("test file not found: #{test_path_exp}. Required for --eval-test-every.")
-      end
+    unless File.regular?(items_path) do
+      Mix.raise("Items not found: #{items_path}")
     end
 
-    mtp_loss_weight = opts[:mtp_loss_weight]
-    mtp_loss_weight = if is_number(mtp_loss_weight), do: mtp_loss_weight, else: 1.0
-
-    runner_opts = [
+    RecGPT.PretrainRunner.run(
       ckpt_dir: ckpt_dir,
       fixture_path: fixture_path,
       train_path: train_path,
       items_path: items_path,
-      test_path: test_path,
       out_dir: out_dir,
-      limit: opts[:limit],
-      iterations: iterations,
-      epochs: opts[:epochs],
-      save_every: opts[:save_every],
-      eval_test_every: eval_test_every,
-      batch_size: batch_size,
-      learning_rate: learning_rate,
-      log: log_every,
-      log_interval_sec: log_interval_sec,
-      mtp_loss_weight: mtp_loss_weight,
-      resource_check_opts: pretrain_resource_check_opts()
-    ]
+      epochs: opts[:epochs] || 1,
+      batch_size: opts[:batch_size] || 8,
+      learning_rate: opts[:learning_rate] || 1.0e-4,
+      log: opts[:log] || 50,
+      mtp_loss_weight: opts[:mtp_loss_weight] || 1.0
+    )
 
-    case RecGPT.PretrainRunner.run(runner_opts) do
-      :ok ->
-        Mix.shell().info("Done.")
-        :ok
-
-      {:error, reason} ->
-        Mix.raise("Pretrain failed: #{inspect(reason)}")
-    end
+    Mix.shell().info("Pretraining complete. Output: #{out_dir}")
   end
-
-  defp pretrain_resource_check_opts do
-    case System.get_env("RECGPT_MAX_MEMORY_MB") do
-      nil ->
-        []
-
-      s ->
-        case Integer.parse(s) do
-          {n, _} when n > 0 -> [max_memory_mb: n]
-          _ -> []
-        end
-    end
-  end
-
-  defp resolve(path) when is_binary(path) do
-    if absolute_path?(path), do: path, else: Path.expand(path, File.cwd!())
-  end
-
-  defp absolute_path?(p), do: String.starts_with?(p, "/") or p =~ ~r/^[a-zA-Z]:/
 end

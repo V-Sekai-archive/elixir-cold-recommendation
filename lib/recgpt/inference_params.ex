@@ -14,12 +14,14 @@ defmodule RecGPT.InferenceParams do
 
   Returns atom-keyed map for forward_last_4_logits/4.
   """
-  @spec build_defn_params(map(), term(), tuple()) :: map()
-  def build_defn_params(params_map, _n_layers, dtype \\ {:f, 32}) do
-    RecGPT.FuxiLinearInferenceParams.build_defn_params(params_map, dtype)
-  end
+  @spec build_defn_params(map(), term()) :: map()
+  def build_defn_params(params_map, n_layers_or_dtype \\ {:f, 32})
 
   def build_defn_params(params_map, dtype) when is_tuple(dtype) do
     RecGPT.FuxiLinearInferenceParams.build_defn_params(params_map, dtype)
+  end
+
+  def build_defn_params(params_map, _n_layers) do
+    RecGPT.FuxiLinearInferenceParams.build_defn_params(params_map, {:f, 32})
   end
 end

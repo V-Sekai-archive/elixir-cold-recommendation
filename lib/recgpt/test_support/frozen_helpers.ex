@@ -38,7 +38,7 @@ defmodule RecGPT.TestSupport.FrozenHelpers do
     params_bin = transfer_params_to_backend(params, backend)
 
     n_layers = Inference.n_layers_from_params(params_bin)
-    defn_params = InferenceParams.build_defn_params(params_bin, n_layers, {:f, 32})
+    defn_params = InferenceParams.build_defn_params(params_bin, {:f, 32})
     defn_params = Map.new(defn_params, fn {k, v} -> {k, Nx.backend_transfer(v, backend)} end)
 
     jit_single = Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: Nx.Defn.Evaluator)
