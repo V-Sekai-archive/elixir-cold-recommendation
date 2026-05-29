@@ -12,7 +12,6 @@ defmodule RecGPT.AxonTrain do
   Stream entries: {{batch_token_ids, batch_aux_embeds, embed_mask}, batch_labels}.
   """
 
-  alias RecGPT.FuxiLinearInference
   alias RecGPT.Inference
   alias RecGPT.Training
 
@@ -41,25 +40,13 @@ defmodule RecGPT.AxonTrain do
   {batch_token_ids, batch_aux_embeds, embed_mask, all_timestamps} when FuXi real timestamps.
   """
   def predict(params, input) when is_map(params) do
-    {batch_token_ids, batch_aux_embeds, embed_mask, all_timestamps} =
+    {batch_token_ids, batch_aux_embeds, embed_mask} =
       case input do
-        {a, b, c} -> {a, b, c, nil}
-        {a, b, c, t} -> {a, b, c, t}
+        {a, b, c} -> {a, b, c}
+        {a, b, c, _t} -> {a, b, c}
       end
 
-    fuxi_opts = if all_timestamps, do: [all_timestamps: all_timestamps], else: []
-
-    if Inference.fuxi_checkpoint?(params) do
-      FuxiLinearInference.forward_full_sequence(
-        batch_token_ids,
-        batch_aux_embeds,
-        embed_mask,
-        params,
-        fuxi_opts
-      )
-    else
-      Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
-    end
+    Inference.forward_full_sequence(batch_token_ids, batch_aux_embeds, embed_mask, params)
   end
 
   @doc """

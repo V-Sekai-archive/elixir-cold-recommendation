@@ -64,7 +64,7 @@ defmodule RecGPT.FuxiLinearInference do
     apply_head(hidden, params)
   end
 
-  defp forward_hidden(batch_token_ids, batch_aux, embed_mask, params, opts) do
+  def forward_hidden(batch_token_ids, batch_aux, embed_mask, params, opts) do
     wte = get_wte(params)
     {batch, seq_len} = Nx.shape(batch_token_ids)
     all_timestamps = Keyword.get(opts, :all_timestamps) || position_timestamps(batch, seq_len)

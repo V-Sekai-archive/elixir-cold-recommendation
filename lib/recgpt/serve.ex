@@ -14,8 +14,6 @@ defmodule RecGPT.Serve do
   alias RecGPT.Inference
   alias RecGPT.InferenceDefn
   alias RecGPT.InferenceParams
-  alias RecGPT.FuxiLinearInferenceDefn
-  alias RecGPT.FuxiLinearInferenceParams
   alias RecGPT.Trie
 
   @padding_id 15_360
@@ -319,28 +317,19 @@ defmodule RecGPT.Serve do
     [beam_width_override: state.beam_width_override, constants: state.decode_constants]
   end
 
-  defp build_jit_single(fuxi?) do
-    if fuxi? do
-      Nx.Defn.jit(&FuxiLinearInferenceDefn.forward_last_4_logits/4, compiler: EXLA)
-    else
-      Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: EXLA)
-    end
+  defp build_jit_single(_fuxi?) do
+    Nx.Defn.jit(&InferenceDefn.forward_last_4_logits/4, compiler: EXLA)
   end
 
   defp build_get_logits_4_fn(params, inference_backend) do
-    fuxi? = Inference.fuxi_checkpoint?(params)
     dtype = Application.get_env(:recgpt, :inference_dtype, {:bf, 16})
+    n_layers = Inference.n_layers_from_params(params)
 
     defn_params =
-      if fuxi? do
-        FuxiLinearInferenceParams.build_defn_params(params, dtype)
-      else
-        n_layers = Inference.n_layers_from_params(params)
-        InferenceParams.build_defn_params(params, n_layers, dtype)
-      end
+      InferenceParams.build_defn_params(params, n_layers, dtype)
 
     defn_params = transfer_defn_params_to_backend(defn_params, inference_backend)
-    jit_single = build_jit_single(fuxi?)
+    jit_single = build_jit_single(false)
     cache_ref = :ets.new(:recgpt_aux_mask_cache, [:set, :private])
 
     fn context_tokens ->

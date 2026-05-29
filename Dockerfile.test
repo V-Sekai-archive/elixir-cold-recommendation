@@ -1,0 +1,32 @@
+# Dockerfile for elixir-recgpt testing
+FROM elixir:1.18-slim
+
+WORKDIR /app
+
+# Install build deps for C compilation
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cache deps layer
+COPY mix.exs mix.lock ./
+RUN mix local.hex --force && mix local.rebar --force
+RUN mix deps.get
+RUN MIX_ENV=test mix deps.compile
+
+# Copy source files only (avoid copying _build or deps)
+COPY lib ./lib
+COPY test ./test
+COPY test/fixtures ./test/fixtures
+COPY config ./config
+COPY mix ./mix
+COPY c_src ./c_src
+COPY scripts ./scripts
+
+# Compile
+RUN MIX_ENV=test mix compile
+
+# Run tests
+CMD ["mix", "test"]

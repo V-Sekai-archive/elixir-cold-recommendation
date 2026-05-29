@@ -32,6 +32,11 @@ defmodule RecGPT.Trajectories.Convert do
     test_limit = Keyword.get(opts, :test_limit, @default_test_limit)
     seed = Keyword.get(opts, :seed, 42)
     sync_to_db = Keyword.get(opts, :sync_to_db, false)
+    split_method = Keyword.get(opts, :split_method, :random)
+
+    unless split_method in [:random, :chrono] do
+      raise "split_method must be :random or :chrono, got: #{inspect(split_method)}"
+    end
 
     from_dir = Path.expand(from_dir, File.cwd!())
     out_dir = Path.expand(out_dir, File.cwd!())
@@ -41,7 +46,8 @@ defmodule RecGPT.Trajectories.Convert do
       train_limit: train_limit,
       test_limit: test_limit,
       seed: seed,
-      sync_to_db: sync_to_db
+      sync_to_db: sync_to_db,
+      split_method: split_method
     ]
 
     case format do
@@ -120,6 +126,8 @@ defmodule RecGPT.Trajectories.Convert do
     seed = Keyword.get(opts, :seed, 42)
     sync_to_db = Keyword.get(opts, :sync_to_db, false)
 
+    split_method = Keyword.get(opts, :split_method, :random)
+
     ratings_path =
       find_file(from_dir, ["ratings.csv", "ml-20m/ratings.csv", "movielens-20m/ratings.csv"])
 
@@ -134,11 +142,16 @@ defmodule RecGPT.Trajectories.Convert do
       {:error, "movies.csv not found in #{from_dir}"}
     end
 
+    splitter =
+      if split_method == :chrono,
+        do: &split_train_test_chrono(&1, 0.2),
+        else: &split_train_test(&1, seed)
+
     with {:ok, ratings} <- parse_movielens_ratings(ratings_path),
          {:ok, movie_info} <- parse_movielens_movies(movies_path),
          {:ok, item_ids, old_to_new} <- build_item_map(ratings, movie_info),
          {:ok, sequences} <- build_sequences(ratings, old_to_new),
-         {:ok, train_seqs, test_cases} <- split_train_test(sequences, seed),
+         {:ok, train_seqs, test_cases} <- splitter.(sequences),
          train_seqs <- maybe_take(train_seqs, train_limit),
          test_cases <- maybe_take(test_cases, test_limit),
          cold_set <- cold_items(train_seqs, @cold_k),
@@ -600,9 +613,56 @@ defmodule RecGPT.Trajectories.Convert do
     {:ok, sequences}
   end
 
-  defp seq_from(s) when is_list(s), do: s
-  defp seq_from(%{"sequence" => s}) when is_list(s), do: s
-  defp seq_from(_), do: []
+  def seq_from(s) when is_list(s), do: s
+  def seq_from(%{"sequence" => s}) when is_list(s), do: s
+  def seq_from(_), do: []
+
+  @doc """
+  Chrono split: per-user temporal train/test split (librecommenders style).
+
+  For each sequence sorted by timestamp:
+  - Take the final _test_ratio_ (default 20%) of the items as test target
+  - Everything before that final segment becomes the train sequence
+  - The final _test_ratio_ items become test context→next_item cases
+
+  If a sequence is too short (2 or fewer), the entire sequence goes to train.
+  """
+  @spec split_train_test_chrono([map()], float()) :: {:ok, [map()], [map()]}
+  def split_train_test_chrono(sequences, _test_ratio \\ 0.2) do
+    {train_acc, test_acc} =
+      Enum.reduce(sequences, {[], []}, fn seq, {tr, te} ->
+        seq_list = seq_from(seq)
+        timestamps = Map.get(seq, "timestamps", [])
+        n = length(seq_list)
+
+        if n <= 2 do
+          # Too short — keep all in train
+          {[seq | tr], te}
+        else
+          # Leave-one-out: last item is the test target; everything before is train.
+          train_len = n - 1
+          train_ids = Enum.take(seq_list, train_len)
+          next_item = List.last(seq_list)
+
+          test_case = %{
+            "context" => train_ids,
+            "next_item" => next_item
+          }
+
+          train_seq =
+            if timestamps != [] and length(timestamps) == n do
+              tr_ts = Enum.take(timestamps, train_len)
+              %{"sequence" => train_ids, "timestamps" => tr_ts}
+            else
+              %{"sequence" => train_ids}
+            end
+
+          {[train_seq | tr], [test_case | te]}
+        end
+      end)
+
+    {:ok, Enum.reverse(train_acc), Enum.reverse(test_acc)}
+  end
 
   defp split_train_test(sequences, seed) do
     :rand.seed(:exs1024, {seed, 0, 0})

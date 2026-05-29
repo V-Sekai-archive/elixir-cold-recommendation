@@ -32,7 +32,7 @@ defmodule Mix.Tasks.Recgpt.RunPipeline do
 
   ## Steps performed
 
-  0. If `--ckpt` dir has no manifest.json, runs `mix recgpt.export_fuxi_ckpt --out <ckpt>` (FuXi-Linear init).
+  0. If `--ckpt` dir has no manifest.json, raises: checkpoint required.
   1. Convert: writes items (and sequences) to `<out>/` (or DB if --sync-to-db).
   2. Build fixture: `<out>/fixture.json` from items (or db).
   3. Pretrain: writes checkpoint to `<out>/ckpt/`.

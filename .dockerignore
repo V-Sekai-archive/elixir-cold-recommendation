@@ -1,0 +1,13 @@
+# Exclude build artifacts and dependencies from Docker context
+_build/
+deps/
+.*/
+_*/
+.*
+*.md
+Dockerfile*
+docker-compose*
+node_modules/
+*.zip
+*.csv
+data/kaggle_retailrocket/
