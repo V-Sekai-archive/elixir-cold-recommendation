@@ -29,5 +29,6 @@ Elixir library for **RecGPT-style sequential recommendation**: data pipeline, gR
 | **Tests** | [docs/features/57_tests.md](docs/features/57_tests.md) |
 | **gRPC API** | [docs/features/58_grpc_serve.md](docs/features/58_grpc_serve.md), [docs/features/01_grpc_api.md](docs/features/01_grpc_api.md) |
 | **Versioning & references** | [docs/features/59_versioning_and_references.md](docs/features/59_versioning_and_references.md) |
+| **Formal model (Lean)** | [formal/README.md](formal/README.md) — FSQ codec + trie decode certified via `plausible-witness-dag` |
 
 **Full index:** [docs/README.md](docs/README.md) — library reference, pipeline, eval, checkpoint layout, parity, and more.
