@@ -109,3 +109,4 @@ tmp/
 priv/recgpt_test.sqlite3
 priv/recgpt_test.sqlite3-shm
 priv/recgpt_test.sqlite3-wal
+tmp_*
